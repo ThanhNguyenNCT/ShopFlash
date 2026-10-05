@@ -1,0 +1,17 @@
+.sf-flash {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sf-space-2);
+  background: var(--sf-color-ink);
+  color: var(--sf-color-on-brand);
+  padding: var(--sf-space-2) var(--sf-space-3);
+  border-radius: var(--sf-radius-md);
+}
+.sf-flash__title { font-weight: 800; letter-spacing: 0.04em; font-size: var(--sf-text-body-size); }
+.sf-flash__clock { display: inline-flex; align-items: center; gap: var(--sf-space-1); font-weight: 800; font-size: var(--sf-text-caption-size); }
+.sf-flash__clock span {
+  background: var(--sf-color-cyan);
+  color: var(--sf-color-ink);
+  min-width: 2ch; text-align: center;
+  padding: 3px 6px;
+  border-radius: var(--sf-radius-sm);
+}
+.sf-flash__ended { font-size: var(--sf-text-caption-size); font-weight: 600; }

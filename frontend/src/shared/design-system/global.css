@@ -1,0 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
+
+body {
+  margin: 0;
+  background: var(--sf-color-surface-sunken);
+  color: var(--sf-color-ink);
+  font-family: var(--sf-font-sans);
+  font-size: var(--sf-text-body-size);
+  line-height: var(--sf-text-body-line);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--sf-color-focus);
+  outline-offset: 2px;
+}
+
+/* Số xếp cột thẳng hàng: giá, số lượng, đồng hồ, bảng báo cáo */
+.sf-num { font-variant-numeric: tabular-nums; }
+
+/* Mã đơn hàng, mã sản phẩm */
+.sf-code { font-family: var(--sf-font-mono); font-size: var(--sf-text-caption-size); font-weight: 500; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}

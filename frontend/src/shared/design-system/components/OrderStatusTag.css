@@ -1,0 +1,14 @@
+.sf-status {
+  display: inline-block;
+  font-size: var(--sf-text-label-size);
+  line-height: var(--sf-text-label-line);
+  font-weight: var(--sf-text-label-weight);
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  border-radius: var(--sf-radius-pill);
+  white-space: nowrap;
+}
+.sf-status--pending { color: var(--sf-color-warning); }
+.sf-status--paid { color: var(--sf-color-info); }
+.sf-status--shipped { color: var(--sf-color-success); }
+.sf-status--cancelled { color: var(--sf-color-ink-muted); }

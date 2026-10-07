@@ -6,15 +6,17 @@ Kế hoạch đầy đủ nằm ngoài repo: `../assignment/KE_HOACH_BTL.md`.
 
 ## Stack
 
-- Oracle Database 23ai Free, schema `SHOP`: dữ liệu nghiệp vụ, là nguồn dữ liệu chính.
-- Redis Stack 7.x (có RediSearch, RedisJSON): session, giỏ hàng, cache, tồn kho flash sale, bảng xếp hạng.
+- Oracle image `container-registry.oracle.com/database/free:latest-lite`, schema `SHOP`: dữ liệu nghiệp vụ, là nguồn dữ liệu chính.
+- Redis image `redis/redis-stack-server:latest` (có RediSearch, RedisJSON): session, giỏ hàng, cache, tồn kho flash sale, bảng xếp hạng.
 - Backend: Java Spring Boot, trong `backend/`.
 - Frontend: React + Vite + Ant Design, trong `frontend/`.
 
 ## Cấu trúc
 
 - `backend/` và `frontend/` chia theo 6 module, tên module giống nhau ở hai bên.
-- `db/`: script tạo CSDL Oracle và Redis.
+- `backend/src/main/resources/db/migration/`: migration Oracle do Flyway chạy khi Spring Boot khởi động.
+- `backend/src/main/resources/db/redis/`: script khởi tạo Redis.
+- `db/`: tài liệu thiết kế dữ liệu.
 - `docs/`: tài liệu dự án.
 - Design system (giao diện): code ở `frontend/src/shared/design-system/`, bản xem nhanh `frontend/design-system.html`.
 - `report/`: báo cáo môn học.
@@ -42,6 +44,13 @@ Kế hoạch BTL chỉ để tham khảo. Đừng coi nội dung kế hoạch l�
 - IMPORTANT: Câu SQL luôn dùng bind variable, không bao giờ nối chuỗi.
 - Mật khẩu băm bằng bcrypt.
 
-## Lệnh
+## Lệnh database
 
-Chưa có. Bổ sung khi dựng xong project: khởi động Oracle và Redis, build và chạy backend, chạy frontend.
+Hai image database được cố định trong `compose.yaml` và không được đọc từ `.env`. Oracle migration do Flyway của Spring Boot quản lý; Redis index được khởi tạo trực tiếp bằng `redis-cli`.
+
+```bash
+docker compose up -d --wait
+docker compose exec -T redis redis-cli -e --eval /opt/shopflash/redis/init.lua
+cd backend
+./mvnw spring-boot:run
+```

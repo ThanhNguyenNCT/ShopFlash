@@ -1,9 +1,11 @@
 # Database
 
-## Oracle (`oracle/`)
+Thư mục `db/` chỉ chứa tài liệu thiết kế dữ liệu. Database runtime assets nằm cùng backend trong `backend/src/main/resources/db/`.
 
-Script SQL tạo bảng, ràng buộc, index, view trong schema `SHOP`. Mỗi module tự viết script của mình. Các file chạy theo thứ tự tên file, nên đánh số sao cho bảng được tạo trước khóa ngoại, index và view trỏ tới nó.
+## Oracle
 
-## Redis (`redis/`)
+Flyway của Spring Boot quản lý Oracle. Migration nằm tại `backend/src/main/resources/db/migration/` với tên `V<number>__description.sql`. Mỗi module tự viết migration mới và không sửa version đã áp dụng.
 
-Mô tả key Redis và lệnh tạo index RediSearch của các module.
+## Redis
+
+Mô tả key Redis nằm trong `DATABASE_DESIGN.md`. Foundation index được khởi tạo từ `backend/src/main/resources/db/redis/init.lua` qua `redis-cli --eval`.

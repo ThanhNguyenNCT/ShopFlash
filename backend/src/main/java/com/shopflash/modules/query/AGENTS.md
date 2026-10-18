@@ -13,7 +13,10 @@ Chủ đề: Query processing.
 - **Đơn được tính:** `status IN ('CONFIRMED','COMPLETED')`. Doanh thu theo đơn lấy `orders.total_amount`; doanh thu theo danh mục/sản phẩm lấy `SUM(order_items.line_total)` (trước `discount_amount`, nên hai con số có thể lệch nhau).
 - **Múi giờ:** mọi mốc ngày và tháng tính theo `+07:00`. Tham số `from`/`to` là ngày `YYYY-MM-DD`, cả hai đầu đều tính trọn ngày. Oracle: `created_at >= :fromTs AND created_at < :toExclusiveTs`, tháng = `TO_CHAR(created_at AT TIME ZONE '+07:00','YYYY-MM')`.
 - **Oracle là nguồn gốc.** Redis chỉ giữ read model denormalized, do module này dựng lại toàn bộ (`POST .../analytics/rebuild`). Không động vào luồng checkout của module transaction. Dữ liệu Redis có thể trễ (eventual consistency) cho đến lần rebuild sau.
-- **Client Redis:** Jedis (`JedisPooled`), dùng cho `JSON.SET`, `FT.AGGREGATE`, `FT.PROFILE`. Bỏ key `rank:bestseller` của kế hoạch cũ.
+- **Client Redis:** Jedis `RedisClient` (pool, RESP2; `JedisPooled` đã deprecated ở Jedis 7.4), dùng cho `JSON.SET`, `FT.AGGREGATE`, `FT.PROFILE`. Bỏ key `rank:bestseller` của kế hoạch cũ.
+- **FT.AGGREGATE luôn kèm `TIMEOUT 0`:** Redis đang đặt `TIMEOUT 500` với `ON_TIMEOUT return`, nghĩa là quá 500 ms thì trả **một phần** kết quả mà không báo lỗi.
+- **Chế độ `CLIENT`** đọc bằng `FT.AGGREGATE … WITHCURSOR COUNT 10000` + `FT.CURSOR READ`, vì `FT.SEARCH` không phân trang quá 10.000 kết quả (`MAXSEARCHRESULTS`). Gom nhóm, cộng và sắp xếp làm trong Java.
+- **Giới hạn số của RediSearch:** giá trị tính ra (SUM, AVG) được in với 12 chữ số có nghĩa, nên tổng từ 10^12 trở lên có thể mất hàng đơn vị. Dữ liệu hiện tại (VND tròn, tổng mỗi nhóm dưới 10^12) vẫn khớp Oracle tuyệt đối; chế độ `CLIENT` đọc giá trị gốc nên luôn chính xác.
 - **Truy cập Oracle:** `NamedParameterJdbcTemplate`, luôn bind variable. Hint join được chèn từ enum cố định, không nhận chuỗi từ client.
 - **Quyền:** endpoint thuộc `/api/admin/**`. Khi `common/security` (F0) có rồi thì chỉ cho `ADMIN` gọi; trước đó để mở.
 
@@ -161,7 +164,7 @@ Gửi `Accept: text/csv` thì trả CSV, mỗi mẫu một dòng: `report,source
 
 ### 6. `POST /api/admin/reports/analytics/rebuild`
 
-Xóa `order:analytics:*`, `order:line:*`, nạp lại từ Oracle theo lô (pipeline, 1000 dòng một lô). Đồng bộ, trả khi xong:
+Ghi đè mọi document từ Oracle theo lô (pipeline, khoảng 1000 đơn một lô), sau đó dùng `SCAN` + `UNLINK` xóa các key không còn trong Oracle. Kết quả cuối giống "xóa hết rồi nạp lại", nhưng báo cáo không bao giờ thấy read model trống trong lúc rebuild. Đồng bộ, trả khi xong:
 
 ```json
 { "orders": 98231, "lines": 245102, "elapsedMs": 41230.5 }

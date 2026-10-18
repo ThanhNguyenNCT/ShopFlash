@@ -21,9 +21,10 @@ export const HINT_LABEL = {
   CLIENT: 'CLIENT (kéo về Java tự tính)',
 };
 
-// 12 tháng gần nhất đến hôm nay, giống mặc định của backend.
 export function defaultRange() {
-  return [dayjs().subtract(12, 'month').add(1, 'day'), dayjs()];
+  // Giống mặc định của backend và trang Báo cáo: từ ngày 1 của tháng cách đây 11 tháng tới hôm nay.
+  const today = dayjs();
+  return [today.subtract(11, 'month').startOf('month'), today];
 }
 
 export function rangeParams(range) {

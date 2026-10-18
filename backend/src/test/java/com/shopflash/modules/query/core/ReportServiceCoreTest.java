@@ -60,7 +60,7 @@ class ReportServiceCoreTest {
         assertThat(res.meta().generatedAt()).isEqualTo(OffsetDateTime.parse("2026-10-18T10:00:00+07:00"));
         assertThat(res.meta().generatedAt().getOffset()).isEqualTo(ZoneOffset.ofHours(7));
         assertThat(res.meta().elapsedMs()).isGreaterThanOrEqualTo(0);
-        assertThat(res.meta().elapsedMs() * 100).isEqualTo(Math.rint(res.meta().elapsedMs() * 100));
+        assertThat(java.math.BigDecimal.valueOf(res.meta().elapsedMs()).stripTrailingZeros().scale()).isLessThanOrEqualTo(2);
         assertThat(res.data().rows()).hasSize(2);
     }
 

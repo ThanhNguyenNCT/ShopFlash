@@ -2,8 +2,8 @@ import { apiClient } from '@/shared/api/client';
 import * as mock from './mocks';
 
 // Contract: backend/src/main/java/com/shopflash/modules/query/AGENTS.md (mục API).
-// VITE_USE_MOCK=true (npm run dev:mock) trả dữ liệu mẫu cùng dạng, không gọi backend.
-const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
+// npm run dev:mock (vite --mode mock) hoặc VITE_USE_MOCK=true: trả dữ liệu mẫu cùng dạng, không gọi backend.
+const USE_MOCK = import.meta.env.MODE === 'mock' || import.meta.env.VITE_USE_MOCK === 'true';
 const BASE = '/admin/reports';
 
 export const REPORTS = [

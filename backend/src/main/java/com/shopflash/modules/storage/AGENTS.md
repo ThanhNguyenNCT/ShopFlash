@@ -60,8 +60,3 @@ GET  /storage-footprint
 - `/admin/categories`: F1 CRUD Category.
 - `/admin/products`: F2 CRUD Product và Inventory.
 - `/admin/products/storage-lab`: Storage Lab, thể hiện E1 (constraint/validation) và E2 (storage footprint) dựa trên dữ liệu thật của ShopFlash. Không sửa `/admin/reports` hay `/admin/reports/lab` của module `query`.
-
-## Phụ thuộc
-
-- `spring-boot-starter-jdbc` đã có sẵn trong backend; Storage không thêm Spring Data JPA hoặc Hibernate.
-- Module `indexing` dùng `idx:products` để search. Storage sở hữu dữ liệu ghi và product projection; mọi thay đổi schema/index Redis phải thống nhất với người phụ trách indexing.

@@ -4,7 +4,7 @@ Nghiệp vụ, dữ liệu và API của module: xem `backend/src/main/java/com/
 
 ## Màn hình
 
-- Admin: báo cáo (biểu đồ doanh thu, bảng top sản phẩm, bảng khách VIP).
+- Admin: Tổng quan `/admin` (chỉ số 12 tháng, top 5 sản phẩm, thẻ lối tắt tới mọi khu quản trị lấy từ metadata menu), báo cáo `/admin/reports` (biểu đồ doanh thu, bảng top sản phẩm, bảng khách VIP), so sánh Oracle–Redis `/admin/reports/lab`.
 
 ## Giao diện
 

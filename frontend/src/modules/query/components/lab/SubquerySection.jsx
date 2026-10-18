@@ -1,0 +1,109 @@
+import { useRef, useState } from 'react';
+import { Alert, Button, Card, Col, Flex, Row, Space, Spin, Statistic, Typography } from 'antd';
+import { BranchesOutlined } from '@ant-design/icons';
+import { formatVND, tokens } from '@/shared/design-system';
+import { getReport } from '../../api';
+import ErrorAlert from './ErrorAlert';
+import ResultTable from './ResultTable';
+import StatementView from './StatementView';
+import { formatCount, formatMs, rangeParams, settle, sourceLabel } from './labUtils';
+
+const PAGE = { page: 1, size: 20 };
+
+function SideCard({ report, source, slot, loading }) {
+  const meta = slot?.value?.meta;
+  const rows = slot?.value?.data?.rows;
+  return (
+    <Card size="small" title={`${sourceLabel(source)}${meta ? ` · ${formatCount(meta.roundTrips)} round-trip` : ''}`}>
+      <Spin spinning={loading}>
+        <Space orientation="vertical" size={tokens.space[3]} className="sf-lab-full">
+          <ErrorAlert error={slot?.error} />
+          {meta && (
+            <Flex wrap gap={tokens.space[6]}>
+              <Statistic title="Round-trip" value={meta.roundTrips ?? 0} />
+              <Statistic title="Thời gian" value={formatMs(meta.elapsedMs)} />
+              {slot.value.data?.summary && (
+                <Statistic title="Chi tiêu trung bình" value={formatVND(slot.value.data.summary.averageSpent)} />
+              )}
+            </Flex>
+          )}
+          {meta?.supported === false && (
+            <Alert type="warning" showIcon title={`${sourceLabel(source)} không hỗ trợ`} description={meta.note} />
+          )}
+          {meta?.supported !== false && meta && (
+            <StatementView statement={meta.statement} label={source === 'redis' ? 'Lệnh Redis (mỗi dòng một lệnh)' : 'Một câu SQL'} />
+          )}
+          {rows && <ResultTable report={report} rows={rows} />}
+        </Space>
+      </Spin>
+    </Card>
+  );
+}
+
+function usePair(report, range) {
+  const [state, setState] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const seq = useRef(0);
+  const run = async () => {
+    const id = ++seq.current;
+    setLoading(true);
+    const base = { ...rangeParams(range), ...PAGE };
+    const res = await Promise.allSettled([
+      getReport(report, { ...base, source: 'oracle' }),
+      getReport(report, { ...base, source: 'redis' }),
+    ]);
+    if (id !== seq.current) return;
+    setState({ oracle: settle(res[0]), redis: settle(res[1]) });
+    setLoading(false);
+  };
+  return { state, loading, run };
+}
+
+// D5: Oracle viết subquery/anti-join trong một câu; Redis không có subquery nên phải tách lượt hoặc không làm được.
+export default function SubquerySection({ range }) {
+  const vip = usePair('vip-customers', range);
+  const unsold = usePair('unsold-products', range);
+
+  return (
+    <Space orientation="vertical" size={tokens.space[4]} className="sf-lab-full">
+      <Typography.Paragraph>
+        SQL cho phép lồng câu truy vấn: khách VIP là khách có tổng chi lớn hơn trung bình, tính bằng{' '}
+        <Typography.Text code>HAVING SUM(...) &gt; (SELECT AVG(...))</Typography.Text> trong một câu, Oracle gửi một lần. Redis không có
+        subquery: phải gọi một lần để lấy trung bình, rồi gọi lần nữa để lọc (ít nhất 2 round-trip). Với “sản phẩm chưa từng bán” (
+        <Typography.Text code>NOT EXISTS</Typography.Text>, anti-join), Redis không có cách nào trên read model hiện có.
+      </Typography.Paragraph>
+
+      <Card title="Khách VIP (subquery vô hướng)">
+        <Flex justify="flex-end" style={{ marginBottom: tokens.space[4] }}>
+          <Button type="primary" icon={<BranchesOutlined />} loading={vip.loading} onClick={vip.run}>
+            Chạy trên hai nguồn
+          </Button>
+        </Flex>
+        <Row gutter={[tokens.space[4], tokens.space[4]]}>
+          <Col xs={24} xl={12}>
+            <SideCard report="vip-customers" source="oracle" slot={vip.state?.oracle} loading={vip.loading} />
+          </Col>
+          <Col xs={24} xl={12}>
+            <SideCard report="vip-customers" source="redis" slot={vip.state?.redis} loading={vip.loading} />
+          </Col>
+        </Row>
+      </Card>
+
+      <Card title="Sản phẩm chưa từng bán (NOT EXISTS)">
+        <Flex justify="flex-end" style={{ marginBottom: tokens.space[4] }}>
+          <Button icon={<BranchesOutlined />} loading={unsold.loading} onClick={unsold.run}>
+            Chạy trên hai nguồn
+          </Button>
+        </Flex>
+        <Row gutter={[tokens.space[4], tokens.space[4]]}>
+          <Col xs={24} xl={12}>
+            <SideCard report="unsold-products" source="oracle" slot={unsold.state?.oracle} loading={unsold.loading} />
+          </Col>
+          <Col xs={24} xl={12}>
+            <SideCard report="unsold-products" source="redis" slot={unsold.state?.redis} loading={unsold.loading} />
+          </Col>
+        </Row>
+      </Card>
+    </Space>
+  );
+}

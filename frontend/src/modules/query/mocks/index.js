@@ -162,7 +162,8 @@ export async function benchmark(slug, body) {
 export function benchmarkCsv(slug, body) {
   const header = 'report,source,variant,run,elapsedMs,roundTrips';
   const runs = body.runs ?? 5;
-  const lines = STAT_VARIANTS.flatMap(([source, variant]) =>
+  const variants = body.variants?.length ? body.variants.map((v) => [v.source, v.variant]) : STAT_VARIANTS;
+  const lines = variants.flatMap(([source, variant]) =>
     samplesFor(slug, variant, runs).map((ms, i) => `${slug},${source},${variant},${i + 1},${ms},${variant === 'CLIENT' ? 37 : 1}`));
   return [header, ...lines].join('\n');
 }

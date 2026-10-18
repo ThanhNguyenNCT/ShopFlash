@@ -1,0 +1,86 @@
+{
+  "capturedAt": "2026-10-19T00:03:45+07:00",
+  "baseUrl": "http://localhost:8080/api/admin/catalog",
+  "runs": 1,
+  "platform": "Windows-11-10.0.26300-SP0",
+  "python": "3.12.10",
+  "samples": [
+    {
+      "capturedAt": "2026-10-19T00:03:40+07:00",
+      "oracleCategories": 100,
+      "oracleProducts": 1000,
+      "redisDocuments": 1000,
+      "inSync": true,
+      "oracleAllocatedBytes": 1245184,
+      "redisDocumentKeyBytes": 575000,
+      "footprintRedisDocuments": 1000,
+      "oracleSegments": [
+        {
+          "name": "IX_PRODUCTS_CATEGORY_STATUS",
+          "type": "INDEX",
+          "bytes": 65536
+        },
+        {
+          "name": "IX_PRODUCTS_NAME_UPPER",
+          "type": "INDEX",
+          "bytes": 131072
+        },
+        {
+          "name": "IX_PRODUCTS_PRICE",
+          "type": "INDEX",
+          "bytes": 65536
+        },
+        {
+          "name": "PK_CATEGORIES",
+          "type": "INDEX",
+          "bytes": 65536
+        },
+        {
+          "name": "PK_PRODUCTS",
+          "type": "INDEX",
+          "bytes": 65536
+        },
+        {
+          "name": "PK_PRODUCT_INVENTORY",
+          "type": "INDEX",
+          "bytes": 65536
+        },
+        {
+          "name": "UK_CATEGORIES_SLUG",
+          "type": "INDEX",
+          "bytes": 65536
+        },
+        {
+          "name": "UK_PRODUCTS_SKU",
+          "type": "INDEX",
+          "bytes": 65536
+        },
+        {
+          "name": "UK_PRODUCTS_SLUG",
+          "type": "INDEX",
+          "bytes": 131072
+        },
+        {
+          "name": "SYS_IL0000073136C00006$$",
+          "type": "LOBINDEX",
+          "bytes": 65536
+        },
+        {
+          "name": "CATEGORIES",
+          "type": "TABLE",
+          "bytes": 65536
+        },
+        {
+          "name": "PRODUCTS",
+          "type": "TABLE",
+          "bytes": 327680
+        },
+        {
+          "name": "PRODUCT_INVENTORY",
+          "type": "TABLE",
+          "bytes": 65536
+        }
+      ]
+    }
+  ]
+}

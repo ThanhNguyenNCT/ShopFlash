@@ -13,8 +13,10 @@ import com.shopflash.modules.query.model.Source;
 import com.shopflash.modules.query.service.ReportService.Execution;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 
 /**
@@ -30,6 +32,8 @@ public class BenchmarkService {
     public static final int DEFAULT_WARMUP = 1;
     public static final int DEFAULT_RUNS = 5;
     public static final int MAX_RUNS = 30;
+    /** Khớp @Size(max = 12) của BenchmarkRequest.variants. */
+    public static final int MAX_VARIANTS = 12;
     public static final String CSV_HEADER = "report,source,variant,run,elapsedMs,roundTrips";
 
     private final ReportService reportService;
@@ -115,8 +119,13 @@ public class BenchmarkService {
         return list;
     }
 
+    /** Cặp (source, variant) trùng nhau chỉ giữ lần xuất hiện đầu, giữ thứ tự gửi lên. */
     private static List<Variant> parseVariants(List<BenchmarkVariant> requested) {
-        List<Variant> list = new ArrayList<>();
+        if (requested.size() > MAX_VARIANTS) {
+            throw ApiException.validation("variants",
+                    "variants phải là danh sách tối đa " + MAX_VARIANTS + " phần tử { source, variant }");
+        }
+        Set<Variant> list = new LinkedHashSet<>();
         for (int i = 0; i < requested.size(); i++) {
             BenchmarkVariant bv = requested.get(i);
             String prefix = "variants[" + i + "]";
@@ -147,7 +156,7 @@ public class BenchmarkService {
                         : prefix + ".variant phải là AGGREGATE hoặc CLIENT");
             }
         }
-        return list;
+        return List.copyOf(list);
     }
 
     /** CSV, mỗi mẫu một dòng; roundTrips lấy theo kết quả của biến thể (lần chạy cuối). */

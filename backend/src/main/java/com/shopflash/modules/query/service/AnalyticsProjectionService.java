@@ -23,6 +23,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 
 import javax.sql.DataSource;
 
@@ -99,8 +100,7 @@ public class AnalyticsProjectionService implements AnalyticsProjection {
             countedOrders = jdbc.queryForObject(COUNT_ORDERS_SQL, Long.class);
             orderItems = jdbc.queryForObject(COUNT_ITEMS_SQL, Long.class);
         } catch (DataAccessException e) {
-            throw new ApiException(ErrorCode.ORACLE_ERROR, "Lỗi Oracle: " + e.getMostSpecificCause().getMessage(),
-                    null, e);
+            throw ApiException.oracle("Oracle lỗi khi đếm đơn hàng", e);
         }
 
         List<Object> replies = redis.pipeline(List.of(
@@ -120,14 +120,27 @@ public class AnalyticsProjectionService implements AnalyticsProjection {
             throw RedisCommandRunner.translate(e);
         }
         Map<String, String> meta = RedisReplies.pairs(replies.get(4));
-        OffsetDateTime lastRebuildAt = meta.containsKey("lastRebuildAt")
-                ? OffsetDateTime.parse(meta.get("lastRebuildAt")) : null;
-        Double lastRebuildMs = meta.containsKey("elapsedMs") ? Double.valueOf(meta.get("elapsedMs")) : null;
+        OffsetDateTime lastRebuildAt = parseMeta(meta, "lastRebuildAt", OffsetDateTime::parse);
+        Double lastRebuildMs = parseMeta(meta, "elapsedMs", Double::valueOf);
 
         return new AnalyticsStatusResponse(
                 new AnalyticsStatusResponse.OracleSide(countedOrders, orderItems),
                 new AnalyticsStatusResponse.RedisSide(orderDocs, lineDocs, indexing, lastRebuildAt, lastRebuildMs),
                 countedOrders == orderDocs && orderItems == lineDocs);
+    }
+
+    /** Đọc một trường của analytics:meta; thiếu hoặc không parse được (bị sửa tay) thì null, chỉ ghi cảnh báo. */
+    private static <T> T parseMeta(Map<String, String> meta, String field, Function<String, T> parser) {
+        String raw = meta.get(field);
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return parser.apply(raw);
+        } catch (RuntimeException e) {
+            log.warn("{} trường {} không hợp lệ: '{}'", META, field, raw);
+            return null;
+        }
     }
 
     private static boolean isIndexing(Object info) {
@@ -139,9 +152,13 @@ public class AnalyticsProjectionService implements AnalyticsProjection {
         return !("0".equals(s) || "false".equalsIgnoreCase(s));
     }
 
+    /** Chỉ một lần rebuild tại một thời điểm; lần gọi thứ hai khi đang chạy nhận 409 REBUILD_IN_PROGRESS ngay. */
     @Override
     public RebuildResponse rebuild() {
-        rebuildLock.lock();
+        if (!rebuildLock.tryLock()) {
+            throw new ApiException(ErrorCode.REBUILD_IN_PROGRESS,
+                    "Đang có một lần dựng lại read model Redis, hãy chờ lần đó xong rồi thử lại");
+        }
         try {
             long start = System.nanoTime();
             // Index phải có sẵn (init.lua); thiếu thì báo REDIS_NOT_BUILT trước khi xóa gì.
@@ -153,8 +170,7 @@ public class AnalyticsProjectionService implements AnalyticsProjection {
                 try {
                     jdbc.query(STREAM_SQL, loader::accept);
                 } catch (DataAccessException e) {
-                    throw new ApiException(ErrorCode.ORACLE_ERROR,
-                            "Lỗi Oracle khi đọc đơn hàng: " + e.getMostSpecificCause().getMessage(), null, e);
+                    throw ApiException.oracle("Oracle lỗi khi đọc đơn hàng", e);
                 }
                 loader.finish();
                 writeNanos = writer.writeNanos.get();
@@ -431,18 +447,18 @@ public class AnalyticsProjectionService implements AnalyticsProjection {
         }
     }
 
+    /** withPipeline gọi sync() đúng một lần sau body; reply chỉ đọc sau đó. */
     private void writeBatch(List<String[]> commands) {
-        redis.withPipeline((AbstractPipeline p) -> {
-            List<Response<Object>> responses = new ArrayList<>(commands.size());
+        List<Response<Object>> responses = redis.withPipeline((AbstractPipeline p) -> {
+            List<Response<Object>> sent = new ArrayList<>(commands.size());
             for (String[] cmd : commands) {
-                responses.add(p.sendCommand(JSON_SET, cmd));
+                sent.add(p.sendCommand(JSON_SET, cmd));
             }
-            p.sync();
-            for (Response<Object> r : responses) {
-                r.get(); // ném JedisDataException nếu một JSON.SET lỗi
-            }
-            return null;
+            return sent;
         });
+        for (Response<Object> r : responses) {
+            r.get(); // ném JedisDataException nếu một JSON.SET lỗi; Writer.await đổi thành ApiException
+        }
     }
 
     private static String plain(BigDecimal value) {

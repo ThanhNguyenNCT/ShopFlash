@@ -3,7 +3,6 @@ package com.shopflash.modules.query.service;
 import com.shopflash.modules.query.dto.request.StatsRequest;
 import com.shopflash.modules.query.dto.response.StatsResponse;
 import com.shopflash.modules.query.exception.ApiException;
-import com.shopflash.modules.query.exception.ErrorCode;
 import com.shopflash.modules.query.model.ReportQuery;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -56,8 +55,7 @@ public class OracleStatsService implements OracleStatsOperations {
             double elapsedMs = (System.nanoTime() - start) / 1_000_000.0;
             return new StatsResponse(action.name(), readStats(), elapsedMs);
         } catch (DataAccessException e) {
-            throw new ApiException(ErrorCode.ORACLE_ERROR,
-                    "Oracle lỗi khi " + action.name() + " thống kê: " + e.getMostSpecificCause().getMessage(), null, e);
+            throw ApiException.oracle("Oracle lỗi khi " + action.name() + " thống kê", e);
         }
     }
 

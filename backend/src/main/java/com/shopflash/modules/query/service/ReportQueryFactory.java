@@ -26,6 +26,11 @@ public class ReportQueryFactory {
     public static final int DEFAULT_LIMIT = 10;
     public static final int DEFAULT_PAGE = 1;
     public static final int DEFAULT_SIZE = 20;
+    /** Chặn trên của page: (page - 1) * size luôn vừa int, không bao giờ âm. */
+    public static final int MAX_PAGE = 100_000;
+    /** Khoảng năm hợp lệ cho from/to, tránh năm âm hoặc quá xa làm tràn epoch trên Oracle/Redis. */
+    public static final int MIN_YEAR = 2000;
+    public static final int MAX_YEAR = 2100;
 
     private final Clock clock;
 
@@ -88,13 +93,15 @@ public class ReportQueryFactory {
         LocalDate toDate = parseDate("to", to);
         return build(report, fromDate, toDate, joinHint(joinHint), redisMode(redisMode),
                 parseInt("limit", limit, DEFAULT_LIMIT, 1, 100, "limit phải từ 1 đến 100"),
-                parseInt("page", page, DEFAULT_PAGE, 1, Integer.MAX_VALUE, "page phải lớn hơn hoặc bằng 1"),
+                parseInt("page", page, DEFAULT_PAGE, 1, MAX_PAGE, "page phải từ 1 đến " + MAX_PAGE),
                 parseInt("size", size, DEFAULT_SIZE, 1, 100, "size phải từ 1 đến 100"));
     }
 
     /** Điền mặc định cho ngày và kiểm tra from <= to. Các giá trị khác phải đã hợp lệ. */
     public ReportQuery build(Report report, LocalDate from, LocalDate to, JoinHint joinHint, RedisMode redisMode,
             int limit, int page, int size) {
+        checkYear("from", from);
+        checkYear("to", to);
         LocalDate toDate = to != null ? to : today();
         LocalDate fromDate = from != null ? from : defaultFrom();
         if (fromDate.isAfter(toDate)) {
@@ -107,10 +114,20 @@ public class ReportQueryFactory {
         if (isBlank(value)) {
             return null;
         }
+        LocalDate date;
         try {
-            return LocalDate.parse(value.trim());
+            date = LocalDate.parse(value.trim());
         } catch (DateTimeParseException e) {
             throw ApiException.validation(field, field + " phải là ngày hợp lệ dạng YYYY-MM-DD");
+        }
+        checkYear(field, date);
+        return date;
+    }
+
+    /** Năm của from/to phải trong MIN_YEAR..MAX_YEAR (cả body benchmark lẫn query string). */
+    static void checkYear(String field, LocalDate date) {
+        if (date != null && (date.getYear() < MIN_YEAR || date.getYear() > MAX_YEAR)) {
+            throw ApiException.validation(field, field + " phải trong khoảng năm " + MIN_YEAR + " đến " + MAX_YEAR);
         }
     }
 

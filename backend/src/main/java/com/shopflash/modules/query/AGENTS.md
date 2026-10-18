@@ -19,6 +19,7 @@ Chủ đề: Query processing.
 - **Giới hạn số của RediSearch:** giá trị tính ra (SUM, AVG) được in với 12 chữ số có nghĩa, nên tổng từ 10^12 trở lên có thể mất hàng đơn vị. Dữ liệu hiện tại (VND tròn, tổng mỗi nhóm dưới 10^12) vẫn khớp Oracle tuyệt đối; chế độ `CLIENT` đọc giá trị gốc nên luôn chính xác.
 - **Truy cập Oracle:** `NamedParameterJdbcTemplate`, luôn bind variable. Hint join được chèn từ enum cố định, không nhận chuỗi từ client.
 - **Quyền:** endpoint thuộc `/api/admin/**`. Khi `common/security` (F0) có rồi thì chỉ cho `ADMIN` gọi; trước đó để mở.
+- **Chống CSRF tạm thời (chưa có F0):** ba POST đổi trạng thái (`/analytics/rebuild`, `/oracle/stats`, `/{report}/benchmark`) chỉ nhận `Content-Type: application/json`. Form HTML không gửi được kiểu này, còn `fetch` khác origin phải qua preflight CORS, mà backend không cấu hình CORS nên bị chặn. Sai hoặc thiếu `Content-Type` thì `415 UNSUPPORTED_MEDIA_TYPE`, không chạy gì.
 
 ## Dữ liệu
 
@@ -56,11 +57,11 @@ Base: `/api/admin/reports`. JSON, tiền là số (VND), thời gian đo là `ms
 | Tham số | Kiểu | Mặc định | Ghi chú |
 |---|---|---|---|
 | `source` | `oracle` \| `redis` | `oracle` | |
-| `from`, `to` | `YYYY-MM-DD` | 12 tháng gần nhất đến hôm nay | `unsold-products` bỏ qua |
+| `from`, `to` | `YYYY-MM-DD`, năm 2000–2100 | 12 tháng gần nhất đến hôm nay | `unsold-products` bỏ qua |
 | `joinHint` | `AUTO` \| `NL` \| `HASH` \| `MERGE` | `AUTO` | Chỉ Oracle; có tác dụng với `revenue-by-category`, `top-products`, `vip-customers` |
 | `redisMode` | `AGGREGATE` \| `CLIENT` | `AGGREGATE` | Chỉ Redis. `CLIENT` = kéo dữ liệu về Java rồi tự tính, để thấy số round-trip |
 | `limit` | 1–100 | 10 | `top-products` |
-| `page`, `size` | `page` ≥ 1, `size` 1–100 | 1, 20 | `vip-customers`, `unsold-products` |
+| `page`, `size` | `page` 1–100000, `size` 1–100 | 1, 20 | `vip-customers`, `unsold-products` |
 
 ### `meta` (có trong mọi response báo cáo)
 
@@ -130,14 +131,14 @@ Oracle: chạy thật câu SQL với hint `GATHER_PLAN_STATISTICS` rồi `DBMS_X
 
 ### 4. `POST /api/admin/reports/{report}/benchmark`
 
-Request (mọi trường đều không bắt buộc):
+Request (mọi trường đều không bắt buộc; body có thể rỗng nhưng vẫn phải gửi `Content-Type: application/json`):
 
 ```json
 { "from": "2025-11-01", "to": "2026-10-31", "limit": 10, "warmup": 1, "runs": 5,
   "variants": [ { "source": "oracle", "variant": "AUTO" }, { "source": "redis", "variant": "AGGREGATE" } ] }
 ```
 
-Mặc định `warmup=1`, `runs=5` (tối đa 30); `variants` mặc định gồm 4 hint Oracle và 2 chế độ Redis. Response `200`:
+Mặc định `warmup=1`, `runs=5` (tối đa 30); `variants` mặc định gồm 4 hint Oracle và 2 chế độ Redis. `variants` tối đa 12 phần tử; cặp `(source, variant)` trùng nhau chỉ chạy một lần, giữ thứ tự gửi lên. `from`/`to` cùng quy tắc năm 2000–2100 như tham số chung. Response `200`:
 
 ```json
 {
@@ -164,7 +165,7 @@ Gửi `Accept: text/csv` thì trả CSV, mỗi mẫu một dòng: `report,source
 
 ### 6. `POST /api/admin/reports/analytics/rebuild`
 
-Ghi đè mọi document từ Oracle theo lô (pipeline, khoảng 1000 đơn một lô), sau đó dùng `SCAN` + `UNLINK` xóa các key không còn trong Oracle. Kết quả cuối giống "xóa hết rồi nạp lại", nhưng báo cáo không bao giờ thấy read model trống trong lúc rebuild. Đồng bộ, trả khi xong:
+Request: `Content-Type: application/json`, body `{}` (hoặc rỗng); không có trường nào. Ghi đè mọi document từ Oracle theo lô (pipeline, khoảng 1000 đơn một lô), sau đó dùng `SCAN` + `UNLINK` xóa các key không còn trong Oracle. Kết quả cuối giống "xóa hết rồi nạp lại", nhưng báo cáo không bao giờ thấy read model trống trong lúc rebuild. Mỗi lúc chỉ một lần rebuild: gọi khi đang có lần khác chạy thì trả ngay `409 REBUILD_IN_PROGRESS`, không chờ. Đồng bộ, trả khi xong:
 
 ```json
 { "orders": 98231, "lines": 245102, "elapsedMs": 41230.5 }
@@ -172,7 +173,7 @@ Ghi đè mọi document từ Oracle theo lô (pipeline, khoảng 1000 đơn mộ
 
 ### 7. `POST /api/admin/reports/oracle/stats`
 
-Request `{ "action": "GATHER" | "DELETE" }`. Gọi `DBMS_STATS.GATHER_TABLE_STATS` / `DELETE_TABLE_STATS` trên `ORDERS`, `ORDER_ITEMS`, `PRODUCTS`, `CATEGORIES`, `USERS` của schema `SHOP`. Response:
+Request (`Content-Type: application/json`) `{ "action": "GATHER" | "DELETE" }`. Gọi `DBMS_STATS.GATHER_TABLE_STATS` / `DELETE_TABLE_STATS` trên `ORDERS`, `ORDER_ITEMS`, `PRODUCTS`, `CATEGORIES`, `USERS` của schema `SHOP`. Response:
 
 ```json
 { "action": "GATHER", "tables": [ { "table": "ORDERS", "numRows": 100000, "lastAnalyzed": "2026-10-18T14:05:00+07:00" } ], "elapsedMs": 3120.2 }
@@ -187,8 +188,12 @@ Request `{ "action": "GATHER" | "DELETE" }`. Gọi `DBMS_STATS.GATHER_TABLE_STAT
 | HTTP | `code` |
 |---|---|
 | 400 | `VALIDATION_ERROR` (tham số sai, `from` > `to`, `{report}` không tồn tại) |
+| 409 | `REBUILD_IN_PROGRESS` (đang có một lần rebuild khác chạy) |
+| 415 | `UNSUPPORTED_MEDIA_TYPE` (POST đổi trạng thái không gửi `Content-Type: application/json`; `details.supported = ["application/json"]`) |
 | 503 | `REDIS_UNAVAILABLE`, `REDIS_NOT_BUILT` (chưa rebuild) |
 | 500 | `ORACLE_ERROR`, `INTERNAL_ERROR` |
+
+`message` luôn là câu tiếng Việt cố định, không chép thông báo gốc của driver Oracle/Redis (host, user, tên bảng chỉ nằm trong log). Với `ORACLE_ERROR`, nếu lỗi gốc có mã Oracle thì `details.oraCode` mang mã đó, ví dụ `{ "oraCode": "ORA-00942" }`; không có mã thì `details` là `null`.
 
 ## Phụ thuộc
 

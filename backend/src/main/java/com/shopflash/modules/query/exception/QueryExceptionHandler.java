@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -39,7 +40,7 @@ public class QueryExceptionHandler {
             "from", "from phải là ngày hợp lệ dạng YYYY-MM-DD",
             "to", "to phải là ngày hợp lệ dạng YYYY-MM-DD",
             "action", "action phải là GATHER hoặc DELETE",
-            "variants", "variants phải là danh sách { source, variant }");
+            "variants", "variants phải là danh sách tối đa 12 phần tử { source, variant }");
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ErrorResponse> handleApi(ApiException e) {
@@ -83,7 +84,14 @@ public class QueryExceptionHandler {
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ErrorResponse> handleOracle(DataAccessException e) {
         log.error("Lỗi Oracle trong module query", e);
-        return build(ErrorCode.ORACLE_ERROR.status(), ErrorCode.ORACLE_ERROR, "Lỗi khi truy vấn Oracle", null);
+        ApiException api = ApiException.oracle("Lỗi khi truy vấn Oracle", e);
+        return build(ErrorCode.ORACLE_ERROR.status(), ErrorCode.ORACLE_ERROR, api.getMessage(), api.details());
+    }
+
+    /** Sai Content-Type ở các POST chỉ nhận JSON (consumes = application/json). */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMediaType(HttpMediaTypeNotSupportedException e) {
+        return handleApi(ApiException.unsupportedMediaType());
     }
 
     @ExceptionHandler(JedisConnectionException.class)

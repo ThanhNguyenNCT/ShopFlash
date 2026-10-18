@@ -12,6 +12,7 @@ import java.lang.reflect.RecordComponent;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +63,10 @@ public class CompareService {
 
         List<String> oKeys = new ArrayList<>(o.keySet());
         List<String> rKeys = new ArrayList<>(r.keySet());
+        Map<String, Integer> rPos = new HashMap<>(rKeys.size() * 2);
+        for (int i = 0; i < rKeys.size(); i++) {
+            rPos.put(rKeys.get(i), i);
+        }
         // Chỉ báo lệch thứ tự khi hai bên cùng tập khóa; thiếu dòng thì vị trí lệch theo là hệ quả, không phải lỗi riêng.
         boolean sameKeys = o.keySet().equals(r.keySet());
         for (int i = 0; i < oKeys.size(); i++) {
@@ -72,7 +77,7 @@ public class CompareService {
                 continue;
             }
             compareRows(key, o.get(key), redisRow, out);
-            int redisPos = rKeys.indexOf(key);
+            int redisPos = rPos.get(key);
             if (sameKeys && redisPos != i) {
                 out.add(new Mismatch(key, "position", i + 1, redisPos + 1));
             }

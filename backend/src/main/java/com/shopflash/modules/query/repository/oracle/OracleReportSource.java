@@ -10,7 +10,6 @@ import com.shopflash.modules.query.dto.response.UnsoldProductRow;
 import com.shopflash.modules.query.dto.response.VipCustomerRow;
 import com.shopflash.modules.query.dto.response.VipSummary;
 import com.shopflash.modules.query.exception.ApiException;
-import com.shopflash.modules.query.exception.ErrorCode;
 import com.shopflash.modules.query.model.JoinHint;
 import com.shopflash.modules.query.model.Report;
 import com.shopflash.modules.query.model.ReportQuery;
@@ -182,9 +181,8 @@ public class OracleReportSource implements ReportSource {
         return out;
     }
 
+    /** Thông báo của driver chỉ vào log (QueryExceptionHandler ghi kèm cause); API chỉ nhận details.oraCode. */
     private static ApiException oracleError(String action, DataAccessException e) {
-        Throwable cause = e.getMostSpecificCause();
-        return new ApiException(ErrorCode.ORACLE_ERROR,
-                "Oracle lỗi khi " + action + ": " + cause.getMessage(), null, e);
+        return ApiException.oracle("Oracle lỗi khi " + action, e);
     }
 }

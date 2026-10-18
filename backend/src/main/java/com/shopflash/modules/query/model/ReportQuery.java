@@ -28,8 +28,13 @@ public record ReportQuery(
         return to.plusDays(1).atStartOfDay().toInstant(ZONE);
     }
 
+    /**
+     * Số dòng bỏ qua. ReportQueryFactory đã chặn page/size nên kết quả vừa int; nếu vẫn tràn (dựng tay ngoài factory)
+     * thì ném lỗi thay vì trả offset âm cho Oracle/Redis.
+     */
     public int offset() {
-        return (page - 1) * size;
+        long offset = Math.multiplyExact((long) Math.max(page - 1, 0), (long) Math.max(size, 0));
+        return Math.toIntExact(offset);
     }
 
     public ReportQuery withJoinHint(JoinHint hint) {

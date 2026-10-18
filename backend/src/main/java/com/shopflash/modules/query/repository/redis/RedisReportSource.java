@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Consumer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 
 import com.shopflash.modules.query.dto.response.CategoryRevenueRow;
@@ -47,6 +49,8 @@ public class RedisReportSource implements ReportSource {
             + "muốn biết sản phẩm chưa bán thì ứng dụng phải tự duy trì tập sản phẩm đã bán (SET) và lấy hiệu với "
             + "danh sách toàn bộ sản phẩm.";
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("yyyy-MM");
+
+    private static final Logger log = LoggerFactory.getLogger(RedisReportSource.class);
 
     private final RedisCommandRunner redis;
 
@@ -174,24 +178,35 @@ public class RedisReportSource implements ReportSource {
         return report == Report.REVENUE_BY_MONTH || report == Report.VIP_CUSTOMERS ? ORDER_INDEX : LINE_INDEX;
     }
 
-    /** Đọc hết cursor, mỗi document gọi sink một lần; trả số round-trip. */
+    /**
+     * Đọc hết cursor, mỗi document gọi sink một lần; cộng số round-trip vào trace.
+     * Thoát giữa chừng (lỗi Redis, lỗi parse, sink ném lỗi) khi cursor còn mở thì gửi FT.CURSOR DEL để Redis không
+     * giữ cursor đến khi hết MAXIDLE; lỗi của lệnh dọn dẹp bị bỏ qua để không che lỗi gốc.
+     */
     private void fetchAll(ReportQuery q, Trace t, Consumer<Map<String, String>> sink) {
         String[] first = clientFetch(q);
         String index = first[1];
         Object reply = redis.call(first);
         int pages = 1;
-        while (true) {
-            List<Object> parts = RedisReplies.list(reply);
-            for (Map<String, String> row : aggregateRows(parts.get(0))) {
-                sink.accept(row);
+        long cursorId = 0;
+        try {
+            while (true) {
+                List<Object> parts = RedisReplies.list(reply);
+                cursorId = RedisReplies.asLong(parts.get(1));
+                for (Map<String, String> row : aggregateRows(parts.get(0))) {
+                    sink.accept(row);
+                }
+                if (cursorId == 0) {
+                    break;
+                }
+                reply = redis.call("FT.CURSOR", "READ", index, Long.toString(cursorId), "COUNT",
+                        String.valueOf(CURSOR_COUNT));
+                pages++;
             }
-            long cursorId = RedisReplies.asLong(parts.get(1));
-            if (cursorId == 0) {
-                break;
+        } finally {
+            if (cursorId != 0) {
+                deleteCursor(index, cursorId);
             }
-            reply = redis.call("FT.CURSOR", "READ", index, Long.toString(cursorId), "COUNT",
-                    String.valueOf(CURSOR_COUNT));
-            pages++;
         }
         t.roundTrips += pages;
         t.statements.add(RedisCommandRunner.toCli(first));
@@ -200,6 +215,14 @@ public class RedisReportSource implements ReportSource {
                     + " trang)");
         }
         t.statements.add("# " + pages + " trang; gom nhóm, cộng tổng, sắp xếp làm trong Java, không phải trên Redis");
+    }
+
+    private void deleteCursor(String index, long cursorId) {
+        try {
+            redis.call("FT.CURSOR", "DEL", index, Long.toString(cursorId));
+        } catch (RuntimeException e) {
+            log.warn("Không xóa được cursor {} của {}: {}", cursorId, index, e.toString());
+        }
     }
 
     private ReportData client(ReportQuery q, Trace t) {

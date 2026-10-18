@@ -62,7 +62,10 @@ public class RedisCommandRunner {
         }
     }
 
-    /** Chạy hàm trên pipeline; dùng cho lô JSON.SET/UNLINK lớn khi không cần đọc reply từng lệnh. */
+    /**
+     * Chạy hàm gửi lệnh trên pipeline rồi sync() đúng một lần; dùng cho lô JSON.SET lớn. Body không tự sync:
+     * muốn đọc reply thì trả các Response ra ngoài và get() sau khi hàm này trả về.
+     */
     public <T> T withPipeline(Function<AbstractPipeline, T> body) {
         try (AbstractPipeline p = client.pipelined()) {
             T result = body.apply(p);
@@ -88,22 +91,20 @@ public class RedisCommandRunner {
         if (e instanceof ApiException api) {
             return api;
         }
+        // Thông báo gốc của Redis/Jedis chỉ vào log (QueryExceptionHandler ghi kèm cause), không trả ra API.
         if (e instanceof JedisConnectionException) {
-            return new ApiException(ErrorCode.REDIS_UNAVAILABLE,
-                    "Không kết nối được Redis: " + e.getMessage(), null, e);
+            return new ApiException(ErrorCode.REDIS_UNAVAILABLE, "Không kết nối được Redis", null, e);
         }
         if (e instanceof JedisDataException && isMissingIndex(e.getMessage())) {
             return new ApiException(ErrorCode.REDIS_NOT_BUILT,
-                    "Chưa có index analytics trên Redis, hãy chạy redis/init.lua rồi rebuild: " + e.getMessage(),
-                    null, e);
+                    "Chưa có index analytics trên Redis, hãy chạy redis/init.lua rồi rebuild", null, e);
         }
         if (e instanceof JedisException) {
             Throwable cause = e.getCause();
             if (cause instanceof java.io.IOException) {
-                return new ApiException(ErrorCode.REDIS_UNAVAILABLE,
-                        "Không kết nối được Redis: " + e.getMessage(), null, e);
+                return new ApiException(ErrorCode.REDIS_UNAVAILABLE, "Không kết nối được Redis", null, e);
             }
-            return new ApiException(ErrorCode.INTERNAL_ERROR, "Lỗi Redis: " + e.getMessage(), null, e);
+            return new ApiException(ErrorCode.INTERNAL_ERROR, "Lỗi khi gửi lệnh Redis", null, e);
         }
         return e;
     }

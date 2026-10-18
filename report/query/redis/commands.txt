@@ -1,0 +1,56 @@
+# 3.3 Query processing: các lệnh Redis dùng trong demo (Phụ lục C).
+# Index tạo bởi backend/src/main/resources/db/redis/init.lua. Bản chạy thật: backend/.../modules/query/repository/redis/.
+# Khoảng thời gian ví dụ: createdAt là epoch giây, [1761930000, 1792342800) = 01/11/2025 đến 18/10/2026 (+07:00).
+# Mọi lệnh FT.* kèm TIMEOUT 0: server đặt TIMEOUT 500 với ON_TIMEOUT return, quá 500 ms sẽ trả kết quả thiếu mà không báo lỗi.
+
+## Read model (dựng lại từ Oracle bằng POST /api/admin/reports/analytics/rebuild)
+# order:analytics:{orderId}  JSON một đơn: userId, userName, userEmail, status, orderType, totalAmount, createdAt, items[]
+# order:line:{orderItemId}   JSON một dòng hàng đã denormalize: productId, productName, categoryId, categoryName, quantity, lineTotal, status, createdAt
+# Trường được GROUPBY / REDUCE / trả về khai báo SORTABLE; tên chỉ để hiển thị khai báo TEXT NOINDEX SORTABLE UNF.
+
+## AGGREGATE: Redis tự lọc, gom nhóm, sắp xếp (1 round-trip)
+
+# F5. Doanh thu theo tháng (month là chuỗi YYYY-MM tính bằng APPLY timefmt theo +07:00)
+FT.AGGREGATE idx:order-analytics '@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]' TIMEOUT 0
+  APPLY 'timefmt(@createdAt+25200,"%Y-%m")' AS month
+  GROUPBY 1 @month REDUCE COUNT 0 AS orderCount REDUCE SUM 1 @totalAmount AS revenue
+  SORTBY 2 @month ASC LIMIT 0 10000
+
+# F5. Doanh thu theo danh mục
+FT.AGGREGATE idx:order-line-analytics '@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]' TIMEOUT 0
+  GROUPBY 2 @categoryId @categoryName
+  REDUCE SUM 1 @quantity AS quantity REDUCE SUM 1 @lineTotal AS revenue
+  SORTBY 4 @revenue DESC @categoryId ASC LIMIT 0 10000
+
+# F6. Top sản phẩm
+FT.AGGREGATE idx:order-line-analytics '@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]' TIMEOUT 0
+  GROUPBY 3 @productId @productName @categoryName
+  REDUCE SUM 1 @quantity AS quantity REDUCE SUM 1 @lineTotal AS revenue
+  SORTBY 4 @quantity DESC @productId ASC MAX 10
+
+# F6. Khách VIP: không có subquery, phải chạy 2 lượt
+# Lượt 1: tính trung bình tổng chi mỗi khách
+FT.AGGREGATE idx:order-analytics '@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]' TIMEOUT 0
+  GROUPBY 1 @userId REDUCE SUM 1 @totalAmount AS totalSpent
+  GROUPBY 0 REDUCE AVG 1 @totalSpent AS averageSpent REDUCE COUNT 0 AS customerCount
+# Lượt 2: ứng dụng chèn giá trị trung bình vừa nhận vào FILTER
+FT.AGGREGATE idx:order-analytics '@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]' TIMEOUT 0
+  GROUPBY 3 @userId @userName @userEmail
+  REDUCE SUM 1 @totalAmount AS totalSpent REDUCE COUNT 0 AS orderCount
+  FILTER '@totalSpent > 74128020.3383'
+  SORTBY 4 @totalSpent DESC @userId ASC LIMIT 0 20
+
+# F6. Sản phẩm chưa từng bán: không làm được (không có anti-join; read model chỉ chứa sản phẩm đã bán).
+
+## CLIENT: Redis chỉ lọc theo index, ứng dụng tự gom nhóm (nhiều round-trip)
+FT.AGGREGATE idx:order-line-analytics '@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]' TIMEOUT 0
+  LOAD 4 @categoryId @quantity @lineTotal @categoryName WITHCURSOR COUNT 10000
+FT.CURSOR READ idx:order-line-analytics <cursorId> COUNT 10000     # lặp đến khi cursorId = 0 (khoảng 21 lần với 215.807 dòng)
+
+## Xem Redis thực sự làm gì (Demo 4)
+FT.PROFILE idx:order-line-analytics AGGREGATE QUERY '@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]' TIMEOUT 0
+  GROUPBY 2 @categoryId @categoryName REDUCE SUM 1 @quantity AS quantity REDUCE SUM 1 @lineTotal AS revenue
+  SORTBY 4 @revenue DESC @categoryId ASC LIMIT 0 10000
+
+## Đếm số document khớp bộ lọc
+FT.SEARCH idx:order-line-analytics '@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]' TIMEOUT 0 LIMIT 0 0

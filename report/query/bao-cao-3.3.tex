@@ -1,0 +1,42 @@
+% Biên dịch riêng mục 3.3 để xem trước (XeLaTeX):
+%   cd report/query
+%   latexmk -xelatex bao-cao-3.3.tex
+% Nội dung nằm ở noi-dung.tex; báo cáo chung chỉ cần \input{query/noi-dung} và thêm query/query.bib.
+\documentclass[12pt,a4paper]{article}
+
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+\IfFontExistsTF{Consolas}{\setmonofont{Consolas}[Scale=0.9]}{\setmonofont{Courier New}}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{float}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{fvextra}
+\fvset{breaklines=true}
+\usepackage{enumitem}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\graphicspath{{images/}}
+\renewcommand{\figurename}{Hình}
+\renewcommand{\tablename}{Bảng}
+\renewcommand{\refname}{Tài liệu tham khảo}
+\setcounter{secnumdepth}{3}
+\setlength{\emergencystretch}{2em}
+
+\begin{document}
+
+\setcounter{section}{2}
+\section{So sánh Oracle và Redis}
+\setcounter{subsection}{2}
+\input{noi-dung}
+
+\bibliographystyle{IEEEtran}
+\bibliography{query}
+
+\end{document}

@@ -6,7 +6,12 @@ Module `query` (F5 báo cáo doanh thu, F6 top bán chạy / khách VIP / sản 
 
 ```text
 report/query/
+├── noi-dung.tex          mục 3.3 bằng LaTeX, có hình (bản để ghép báo cáo); query.bib là tài liệu tham khảo
+├── bao-cao-3.3.tex       file bọc để biên dịch riêng mục 3.3: latexmk -xelatex bao-cao-3.3.tex
+├── noi-dung.md           bản đọc nhanh của mục 3.3 trên GitHub
+├── oracle/queries.sql    các câu SQL dùng trong demo (Phụ lục C)
 ├── oracle/seed/          script sinh dữ liệu benchmark (100k đơn), chạy tay, không phải migration
+├── redis/commands.txt    các lệnh Redis dùng trong demo (Phụ lục C)
 ├── bench/run_benchmarks.py   đo và lưu số liệu, kế hoạch thực thi
 ├── tests/contract_test.py    kiểm tra API theo contract (146 kiểm tra, có kịch bản D6)
 ├── results/              số liệu thô .csv, bảng tóm tắt, môi trường đo, kế hoạch thực thi (plans/)

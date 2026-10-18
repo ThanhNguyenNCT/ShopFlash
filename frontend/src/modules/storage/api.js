@@ -45,3 +45,23 @@ export async function updateProductInventory(productId, body) {
   const { data } = await apiClient.patch(`/admin/products/${productId}/inventory`, body);
   return data;
 }
+
+export async function getProjectionStatus() {
+  const { data } = await apiClient.get('/admin/catalog/projection/status');
+  return data;
+}
+
+export async function rebuildProjection() {
+  const { data } = await apiClient.post('/admin/catalog/projection/rebuild', {}, { timeout: 0 });
+  return data;
+}
+
+export async function runConstraintDemo() {
+  const { data } = await apiClient.post('/admin/catalog/constraint-demo');
+  return data;
+}
+
+export async function getStorageFootprint() {
+  const { data } = await apiClient.get('/admin/catalog/storage-footprint');
+  return data;
+}

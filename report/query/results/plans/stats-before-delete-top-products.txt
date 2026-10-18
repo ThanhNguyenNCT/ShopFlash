@@ -1,0 +1,63 @@
+# top-products {'source': 'oracle'}
+# statement:
+SELECT /*+ GATHER_PLAN_STATISTICS */ p.product_id,
+       p.name AS product_name,
+       c.name AS category_name,
+       SUM(oi.quantity) AS quantity,
+       SUM(oi.line_total) AS revenue
+FROM orders o
+JOIN order_items oi ON oi.order_id = o.order_id
+JOIN products p ON p.product_id = oi.product_id
+JOIN categories c ON c.category_id = p.category_id
+WHERE o.status IN ('CONFIRMED', 'COMPLETED')
+  AND o.created_at >= :fromTs
+  AND o.created_at < :toExclusiveTs
+GROUP BY p.product_id, p.name, c.name
+ORDER BY quantity DESC, p.product_id
+FETCH FIRST :limit ROWS ONLY
+
+SQL_ID  15f4377td42pw, child number 0
+-------------------------------------
+SELECT /*+ GATHER_PLAN_STATISTICS */ p.product_id,        p.name AS 
+product_name,        c.name AS category_name,        SUM(oi.quantity) 
+AS quantity,        SUM(oi.line_total) AS revenue FROM orders o JOIN 
+order_items oi ON oi.order_id = o.order_id JOIN products p ON 
+p.product_id = oi.product_id JOIN categories c ON c.category_id = 
+p.category_id WHERE o.status IN ('CONFIRMED', 'COMPLETED')   AND 
+o.created_at >= :1 AND o.created_at < :2 GROUP BY p.product_id, p.name, 
+c.name ORDER BY quantity DESC, p.product_id FETCH FIRST :3 ROWS ONLY
+ 
+Plan hash value: 2314863829
+ 
+----------------------------------------------------------------------------------------------------------------------------------------
+| Id  | Operation                  | Name        | Starts | E-Rows | A-Rows |   A-Time   | Buffers | Reads  |  OMem |  1Mem | Used-Mem |
+----------------------------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT           |             |      1 |        |     10 |00:00:00.41 |    5104 |    297 |       |       |          |
+|*  1 |  COUNT STOPKEY             |             |      1 |        |     10 |00:00:00.41 |    5104 |    297 |       |       |          |
+|   2 |   VIEW                     |             |      1 |   9004 |     10 |00:00:00.41 |    5104 |    297 |       |       |          |
+|*  3 |    SORT ORDER BY STOPKEY   |             |      1 |   9004 |     10 |00:00:00.41 |    5104 |    297 |  4096 |  4096 | 4096  (0)|
+|*  4 |     HASH JOIN              |             |      1 |   9004 |   9001 |00:00:00.41 |    5104 |    297 |  1476K|  1476K| 1692K (0)|
+|   5 |      TABLE ACCESS FULL     | CATEGORIES  |      1 |     51 |     51 |00:00:00.01 |       6 |      0 |       |       |          |
+|*  6 |      HASH JOIN             |             |      1 |   9004 |   9001 |00:00:00.40 |    5098 |    297 |  1703K|  1703K| 2217K (0)|
+|   7 |       VIEW                 | VW_GBC_17   |      1 |   9001 |   9001 |00:00:00.39 |    4851 |    297 |       |       |          |
+|   8 |        HASH GROUP BY       |             |      1 |   9001 |   9001 |00:00:00.39 |    4851 |    297 |  1563K|  1317K| 1702K (0)|
+|*  9 |         FILTER             |             |      1 |        |    215K|00:00:00.35 |    4851 |    297 |       |       |          |
+|* 10 |          HASH JOIN         |             |      1 |    213K|    215K|00:00:00.32 |    4851 |    297 |  5998K|  3201K| 4983K (0)|
+|* 11 |           TABLE ACCESS FULL| ORDERS      |      1 |  87141 |  87141 |00:00:00.05 |    2139 |      0 |       |       |          |
+|* 12 |           TABLE ACCESS FULL| ORDER_ITEMS |      1 |    247K|    247K|00:00:00.09 |    2712 |    297 |       |       |          |
+|  13 |       TABLE ACCESS FULL    | PRODUCTS    |      1 |  10001 |  10001 |00:00:00.01 |     247 |      0 |       |       |          |
+----------------------------------------------------------------------------------------------------------------------------------------
+ 
+Predicate Information (identified by operation id):
+---------------------------------------------------
+ 
+   1 - filter(ROWNUM<=:3)
+   3 - filter(ROWNUM<=:3)
+   4 - access("C"."CATEGORY_ID"="P"."CATEGORY_ID")
+   6 - access("P"."PRODUCT_ID"="ITEM_1")
+   9 - filter(SYS_EXTRACT_UTC(:2)>SYS_EXTRACT_UTC(:1))
+  10 - access("OI"."ORDER_ID"="O"."ORDER_ID")
+  11 - filter((INTERNAL_FUNCTION("O"."STATUS") AND SYS_EXTRACT_UTC("CREATED_AT")>=SYS_EXTRACT_UTC(:1) AND 
+              SYS_EXTRACT_UTC("CREATED_AT")<SYS_EXTRACT_UTC(:2)))
+  12 - filter("UNIT_PRICE"*"QUANTITY">=0)
+ 

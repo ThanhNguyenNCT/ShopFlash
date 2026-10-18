@@ -1,0 +1,72 @@
+# top-products {'source': 'oracle', 'joinHint': 'MERGE'}
+# statement:
+SELECT /*+ GATHER_PLAN_STATISTICS LEADING(o oi p c) USE_MERGE(oi p c) */ p.product_id,
+       p.name AS product_name,
+       c.name AS category_name,
+       SUM(oi.quantity) AS quantity,
+       SUM(oi.line_total) AS revenue
+FROM orders o
+JOIN order_items oi ON oi.order_id = o.order_id
+JOIN products p ON p.product_id = oi.product_id
+JOIN categories c ON c.category_id = p.category_id
+WHERE o.status IN ('CONFIRMED', 'COMPLETED')
+  AND o.created_at >= :fromTs
+  AND o.created_at < :toExclusiveTs
+GROUP BY p.product_id, p.name, c.name
+ORDER BY quantity DESC, p.product_id
+FETCH FIRST :limit ROWS ONLY
+
+SQL_ID  70rzusbwtrhtz, child number 0
+-------------------------------------
+SELECT /*+ GATHER_PLAN_STATISTICS LEADING(o oi p c) USE_MERGE(oi p c) 
+*/ p.product_id,        p.name AS product_name,        c.name AS 
+category_name,        SUM(oi.quantity) AS quantity,        
+SUM(oi.line_total) AS revenue FROM orders o JOIN order_items oi ON 
+oi.order_id = o.order_id JOIN products p ON p.product_id = 
+oi.product_id JOIN categories c ON c.category_id = p.category_id WHERE 
+o.status IN ('CONFIRMED', 'COMPLETED')   AND o.created_at >= :1 AND 
+o.created_at < :2 GROUP BY p.product_id, p.name, c.name ORDER BY 
+quantity DESC, p.product_id FETCH FIRST :3 ROWS ONLY
+ 
+Plan hash value: 199024446
+ 
+---------------------------------------------------------------------------------------------------------------------------------
+| Id  | Operation                    | Name        | Starts | E-Rows | A-Rows |   A-Time   | Buffers |  OMem |  1Mem | Used-Mem |
+---------------------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT             |             |      1 |        |     10 |00:00:01.65 |    5104 |       |       |          |
+|*  1 |  COUNT STOPKEY               |             |      1 |        |     10 |00:00:01.65 |    5104 |       |       |          |
+|   2 |   VIEW                       |             |      1 |    213K|     10 |00:00:01.65 |    5104 |       |       |          |
+|*  3 |    SORT ORDER BY STOPKEY     |             |      1 |    213K|     10 |00:00:01.65 |    5104 |  4096 |  4096 | 4096  (0)|
+|   4 |     HASH GROUP BY            |             |      1 |    213K|   9001 |00:00:01.65 |    5104 |  1970K|  1126K|   11M (0)|
+|*  5 |      FILTER                  |             |      1 |        |    215K|00:00:01.40 |    5104 |       |       |          |
+|   6 |       MERGE JOIN             |             |      1 |    213K|    215K|00:00:01.37 |    5104 |       |       |          |
+|   7 |        SORT JOIN             |             |      1 |    213K|    215K|00:00:01.17 |    5098 |    15M|  1477K|   13M (0)|
+|   8 |         MERGE JOIN           |             |      1 |    213K|    215K|00:00:00.86 |    5098 |       |       |          |
+|   9 |          SORT JOIN           |             |      1 |    213K|    215K|00:00:00.69 |    4851 |  7920K|  1111K| 7039K (0)|
+|  10 |           MERGE JOIN         |             |      1 |    213K|    215K|00:00:00.43 |    4851 |       |       |          |
+|  11 |            SORT JOIN         |             |      1 |  87141 |  87141 |00:00:00.10 |    2139 |  2179K|   689K| 1936K (0)|
+|* 12 |             TABLE ACCESS FULL| ORDERS      |      1 |  87141 |  87141 |00:00:00.04 |    2139 |       |       |          |
+|* 13 |            SORT JOIN         |             |  87141 |    247K|    215K|00:00:00.28 |    2712 |    10M|  1258K| 9559K (0)|
+|* 14 |             TABLE ACCESS FULL| ORDER_ITEMS |      1 |    247K|    247K|00:00:00.07 |    2712 |       |       |          |
+|* 15 |          SORT JOIN           |             |    215K|  10001 |    215K|00:00:00.13 |     247 |   761K|   499K|  676K (0)|
+|  16 |           TABLE ACCESS FULL  | PRODUCTS    |      1 |  10001 |  10001 |00:00:00.01 |     247 |       |       |          |
+|* 17 |        SORT JOIN             |             |    215K|     51 |    215K|00:00:00.14 |       6 |  4096 |  4096 | 4096  (0)|
+|  18 |         TABLE ACCESS FULL    | CATEGORIES  |      1 |     51 |     51 |00:00:00.01 |       6 |       |       |          |
+---------------------------------------------------------------------------------------------------------------------------------
+ 
+Predicate Information (identified by operation id):
+---------------------------------------------------
+ 
+   1 - filter(ROWNUM<=:3)
+   3 - filter(ROWNUM<=:3)
+   5 - filter(SYS_EXTRACT_UTC(:2)>SYS_EXTRACT_UTC(:1))
+  12 - filter((INTERNAL_FUNCTION("O"."STATUS") AND SYS_EXTRACT_UTC("CREATED_AT")>=SYS_EXTRACT_UTC(:1) AND 
+              SYS_EXTRACT_UTC("CREATED_AT")<SYS_EXTRACT_UTC(:2)))
+  13 - access("OI"."ORDER_ID"="O"."ORDER_ID")
+       filter("OI"."ORDER_ID"="O"."ORDER_ID")
+  14 - filter("UNIT_PRICE"*"QUANTITY">=0)
+  15 - access("P"."PRODUCT_ID"="OI"."PRODUCT_ID")
+       filter("P"."PRODUCT_ID"="OI"."PRODUCT_ID")
+  17 - access("C"."CATEGORY_ID"="P"."CATEGORY_ID")
+       filter("C"."CATEGORY_ID"="P"."CATEGORY_ID")
+ 

@@ -1,0 +1,60 @@
+# revenue-by-category {'source': 'oracle', 'joinHint': 'NL'}
+# statement:
+SELECT /*+ GATHER_PLAN_STATISTICS LEADING(o oi p c) USE_NL(oi p c) */ c.category_id,
+       c.name AS category_name,
+       SUM(oi.quantity) AS quantity,
+       SUM(oi.line_total) AS revenue
+FROM orders o
+JOIN order_items oi ON oi.order_id = o.order_id
+JOIN products p ON p.product_id = oi.product_id
+JOIN categories c ON c.category_id = p.category_id
+WHERE o.status IN ('CONFIRMED', 'COMPLETED')
+  AND o.created_at >= :fromTs
+  AND o.created_at < :toExclusiveTs
+GROUP BY c.category_id, c.name
+ORDER BY revenue DESC, c.category_id
+
+SQL_ID  7hh3m99n49q2s, child number 0
+-------------------------------------
+SELECT /*+ GATHER_PLAN_STATISTICS LEADING(o oi p c) USE_NL(oi p c) */ 
+c.category_id,        c.name AS category_name,        SUM(oi.quantity) 
+AS quantity,        SUM(oi.line_total) AS revenue FROM orders o JOIN 
+order_items oi ON oi.order_id = o.order_id JOIN products p ON 
+p.product_id = oi.product_id JOIN categories c ON c.category_id = 
+p.category_id WHERE o.status IN ('CONFIRMED', 'COMPLETED')   AND 
+o.created_at >= :1 AND o.created_at < :2 GROUP BY c.category_id, c.name 
+ORDER BY revenue DESC, c.category_id
+ 
+Plan hash value: 3776558797
+ 
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+| Id  | Operation                                  | Name                 | Starts | E-Rows | A-Rows |   A-Time   | Buffers |  OMem |  1Mem | Used-Mem |
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT                           |                      |      1 |        |     51 |00:00:01.44 |     681K|       |       |          |
+|   1 |  SORT ORDER BY                             |                      |      1 |   1840 |     51 |00:00:01.44 |     681K|  4096 |  4096 | 4096  (0)|
+|   2 |   HASH GROUP BY                            |                      |      1 |   1840 |     51 |00:00:01.44 |     681K|  1064K|  1064K|          |
+|*  3 |    FILTER                                  |                      |      1 |        |    215K|00:00:01.60 |     681K|       |       |          |
+|   4 |     NESTED LOOPS                           |                      |      1 |    213K|    215K|00:00:01.57 |     681K|       |       |          |
+|   5 |      NESTED LOOPS                          |                      |      1 |    213K|    215K|00:00:01.38 |     465K|       |       |          |
+|   6 |       NESTED LOOPS                         |                      |      1 |    213K|    215K|00:00:01.22 |     465K|       |       |          |
+|   7 |        NESTED LOOPS                        |                      |      1 |    213K|    215K|00:00:00.43 |   33774 |       |       |          |
+|*  8 |         TABLE ACCESS FULL                  | ORDERS               |      1 |  87141 |  87141 |00:00:00.07 |    2139 |       |       |          |
+|*  9 |         TABLE ACCESS BY INDEX ROWID BATCHED| ORDER_ITEMS          |  87141 |      2 |    215K|00:00:00.29 |   31635 |       |       |          |
+|* 10 |          INDEX RANGE SCAN                  | IX_ORDER_ITEMS_ORDER |  87141 |      2 |    215K|00:00:00.14 |   26868 |       |       |          |
+|  11 |        TABLE ACCESS BY INDEX ROWID         | PRODUCTS             |    215K|      1 |    215K|00:00:00.59 |     431K|       |       |          |
+|* 12 |         INDEX UNIQUE SCAN                  | PK_PRODUCTS          |    215K|      1 |    215K|00:00:00.26 |     215K|       |       |          |
+|* 13 |       INDEX UNIQUE SCAN                    | PK_CATEGORIES        |    215K|      1 |    215K|00:00:00.10 |       4 |       |       |          |
+|  14 |      TABLE ACCESS BY INDEX ROWID           | CATEGORIES           |    215K|      1 |    215K|00:00:00.14 |     215K|       |       |          |
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+ 
+Predicate Information (identified by operation id):
+---------------------------------------------------
+ 
+   3 - filter(SYS_EXTRACT_UTC(:2)>SYS_EXTRACT_UTC(:1))
+   8 - filter((INTERNAL_FUNCTION("O"."STATUS") AND SYS_EXTRACT_UTC("CREATED_AT")>=SYS_EXTRACT_UTC(:1) AND 
+              SYS_EXTRACT_UTC("CREATED_AT")<SYS_EXTRACT_UTC(:2)))
+   9 - filter("UNIT_PRICE"*"QUANTITY">=0)
+  10 - access("OI"."ORDER_ID"="O"."ORDER_ID")
+  12 - access("P"."PRODUCT_ID"="OI"."PRODUCT_ID")
+  13 - access("C"."CATEGORY_ID"="P"."CATEGORY_ID")
+ 

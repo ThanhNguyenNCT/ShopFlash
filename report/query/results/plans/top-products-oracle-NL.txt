@@ -1,0 +1,67 @@
+# top-products {'source': 'oracle', 'joinHint': 'NL'}
+# statement:
+SELECT /*+ GATHER_PLAN_STATISTICS LEADING(o oi p c) USE_NL(oi p c) */ p.product_id,
+       p.name AS product_name,
+       c.name AS category_name,
+       SUM(oi.quantity) AS quantity,
+       SUM(oi.line_total) AS revenue
+FROM orders o
+JOIN order_items oi ON oi.order_id = o.order_id
+JOIN products p ON p.product_id = oi.product_id
+JOIN categories c ON c.category_id = p.category_id
+WHERE o.status IN ('CONFIRMED', 'COMPLETED')
+  AND o.created_at >= :fromTs
+  AND o.created_at < :toExclusiveTs
+GROUP BY p.product_id, p.name, c.name
+ORDER BY quantity DESC, p.product_id
+FETCH FIRST :limit ROWS ONLY
+
+SQL_ID  55p5vgjbkc989, child number 0
+-------------------------------------
+SELECT /*+ GATHER_PLAN_STATISTICS LEADING(o oi p c) USE_NL(oi p c) */ 
+p.product_id,        p.name AS product_name,        c.name AS 
+category_name,        SUM(oi.quantity) AS quantity,        
+SUM(oi.line_total) AS revenue FROM orders o JOIN order_items oi ON 
+oi.order_id = o.order_id JOIN products p ON p.product_id = 
+oi.product_id JOIN categories c ON c.category_id = p.category_id WHERE 
+o.status IN ('CONFIRMED', 'COMPLETED')   AND o.created_at >= :1 AND 
+o.created_at < :2 GROUP BY p.product_id, p.name, c.name ORDER BY 
+quantity DESC, p.product_id FETCH FIRST :3 ROWS ONLY
+ 
+Plan hash value: 2442890914
+ 
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+| Id  | Operation                                    | Name                 | Starts | E-Rows | A-Rows |   A-Time   | Buffers |  OMem |  1Mem | Used-Mem |
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT                             |                      |      1 |        |     10 |00:00:01.48 |     681K|       |       |          |
+|*  1 |  COUNT STOPKEY                               |                      |      1 |        |     10 |00:00:01.48 |     681K|       |       |          |
+|   2 |   VIEW                                       |                      |      1 |    213K|     10 |00:00:01.48 |     681K|       |       |          |
+|*  3 |    SORT ORDER BY STOPKEY                     |                      |      1 |    213K|     10 |00:00:01.48 |     681K|  4096 |  4096 | 4096  (0)|
+|   4 |     HASH GROUP BY                            |                      |      1 |    213K|   9001 |00:00:01.47 |     681K|  1970K|  1126K|   11M (0)|
+|*  5 |      FILTER                                  |                      |      1 |        |    215K|00:00:01.35 |     681K|       |       |          |
+|   6 |       NESTED LOOPS                           |                      |      1 |    213K|    215K|00:00:01.32 |     681K|       |       |          |
+|   7 |        NESTED LOOPS                          |                      |      1 |    213K|    215K|00:00:01.14 |     465K|       |       |          |
+|   8 |         NESTED LOOPS                         |                      |      1 |    213K|    215K|00:00:01.00 |     465K|       |       |          |
+|   9 |          NESTED LOOPS                        |                      |      1 |    213K|    215K|00:00:00.41 |   33774 |       |       |          |
+|* 10 |           TABLE ACCESS FULL                  | ORDERS               |      1 |  87141 |  87141 |00:00:00.07 |    2139 |       |       |          |
+|* 11 |           TABLE ACCESS BY INDEX ROWID BATCHED| ORDER_ITEMS          |  87141 |      2 |    215K|00:00:00.27 |   31635 |       |       |          |
+|* 12 |            INDEX RANGE SCAN                  | IX_ORDER_ITEMS_ORDER |  87141 |      2 |    215K|00:00:00.13 |   26868 |       |       |          |
+|  13 |          TABLE ACCESS BY INDEX ROWID         | PRODUCTS             |    215K|      1 |    215K|00:00:00.54 |     431K|       |       |          |
+|* 14 |           INDEX UNIQUE SCAN                  | PK_PRODUCTS          |    215K|      1 |    215K|00:00:00.24 |     215K|       |       |          |
+|* 15 |         INDEX UNIQUE SCAN                    | PK_CATEGORIES        |    215K|      1 |    215K|00:00:00.10 |       4 |       |       |          |
+|  16 |        TABLE ACCESS BY INDEX ROWID           | CATEGORIES           |    215K|      1 |    215K|00:00:00.12 |     215K|       |       |          |
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+ 
+Predicate Information (identified by operation id):
+---------------------------------------------------
+ 
+   1 - filter(ROWNUM<=:3)
+   3 - filter(ROWNUM<=:3)
+   5 - filter(SYS_EXTRACT_UTC(:2)>SYS_EXTRACT_UTC(:1))
+  10 - filter((INTERNAL_FUNCTION("O"."STATUS") AND SYS_EXTRACT_UTC("CREATED_AT")>=SYS_EXTRACT_UTC(:1) AND 
+              SYS_EXTRACT_UTC("CREATED_AT")<SYS_EXTRACT_UTC(:2)))
+  11 - filter("UNIT_PRICE"*"QUANTITY">=0)
+  12 - access("OI"."ORDER_ID"="O"."ORDER_ID")
+  14 - access("P"."PRODUCT_ID"="OI"."PRODUCT_ID")
+  15 - access("C"."CATEGORY_ID"="P"."CATEGORY_ID")
+ 

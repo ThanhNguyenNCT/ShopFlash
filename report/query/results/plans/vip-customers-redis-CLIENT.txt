@@ -1,0 +1,11 @@
+# vip-customers {'source': 'redis', 'redisMode': 'CLIENT'}
+# statement:
+FT.AGGREGATE idx:order-analytics '@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]' TIMEOUT 0 LOAD 4 @userId @totalAmount @userName @userEmail WITHCURSOR COUNT 10000
+
+Chế độ CLIENT: Redis chỉ lọc theo index (status TAG, createdAt NUMERIC) và trả document thô.
+Số document khớp bộ lọc: 87141 (đếm bằng FT.SEARCH idx:order-analytics '@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]' LIMIT 0 0)
+1. FT.AGGREGATE idx:order-analytics '@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]' TIMEOUT 0 LOAD 4 @userId @totalAmount @userName @userEmail WITHCURSOR COUNT 10000
+2. FT.CURSOR READ idx:order-analytics <cursorId> COUNT 10000, lặp đến khi cursorId = 0: khoảng 8 lần
+Round-trip dự kiến: khoảng 9 (mỗi trang 10000 document)
+Trong Java: gom theo userId, tính trung bình tổng chi, lọc > trung bình, sắp totalSpent giảm dần rồi userId, cắt trang.
+Toàn bộ document đi qua mạng về ứng dụng, Redis không gom nhóm hay sắp xếp gì.

@@ -50,7 +50,7 @@ verify_index('idx:products', {
 
 -- Hai index analytics dưới đây phục vụ FT.AGGREGATE trên hàng trăm nghìn document. Trường nào được GROUPBY,
 -- REDUCE hoặc trả về phải là SORTABLE: giá trị nằm sẵn trong index, không phải đọc lại JSON của từng
--- document (đo trên 215k dòng: doanh thu theo danh mục 1,5 s -> 26 ms). Tên chỉ để hiển thị nên là
+-- document (đo phía server trên 215k dòng: doanh thu theo danh mục ~1,5 s -> ~0,15-0,33 s). Tên chỉ để hiển thị nên là
 -- TEXT NOINDEX SORTABLE UNF: không tìm kiếm, giữ nguyên chữ hoa, dấu tiếng Việt và dấu phẩy.
 
 -- Một document cho mỗi Order. Gom nhóm trên trường nhiều giá trị ($.items[*]) chỉ lấy giá trị đầu tiên,

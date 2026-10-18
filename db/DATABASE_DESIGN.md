@@ -1158,7 +1158,7 @@ idx:order-line-analytics   ON JSON   PREFIX order:line:
 | `productName`, `categoryName` | TEXT NOINDEX SORTABLE UNF | Trả về cùng nhóm, không tìm kiếm; giữ nguyên chữ hoa, dấu, dấu phẩy |
 | `quantity`, `lineTotal` | NUMERIC SORTABLE | Tổng số lượng, doanh thu |
 
-Trường nào được `GROUPBY`, `REDUCE` hoặc trả về phải là `SORTABLE`: giá trị nằm sẵn trong index, RediSearch không phải đọc lại JSON của từng document. Đo trên 215k dòng: doanh thu theo danh mục từ khoảng 1,5 s (trường thường + `LOAD` tên) xuống 26 ms. Không dùng `LOAD` trong báo cáo.
+Trường nào được `GROUPBY`, `REDUCE` hoặc trả về phải là `SORTABLE`: giá trị nằm sẵn trong index, RediSearch không phải đọc lại JSON của từng document. Đo phía server (`INFO commandstats`) trên 215k dòng: doanh thu theo danh mục từ khoảng 1,5 s (trường thường + `LOAD` tên) xuống khoảng 0,15–0,33 s, ngang Oracle. Không dùng `LOAD` trong báo cáo.
 
 Ví dụ doanh thu theo category:
 

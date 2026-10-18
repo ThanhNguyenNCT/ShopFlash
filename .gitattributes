@@ -3,3 +3,5 @@
 *.lua text eol=lf
 *.sql text eol=lf
 mvnw  text eol=lf
+# Script PowerShell giữ CRLF + BOM để Windows PowerShell 5.1 đọc đúng tiếng Việt.
+*.ps1 text eol=crlf

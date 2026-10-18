@@ -24,10 +24,12 @@ public class OracleStatsService implements OracleStatsOperations {
 
     static final List<String> TABLES = List.of("ORDERS", "ORDER_ITEMS", "PRODUCTS", "CATEGORIES", "USERS");
 
+    // no_invalidate => FALSE: bỏ ngay các cursor đã parse, để lần chạy kế tiếp lập kế hoạch lại theo thống kê mới.
+    // Mặc định (AUTO_INVALIDATE) Oracle dùng lại kế hoạch cũ một thời gian, demo D3 sẽ không thấy gì thay đổi.
     private static final String GATHER =
-            "BEGIN DBMS_STATS.GATHER_TABLE_STATS(ownname => USER, tabname => :tableName, cascade => TRUE); END;";
+            "BEGIN DBMS_STATS.GATHER_TABLE_STATS(ownname => USER, tabname => :tableName, cascade => TRUE, no_invalidate => FALSE); END;";
     private static final String DELETE =
-            "BEGIN DBMS_STATS.DELETE_TABLE_STATS(ownname => USER, tabname => :tableName, cascade_indexes => TRUE); END;";
+            "BEGIN DBMS_STATS.DELETE_TABLE_STATS(ownname => USER, tabname => :tableName, cascade_indexes => TRUE, no_invalidate => FALSE); END;";
 
     /** last_analyzed là DATE theo giờ của server DB; gắn múi giờ của server rồi đổi sang +07:00. */
     private static final String READ_STATS = """

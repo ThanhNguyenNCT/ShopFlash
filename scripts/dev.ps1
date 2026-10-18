@@ -28,6 +28,16 @@ Set-Location $Root
 function Step($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }
 function Fail($msg) { Write-Host "LỖI: $msg" -ForegroundColor Red; exit 1 }
 function Ok($msg) { Write-Host "    $msg" -ForegroundColor Green }
+# Đường dẫn được nhúng vào lệnh '...' của cửa sổ mới: nhân đôi dấu nháy đơn để thư mục có dấu ' không làm hỏng lệnh.
+function Quote($path) { $path -replace "'", "''" }
+# Cổng đang có tiến trình khác giữ thì dừng, không tin nhầm backend/Vite cũ là cái vừa chạy.
+function RequireFreePort($port, $what) {
+  $listen = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($listen) {
+    $proc = Get-Process -Id $listen.OwningProcess -ErrorAction SilentlyContinue
+    Fail "Cổng $port đang bị chiếm bởi $($proc.ProcessName) (PID $($listen.OwningProcess)). Đóng $what cũ (hoặc: Stop-Process -Id $($listen.OwningProcess)) rồi chạy lại."
+  }
+}
 
 if ($Stop) {
   Step 'Dừng Oracle và Redis (dữ liệu vẫn giữ trong volume)'
@@ -100,8 +110,9 @@ if (-not $NoBackend) {
   if (-not $jdk) { Fail 'Không tìm thấy JDK 21 trở lên. Cài Temurin 21 (adoptium.net) hoặc đặt JAVA_HOME.' }
   Ok "JDK: $jdk"
 
+  RequireFreePort 8080 'backend'
   Step 'Mở backend ở cửa sổ mới (profile dev: có dữ liệu mẫu)'
-  $backendCmd = "`$env:JAVA_HOME='$jdk'; Set-Location '$Root\backend'; .\mvnw.cmd spring-boot:run '-Dspring-boot.run.profiles=dev'"
+  $backendCmd = "`$env:JAVA_HOME='$(Quote $jdk)'; Set-Location '$(Quote $Root)\backend'; .\mvnw.cmd spring-boot:run '-Dspring-boot.run.profiles=dev'"
   Start-Process powershell -ArgumentList '-NoExit', '-Command', $backendCmd | Out-Null
 
   Step 'Chờ backend sẵn sàng (GET /api/health)'
@@ -132,13 +143,14 @@ if (-not $NoBackend) {
 
 # ---------- 5. Frontend ----------
 if (-not $NoFrontend) {
+  RequireFreePort 5173 'Vite (frontend)'
   Step 'Mở frontend ở cửa sổ mới'
   $frontend = Join-Path $Root 'frontend'
   if (-not (Test-Path (Join-Path $frontend 'node_modules'))) {
     Step 'Cài thư viện frontend (lần đầu)'
     Push-Location $frontend; npm install; Pop-Location
   }
-  Start-Process powershell -ArgumentList '-NoExit', '-Command', "Set-Location '$frontend'; npm run dev" | Out-Null
+  Start-Process powershell -ArgumentList '-NoExit', '-Command', "Set-Location '$(Quote $frontend)'; npm run dev" | Out-Null
   Start-Sleep -Seconds 4
   Start-Process 'http://localhost:5173'
 }

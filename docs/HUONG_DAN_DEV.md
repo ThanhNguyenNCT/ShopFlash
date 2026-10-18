@@ -9,7 +9,7 @@ Cách dùng app (cho người không code): [`HUONG_DAN_SU_DUNG.md`](HUONG_DAN_S
 | Cần | Ghi chú |
 |---|---|
 | Docker Desktop | Cấp khoảng 5–6 GB RAM là đủ (Settings → Resources). Máy 16 GB nên tắt bớt ứng dụng khác khi chạy |
-| JDK 21 | Ví dụ Temurin 21. Máy có JDK 17 cũng không sao, script tự tìm JDK 21 |
+| JDK 21 | Ví dụ Temurin 21. Máy có cả JDK 17 cũng được: `dev.ps1` tự tìm JDK 21 trong `Program Files`; `dev.sh` dùng `JAVA_HOME` (macOS tự tìm bằng `java_home`) |
 | Node.js 20 trở lên | Kèm npm |
 | Git | Windows: bật `core.autocrlf` cũng được, `.gitattributes` đã giữ đúng kiểu xuống dòng cho script |
 
@@ -33,10 +33,10 @@ Script làm lần lượt các bước:
 1. Kiểm tra Docker và image.
 2. Tạo `.env` với mật khẩu ngẫu nhiên nếu chưa có.
 3. Bật Oracle và Redis, tạo index Redis.
-4. Chạy backend (profile `dev`, có dữ liệu mẫu) và frontend.
+4. Kiểm tra cổng 8080 còn trống, rồi chạy backend (profile `dev`, có dữ liệu mẫu).
 5. Chờ `GET /api/health` báo sẵn sàng.
 6. Dựng read model Redis nếu đang trống.
-7. Mở http://localhost:5173.
+7. Kiểm tra cổng 5173 còn trống, chạy frontend, mở http://localhost:5173.
 
 Trên Windows, backend và frontend chạy ở hai cửa sổ riêng; đóng cửa sổ là dừng.
 
@@ -74,7 +74,7 @@ Backend và database chỉ mở trên máy mình (`127.0.0.1`), máy khác cùng
 |---|---|
 | Dữ liệu mẫu nhỏ: 2 user, 1 sản phẩm, 2 đơn | Tự nạp khi chạy profile `dev` (`dev-seed/R__00_core_seed.sql`) |
 | Dữ liệu lớn: 100k đơn, 10k sản phẩm, 20k khách | Chạy tay, khoảng 1,5 phút: [`report/query/oracle/seed/README.md`](../report/query/oracle/seed/README.md) |
-| Read model Redis cho báo cáo | `dev.ps1` tự dựng; hoặc trang "So sánh Oracle–Redis", tab 6, nút "Dựng lại" |
+| Read model Redis cho báo cáo | Script tự dựng khi đang trống; hoặc trang "So sánh Oracle–Redis", tab 6, nút "Dựng lại" |
 
 ## 3. Cấu trúc repo
 
@@ -188,6 +188,6 @@ Ví dụ test hợp đồng API chạy trên stack thật: `report/query/tests/c
 | `init.lua` báo `Incompatible Redis index` | Chạy lệnh `FT.DROPINDEX` có trong thông báo (document vẫn giữ), rồi chạy lại script |
 | Backend báo `ORA-01017` | Mật khẩu `SHOP` trong `.env` vừa đổi: chạy `docker compose up -d --wait` để container cập nhật; đừng `export` biến môi trường trong shell vì nó đè lên `.env` |
 | `release version 21 not supported` | Đang dùng JDK 17. Dùng `scripts/dev.ps1` (tự tìm JDK 21) hoặc đặt `JAVA_HOME` |
-| `Port 5173 is in use` | Còn Vite cũ đang chạy: đóng cửa sổ frontend cũ, hoặc tắt tiến trình `node ... vite` |
+| `Cổng 8080/5173 đang bị chiếm` | Còn backend hoặc Vite cũ đang chạy (cửa sổ cũ, IntelliJ). Đóng nó, hoặc chạy lệnh `Stop-Process -Id <PID>` mà script in ra. Muốn dùng backend đang chạy trong IDE thì thêm `-NoBackend` |
 | Git Bash: `mvnw` lỗi `ClassNotFoundException ... Launcher` | Đừng `export MSYS_NO_PATHCONV=1` khi chạy `mvnw` |
 | Trang báo cáo Redis báo `REDIS_NOT_BUILT` hay số lệch | Dựng lại read model: trang So sánh, tab 6, hoặc `POST /api/admin/reports/analytics/rebuild` với body `{}` |

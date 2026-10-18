@@ -48,26 +48,45 @@ step 'Tạo index Redis (init.lua)'
 docker compose exec -T redis redis-cli -e --eval /opt/shopflash/redis/init.lua \
   || fail 'init.lua lỗi. Nếu báo index cũ: chạy lệnh FT.DROPINDEX trong thông báo rồi chạy lại.'
 
+# Mỗi tiến trình nền chạy trong nhóm tiến trình riêng (set -m) để Ctrl+C dừng cả nhóm:
+# mvnw -> JVM của spring-boot:run, npm -> sh -> node (vite). pkill -P chỉ dừng được con trực tiếp.
+set -m
 PIDS=()
-# Dừng cả tiến trình con (mvnw -> java, npm -> vite), không chỉ subshell.
-cleanup() { for p in "${PIDS[@]:-}"; do pkill -P "$p" 2>/dev/null || true; kill "$p" 2>/dev/null || true; done; }
+cleanup() { for p in "${PIDS[@]:-}"; do kill -- -"$p" 2>/dev/null || true; done; }
 trap cleanup EXIT INT TERM
 
+# Cổng đang có tiến trình khác giữ thì dừng, không tin nhầm backend/Vite cũ là cái vừa chạy.
+require_free_port() {
+  if command -v lsof >/dev/null 2>&1 && lsof -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; then
+    fail "Cổng $1 đang bị chiếm (PID $(lsof -iTCP:"$1" -sTCP:LISTEN -t | head -1)). Tắt $2 cũ rồi chạy lại."
+  fi
+}
+
 if [ "$NO_BACKEND" = 0 ]; then
-  step 'Kiểm tra JDK 21'
-  v=$(java -version 2>&1 | head -1 | sed -E 's/.*version "([0-9]+).*/\1/')
-  [ "${v:-0}" -ge 21 ] || fail "Cần JDK 21 trở lên (đang có: ${v:-không có}). Đặt JAVA_HOME tới JDK 21."
+  step 'Tìm JDK 21'
+  # mvnw dùng JAVA_HOME (nếu có) chứ không dùng java trên PATH, nên kiểm tra đúng JDK đó.
+  if [ -z "${JAVA_HOME:-}" ] && [ -x /usr/libexec/java_home ]; then
+    JAVA_HOME=$(/usr/libexec/java_home -v 21+ 2>/dev/null || true)
+    export JAVA_HOME
+  fi
+  java_bin="${JAVA_HOME:+$JAVA_HOME/bin/}java"
+  v=$("$java_bin" -version 2>&1 | head -1 | sed -E 's/.*version "([0-9]+).*/\1/')
+  [ "${v:-0}" -ge 21 ] 2>/dev/null || fail "Cần JDK 21 trở lên (đang có: ${v:-không có}, lấy từ ${JAVA_HOME:-java trên PATH}). Đặt JAVA_HOME tới JDK 21."
+  ok "JDK $v (${JAVA_HOME:-java trên PATH})"
+  require_free_port 8080 'backend'
   step 'Chạy backend (profile dev, log ở backend/dev.log)'
-  (cd backend && ./mvnw -q spring-boot:run -Dspring-boot.run.profiles=dev > dev.log 2>&1) &
-  PIDS+=($!)
+  (cd backend && exec ./mvnw -q spring-boot:run -Dspring-boot.run.profiles=dev > dev.log 2>&1) &
+  BACKEND_PID=$!
+  PIDS+=("$BACKEND_PID")
   step 'Chờ backend sẵn sàng (GET /api/health)'
   for _ in $(seq 1 90); do
-    curl -fs http://127.0.0.1:8080/api/health >/dev/null 2>&1 && break
+    curl -fs -m 5 http://127.0.0.1:8080/api/health >/dev/null 2>&1 && break
+    kill -0 "$BACKEND_PID" 2>/dev/null || fail 'Backend đã dừng khi đang khởi động. Xem backend/dev.log'
     sleep 2
   done
-  curl -fs http://127.0.0.1:8080/api/health >/dev/null || fail 'Backend chưa lên sau 3 phút. Xem backend/dev.log'
+  curl -fs -m 5 http://127.0.0.1:8080/api/health >/dev/null || fail 'Backend chưa lên sau 3 phút. Xem backend/dev.log'
   ok 'Backend UP'
-  if curl -fs http://127.0.0.1:8080/api/admin/reports/analytics/status | grep -q '"inSync":false'; then
+  if curl -fs -m 60 http://127.0.0.1:8080/api/admin/reports/analytics/status | grep -q '"inSync":false'; then
     step 'Dựng read model Redis cho báo cáo (khoảng 20-35 s với 100k đơn)'
     curl -fs -X POST -H 'Content-Type: application/json' -d '{}' \
       http://127.0.0.1:8080/api/admin/reports/analytics/rebuild && echo
@@ -75,6 +94,7 @@ if [ "$NO_BACKEND" = 0 ]; then
 fi
 
 if [ "$NO_FRONTEND" = 0 ]; then
+  require_free_port 5173 'Vite (frontend)'
   step 'Chạy frontend: http://localhost:5173'
   cd frontend
   [ -d node_modules ] || npm install

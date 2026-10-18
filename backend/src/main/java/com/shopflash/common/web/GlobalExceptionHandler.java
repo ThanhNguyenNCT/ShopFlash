@@ -12,11 +12,14 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -75,6 +78,21 @@ public class GlobalExceptionHandler {
         return body(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED", "API không hỗ trợ phương thức " + e.getMethod(), null);
     }
 
+    /** @Min, @Size... đặt trực tiếp trên @RequestParam / @PathVariable. */
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ErrorBody> handleParamValidation(HandlerMethodValidationException e) {
+        String message = e.getAllErrors().isEmpty()
+                ? "Tham số không hợp lệ"
+                : e.getAllErrors().get(0).getDefaultMessage();
+        return body(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", message, null);
+    }
+
+    /** Client chỉ nhận định dạng mà API không trả được (ví dụ chỉ nhận XML): không ghi được body JSON, trả 406 rỗng. */
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    public ResponseEntity<Void> handleNotAcceptable(HttpMediaTypeNotAcceptableException e) {
+        return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).build();
+    }
+
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ErrorBody> handleDataAccess(DataAccessException e) {
         log.error("Lỗi truy cập Oracle", e);
@@ -83,8 +101,34 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorBody> handleUnexpected(Exception e) {
+        // Lỗi Spring đã mang sẵn mã HTTP (415, ResponseStatusException, thiếu path variable...): giữ đúng mã 4xx,
+        // không biến thành 500.
+        if (e instanceof ErrorResponse er && er.getStatusCode().is4xxClientError()) {
+            HttpStatus status = HttpStatus.valueOf(er.getStatusCode().value());
+            return body(status, codeFor(status), messageFor(status), null);
+        }
         log.error("Lỗi không mong đợi", e);
         return body(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Lỗi hệ thống, vui lòng thử lại", null);
+    }
+
+    private static String codeFor(HttpStatus status) {
+        return switch (status) {
+            case BAD_REQUEST -> "VALIDATION_ERROR";
+            case NOT_FOUND -> "NOT_FOUND";
+            case METHOD_NOT_ALLOWED -> "METHOD_NOT_ALLOWED";
+            case UNSUPPORTED_MEDIA_TYPE -> "UNSUPPORTED_MEDIA_TYPE";
+            case CONFLICT -> "CONFLICT";
+            default -> "HTTP_" + status.value();
+        };
+    }
+
+    private static String messageFor(HttpStatus status) {
+        return switch (status) {
+            case UNSUPPORTED_MEDIA_TYPE -> "Content-Type không được hỗ trợ, hãy gửi application/json";
+            case NOT_FOUND -> "Không tìm thấy";
+            case METHOD_NOT_ALLOWED -> "API không hỗ trợ phương thức này";
+            default -> "Yêu cầu không hợp lệ";
+        };
     }
 
     private static ResponseEntity<ErrorBody> body(HttpStatus status, String code, String message, Map<String, Object> details) {

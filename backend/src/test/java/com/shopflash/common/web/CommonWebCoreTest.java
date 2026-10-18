@@ -21,6 +21,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import org.springframework.web.bind.annotation.RestController;
 import redis.clients.jedis.RedisClient;
 import redis.clients.jedis.exceptions.JedisConnectionException;
@@ -33,6 +35,16 @@ class CommonWebCoreTest {
 
     @RestController
     static class SampleController {
+        @GetMapping("/api/sample/json")
+        java.util.Map<String, Object> json() {
+            return java.util.Map.of("ok", true);
+        }
+
+        @GetMapping("/api/sample/page")
+        String page(@RequestParam @Min(1) int page) {
+            return "ok";
+        }
+
         @GetMapping("/api/sample/missing")
         String missing() {
             throw ApiException.notFound("PRODUCT_NOT_FOUND", "Không tìm thấy sản phẩm");
@@ -56,7 +68,14 @@ class CommonWebCoreTest {
 
     private final MockMvc sample = MockMvcBuilders.standaloneSetup(new SampleController())
             .setControllerAdvice(new GlobalExceptionHandler())
+            .setValidator(validator())   // như app thật (starter-validation): kiểm tra cả @Min trên @RequestParam
             .build();
+
+    private static LocalValidatorFactoryBean validator() {
+        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+        return validator;
+    }
 
     @Test
     void apiExceptionUsesCommonFormat() throws Exception {
@@ -97,6 +116,26 @@ class CommonWebCoreTest {
         sample.perform(post("/api/sample/price").contentType(MediaType.APPLICATION_JSON).content("{price"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.details.field").value("body"));
+    }
+
+    @Test
+    void wrongContentTypeIs415NotServerError() throws Exception {
+        sample.perform(post("/api/sample/price").contentType(MediaType.TEXT_PLAIN).content("price=1"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.error.code").value("UNSUPPORTED_MEDIA_TYPE"));
+    }
+
+    @Test
+    void notAcceptableIs406NotServerError() throws Exception {
+        sample.perform(get("/api/sample/json").accept(MediaType.APPLICATION_XML))
+                .andExpect(status().isNotAcceptable());
+    }
+
+    @Test
+    void requestParamConstraintIsValidationError() throws Exception {
+        sample.perform(get("/api/sample/page").param("page", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
     @Test

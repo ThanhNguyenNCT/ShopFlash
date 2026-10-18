@@ -5,6 +5,8 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import javax.sql.DataSource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -24,9 +26,22 @@ public class HealthController {
     private final JdbcTemplate jdbc;
     private final RedisClient redis;
 
-    public HealthController(JdbcTemplate jdbc, RedisClient redis) {
+    /** Spring dùng constructor này: JdbcTemplate riêng có timeout 3 s, không đổi JdbcTemplate dùng chung của app. */
+    @Autowired
+    public HealthController(DataSource dataSource, RedisClient redis) {
+        this(withTimeout(dataSource), redis);
+    }
+
+    HealthController(JdbcTemplate jdbc, RedisClient redis) {
         this.jdbc = jdbc;
         this.redis = redis;
+    }
+
+    /** /api/health không được treo khi Oracle chậm. */
+    private static JdbcTemplate withTimeout(DataSource dataSource) {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        jdbc.setQueryTimeout(3);
+        return jdbc;
     }
 
     @GetMapping("/api/health")

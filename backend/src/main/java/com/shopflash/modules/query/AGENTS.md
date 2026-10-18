@@ -44,7 +44,7 @@ Base: `/api/admin/reports`. JSON, tiền là số (VND), thời gian đo là `ms
 |---|---|---|---|---|
 | `revenue-by-month` | F5 | f, h | `GROUP BY` tháng | `FT.AGGREGATE` trên `idx:order-analytics`, `APPLY timefmt(@createdAt+25200,"%Y-%m")` |
 | `revenue-by-category` | F5 | f, h | join 4 bảng, `GROUP BY` | `FT.AGGREGATE` trên `idx:order-line-analytics` |
-| `top-products` | F6 | f, h | join 3 bảng, `GROUP BY`, `FETCH FIRST :limit` | như trên, `SORTBY ... MAX :limit` |
+| `top-products` | F6 | f, h | join 4 bảng (cần `categories` cho `categoryName`), `GROUP BY`, `FETCH FIRST :limit` | như trên, `SORTBY ... MAX :limit` |
 | `vip-customers` | F6 | f, g, h | `HAVING SUM(...) > (SELECT AVG(...) ...)` trong một câu | 2 lượt: tính trung bình, rồi lọc. Không có subquery |
 | `unsold-products` | F6 | g | `NOT EXISTS` | Không hỗ trợ: trả `meta.supported=false` |
 
@@ -76,7 +76,7 @@ Base: `/api/admin/reports`. JSON, tiền là số (VND), thời gian đo là `ms
 }
 ```
 
-`variant` = `joinHint` với Oracle, `redisMode` với Redis. `statement` = câu SQL (giữ tên bind, không thay giá trị) hoặc các lệnh Redis, mỗi lệnh một dòng. `elapsedMs` chỉ tính thời gian gọi DB và xử lý kết quả, không tính serialize HTTP. Khi `supported=false` thì `data` là `null` và `note` ghi lý do.
+`variant` = `joinHint` với Oracle, `redisMode` với Redis. `statement` = câu SQL (giữ tên bind, không thay giá trị) hoặc các lệnh Redis, mỗi lệnh một dòng. Báo cáo cần 2 câu SQL (`vip-customers`: danh sách + tổng/trung bình; `unsold-products`: danh sách + đếm) thì nối 2 câu bằng `;` và một dòng trống, `roundTrips` = 2. `elapsedMs` chỉ tính thời gian gọi DB và xử lý kết quả, không tính serialize HTTP. Khi `supported=false` thì `data` là `null` và `note` ghi lý do.
 
 ### 1. `GET /api/admin/reports/{report}`
 
@@ -123,7 +123,7 @@ Tham số: `source`, `joinHint`, `redisMode` và các tham số của báo cáo.
 { "source": "oracle", "variant": "HASH", "statement": "...", "lines": ["Plan hash value: ...", "| Id | Operation | ..."] }
 ```
 
-Oracle: `EXPLAIN PLAN FOR` rồi `DBMS_XPLAN.DISPLAY(format => 'TYPICAL')`. Redis `AGGREGATE`: kết quả `FT.PROFILE ... AGGREGATE`, làm phẳng thành từng dòng. Redis `CLIENT`: mô tả các lệnh sẽ gửi và số round-trip.
+Oracle: chạy thật câu SQL với hint `GATHER_PLAN_STATISTICS` rồi `DBMS_XPLAN.DISPLAY_CURSOR(NULL, NULL, 'ALLSTATS LAST')` trên cùng connection, nên kế hoạch có cả E-Rows và A-Rows (số dòng ước lượng và thực tế); lỗi thì quay về `EXPLAIN PLAN` + `DBMS_XPLAN.DISPLAY`. Vì chạy thật nên tốn thời gian như chạy báo cáo. Với `vip-customers` chỉ lấy kế hoạch của câu chính (có `HAVING`). Redis `AGGREGATE`: kết quả `FT.PROFILE ... AGGREGATE`, làm phẳng thành từng dòng. Redis `CLIENT`: mô tả các lệnh sẽ gửi và số round-trip.
 
 ### 4. `POST /api/admin/reports/{report}/benchmark`
 

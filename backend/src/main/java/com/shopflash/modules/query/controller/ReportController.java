@@ -42,7 +42,7 @@ import org.springframework.web.bind.annotation.RestController;
  * gửi được kiểu này, còn fetch khác origin phải qua preflight CORS (không cấu hình CORS nên bị chặn). Sai kiểu thì 415
  * UNSUPPORTED_MEDIA_TYPE.
  */
-// TODO(F0): chỉ cho ADMIN khi common/security có
+// TODO(F0): chỉ cho ADMIN khi common/security có. Trước đó backend chỉ nghe trên 127.0.0.1 (server.address).
 @RestController
 @RequestMapping("/api/admin/reports")
 public class ReportController {

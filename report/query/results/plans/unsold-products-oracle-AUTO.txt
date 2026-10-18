@@ -1,0 +1,53 @@
+# unsold-products {'source': 'oracle'}
+# statement:
+SELECT /*+ GATHER_PLAN_STATISTICS */ p.product_id,
+       p.name AS product_name,
+       c.name AS category_name,
+       p.base_price
+FROM products p
+JOIN categories c ON c.category_id = p.category_id
+WHERE p.status = 'ACTIVE'
+  AND NOT EXISTS (SELECT 1 FROM order_items oi WHERE oi.product_id = p.product_id)
+ORDER BY p.product_id
+OFFSET :offset ROWS FETCH NEXT :size ROWS ONLY
+
+SQL_ID  2wujxugj00zrz, child number 0
+-------------------------------------
+SELECT /*+ GATHER_PLAN_STATISTICS */ p.product_id,        p.name AS 
+product_name,        c.name AS category_name,        p.base_price FROM 
+products p JOIN categories c ON c.category_id = p.category_id WHERE 
+p.status = 'ACTIVE'   AND NOT EXISTS (SELECT 1 FROM order_items oi 
+WHERE oi.product_id = p.product_id) ORDER BY p.product_id OFFSET :1 
+ROWS FETCH NEXT :2 ROWS ONLY
+ 
+Plan hash value: 2814718056
+ 
+-----------------------------------------------------------------------------------------------------------------------------------------
+| Id  | Operation                 | Name                   | Starts | E-Rows | A-Rows |   A-Time   | Buffers |  OMem |  1Mem | Used-Mem |
+-----------------------------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT          |                        |      1 |        |     20 |00:00:00.04 |    1713 |       |       |          |
+|*  1 |  VIEW                     |                        |      1 |    480 |     20 |00:00:00.04 |    1713 |       |       |          |
+|*  2 |   WINDOW SORT PUSHED RANK |                        |      1 |    480 |     20 |00:00:00.04 |    1713 |  9216 |  9216 | 8192  (0)|
+|*  3 |    FILTER                 |                        |      1 |        |    953 |00:00:00.04 |    1713 |       |       |          |
+|*  4 |     HASH JOIN             |                        |      1 |    480 |    953 |00:00:00.04 |    1713 |  1476K|  1476K| 1637K (0)|
+|   5 |      TABLE ACCESS FULL    | CATEGORIES             |      1 |     51 |     51 |00:00:00.01 |       6 |       |       |          |
+|*  6 |      HASH JOIN ANTI       |                        |      1 |    480 |    953 |00:00:00.04 |    1707 |  1736K|  1389K| 1781K (0)|
+|*  7 |       TABLE ACCESS FULL   | PRODUCTS               |      1 |   9481 |   9481 |00:00:00.01 |     247 |       |       |          |
+|   8 |       INDEX FAST FULL SCAN| IX_ORDER_ITEMS_PRODUCT |      1 |    247K|    247K|00:00:00.02 |    1460 |       |       |          |
+-----------------------------------------------------------------------------------------------------------------------------------------
+ 
+Predicate Information (identified by operation id):
+---------------------------------------------------
+ 
+   1 - filter(("from$_subquery$_005"."rowlimit_$$_rownumber"<=GREATEST(FLOOR(TO_NUMBER(TO_CHAR(:1))),0)+:2 AND 
+              "from$_subquery$_005"."rowlimit_$$_rownumber">:1))
+   2 - filter(ROW_NUMBER() OVER ( ORDER BY "P"."PRODUCT_ID")<=GREATEST(FLOOR(TO_NUMBER(TO_CHAR(:1))),0)+:2)
+   3 - filter(:1<GREATEST(FLOOR(TO_NUMBER(TO_CHAR(:1))),0)+:2)
+   4 - access("C"."CATEGORY_ID"="P"."CATEGORY_ID")
+   6 - access("OI"."PRODUCT_ID"="P"."PRODUCT_ID")
+   7 - filter("P"."STATUS"='ACTIVE')
+ 
+Note
+-----
+   - this is an adaptive plan
+ 

@@ -1,0 +1,74 @@
+# vip-customers {'source': 'oracle', 'joinHint': 'AUTO'}
+# statement:
+SELECT /*+ GATHER_PLAN_STATISTICS */ u.user_id,
+       u.full_name,
+       u.email,
+       COUNT(*) AS order_count,
+       SUM(o.total_amount) AS total_spent
+FROM orders o
+JOIN users u ON u.user_id = o.user_id
+WHERE o.status IN ('CONFIRMED', 'COMPLETED')
+  AND o.created_at >= :fromTs
+  AND o.created_at < :toExclusiveTs
+GROUP BY u.user_id, u.full_name, u.email
+HAVING SUM(o.total_amount) > (
+    SELECT AVG(t.spent)
+    FROM (SELECT SUM(o2.total_amount) AS spent
+          FROM orders o2
+          WHERE o2.status IN ('CONFIRMED', 'COMPLETED')
+            AND o2.created_at >= :fromTs
+            AND o2.created_at < :toExclusiveTs
+          GROUP BY o2.user_id) t)
+ORDER BY total_spent DESC, u.user_id
+OFFSET :offset ROWS FETCH NEXT :size ROWS ONLY
+
+SQL_ID  8qxjw135asbr1, child number 0
+-------------------------------------
+SELECT /*+ GATHER_PLAN_STATISTICS */ u.user_id,        u.full_name,     
+   u.email,        COUNT(*) AS order_count,        SUM(o.total_amount) 
+AS total_spent FROM orders o JOIN users u ON u.user_id = o.user_id 
+WHERE o.status IN ('CONFIRMED', 'COMPLETED')   AND o.created_at >= :1 
+AND o.created_at < :2 GROUP BY u.user_id, u.full_name, u.email HAVING 
+SUM(o.total_amount) > (     SELECT AVG(t.spent)     FROM (SELECT 
+SUM(o2.total_amount) AS spent           FROM orders o2           WHERE 
+o2.status IN ('CONFIRMED', 'COMPLETED')             AND o2.created_at 
+>= :3 AND o2.created_at < :4 GROUP BY o2.user_id) t) ORDER BY 
+total_spent DESC, u.user_id OFFSET :5 ROWS FETCH NEXT :6 ROWS ONLY
+ 
+Plan hash value: 3849606933
+ 
+------------------------------------------------------------------------------------------------------------------------
+| Id  | Operation                | Name   | Starts | E-Rows | A-Rows |   A-Time   | Buffers |  OMem |  1Mem | Used-Mem |
+------------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT         |        |      1 |        |     20 |00:00:00.14 |    4777 |       |       |          |
+|*  1 |  VIEW                    |        |      1 |   4358 |     20 |00:00:00.14 |    4777 |       |       |          |
+|*  2 |   WINDOW SORT PUSHED RANK|        |      1 |   4358 |     20 |00:00:00.14 |    4777 |  9216 |  9216 | 8192  (0)|
+|*  3 |    FILTER                |        |      1 |        |   6049 |00:00:00.14 |    4777 |       |       |          |
+|   4 |     HASH GROUP BY        |        |      1 |   4358 |  19274 |00:00:00.09 |    2638 |  3124K|  1163K| 4623K (0)|
+|*  5 |      FILTER              |        |      1 |        |  87141 |00:00:00.07 |    2638 |       |       |          |
+|*  6 |       HASH JOIN          |        |      1 |  87141 |  87141 |00:00:00.06 |    2638 |  2706K|  1398K| 3130K (0)|
+|   7 |        TABLE ACCESS FULL | USERS  |      1 |  20002 |  20002 |00:00:00.01 |     499 |       |       |          |
+|*  8 |        TABLE ACCESS FULL | ORDERS |      1 |  87141 |  87141 |00:00:00.03 |    2139 |       |       |          |
+|   9 |     SORT AGGREGATE       |        |      1 |      1 |      1 |00:00:00.05 |    2139 |       |       |          |
+|  10 |      VIEW                |        |      1 |  19505 |  19274 |00:00:00.05 |    2139 |       |       |          |
+|  11 |       HASH GROUP BY      |        |      1 |  19505 |  19274 |00:00:00.05 |    2139 |  2246K|  1563K| 1943K (0)|
+|* 12 |        FILTER            |        |      1 |        |  87141 |00:00:00.04 |    2139 |       |       |          |
+|* 13 |         TABLE ACCESS FULL| ORDERS |      1 |  87141 |  87141 |00:00:00.03 |    2139 |       |       |          |
+------------------------------------------------------------------------------------------------------------------------
+ 
+Predicate Information (identified by operation id):
+---------------------------------------------------
+ 
+   1 - filter(("from$_subquery$_006"."rowlimit_$$_rownumber"<=GREATEST(FLOOR(TO_NUMBER(TO_CHAR(:5))),0)+:6 AND 
+              "from$_subquery$_006"."rowlimit_$$_rownumber">:5))
+   2 - filter(ROW_NUMBER() OVER ( ORDER BY SUM("O"."TOTAL_AMOUNT") DESC 
+              ,"U"."USER_ID")<=GREATEST(FLOOR(TO_NUMBER(TO_CHAR(:5))),0)+:6)
+   3 - filter(SUM("O"."TOTAL_AMOUNT")>)
+   5 - filter((SYS_EXTRACT_UTC(:2)>SYS_EXTRACT_UTC(:1) AND :5<GREATEST(FLOOR(TO_NUMBER(TO_CHAR(:5))),0)+:6))
+   6 - access("U"."USER_ID"="O"."USER_ID")
+   8 - filter((INTERNAL_FUNCTION("O"."STATUS") AND SYS_EXTRACT_UTC("CREATED_AT")>=SYS_EXTRACT_UTC(:1) AND 
+              SYS_EXTRACT_UTC("CREATED_AT")<SYS_EXTRACT_UTC(:2)))
+  12 - filter(SYS_EXTRACT_UTC(:4)>SYS_EXTRACT_UTC(:3))
+  13 - filter((INTERNAL_FUNCTION("O2"."STATUS") AND SYS_EXTRACT_UTC("CREATED_AT")>=SYS_EXTRACT_UTC(:3) AND 
+              SYS_EXTRACT_UTC("CREATED_AT")<SYS_EXTRACT_UTC(:4)))
+ 

@@ -1135,7 +1135,8 @@ Index gồm:
 
 | Field | Mục đích |
 |---|---|
-| `userId` | Filter hoặc aggregate theo Customer |
+| `userId` (NUMERIC SORTABLE) | Filter hoặc aggregate theo Customer |
+| `userName`, `userEmail` (TEXT NOINDEX SORTABLE UNF) | Trả về khi gom nhóm theo Customer, không tìm kiếm |
 | `status` | Chỉ thống kê các Order hợp lệ |
 | `orderType` | So sánh Normal và Flash Sale |
 | `totalAmount` | Aggregate doanh thu |
@@ -1153,14 +1154,17 @@ idx:order-line-analytics   ON JSON   PREFIX order:line:
 | `orderId`, `userId` | NUMERIC | Lọc, gom nhóm theo đơn/khách |
 | `status`, `orderType` | TAG | Chỉ tính đơn hợp lệ; so sánh Normal và Flash Sale |
 | `createdAt` | NUMERIC SORTABLE | Lọc theo khoảng thời gian |
-| `productId`, `categoryId` | NUMERIC | Gom nhóm theo Product/Category |
-| `quantity`, `lineTotal` | NUMERIC | Tổng số lượng, doanh thu |
+| `productId`, `categoryId` | NUMERIC SORTABLE | Gom nhóm theo Product/Category |
+| `productName`, `categoryName` | TEXT NOINDEX SORTABLE UNF | Trả về cùng nhóm, không tìm kiếm; giữ nguyên chữ hoa, dấu, dấu phẩy |
+| `quantity`, `lineTotal` | NUMERIC SORTABLE | Tổng số lượng, doanh thu |
+
+Trường nào được `GROUPBY`, `REDUCE` hoặc trả về phải là `SORTABLE`: giá trị nằm sẵn trong index, RediSearch không phải đọc lại JSON của từng document. Đo phía server (`INFO commandstats`) trên 215k dòng: doanh thu theo danh mục từ khoảng 1,5 s (trường thường + `LOAD` tên) xuống khoảng 0,15–0,33 s, ngang Oracle. Không dùng `LOAD` trong báo cáo.
 
 Ví dụ doanh thu theo category:
 
 ```text
-FT.AGGREGATE idx:order-line-analytics "@status:{CONFIRMED|COMPLETED}"
-  GROUPBY 1 @categoryId REDUCE SUM 1 @lineTotal AS revenue
+FT.AGGREGATE idx:order-line-analytics "@status:{CONFIRMED|COMPLETED}" TIMEOUT 0
+  GROUPBY 2 @categoryId @categoryName REDUCE SUM 1 @lineTotal AS revenue
 ```
 
 ---

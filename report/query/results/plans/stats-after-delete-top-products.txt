@@ -1,0 +1,75 @@
+# top-products {'source': 'oracle'}
+# statement:
+SELECT /*+ GATHER_PLAN_STATISTICS */ p.product_id,
+       p.name AS product_name,
+       c.name AS category_name,
+       SUM(oi.quantity) AS quantity,
+       SUM(oi.line_total) AS revenue
+FROM orders o
+JOIN order_items oi ON oi.order_id = o.order_id
+JOIN products p ON p.product_id = oi.product_id
+JOIN categories c ON c.category_id = p.category_id
+WHERE o.status IN ('CONFIRMED', 'COMPLETED')
+  AND o.created_at >= :fromTs
+  AND o.created_at < :toExclusiveTs
+GROUP BY p.product_id, p.name, c.name
+ORDER BY quantity DESC, p.product_id
+FETCH FIRST :limit ROWS ONLY
+
+SQL_ID  15f4377td42pw, child number 0
+-------------------------------------
+SELECT /*+ GATHER_PLAN_STATISTICS */ p.product_id,        p.name AS 
+product_name,        c.name AS category_name,        SUM(oi.quantity) 
+AS quantity,        SUM(oi.line_total) AS revenue FROM orders o JOIN 
+order_items oi ON oi.order_id = o.order_id JOIN products p ON 
+p.product_id = oi.product_id JOIN categories c ON c.category_id = 
+p.category_id WHERE o.status IN ('CONFIRMED', 'COMPLETED')   AND 
+o.created_at >= :1 AND o.created_at < :2 GROUP BY p.product_id, p.name, 
+c.name ORDER BY quantity DESC, p.product_id FETCH FIRST :3 ROWS ONLY
+ 
+Plan hash value: 56634007
+ 
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+| Id  | Operation                                      | Name                     | Starts | E-Rows | A-Rows |   A-Time   | Buffers |  OMem |  1Mem | Used-Mem |
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT                               |                          |      1 |        |     10 |00:00:00.58 |   90978 |       |       |          |
+|*  1 |  COUNT STOPKEY                                 |                          |      1 |        |     10 |00:00:00.58 |   90978 |       |       |          |
+|   2 |   VIEW                                         |                          |      1 |    285K|     10 |00:00:00.58 |   90978 |       |       |          |
+|*  3 |    SORT ORDER BY STOPKEY                       |                          |      1 |    285K|     10 |00:00:00.58 |   90978 |  4096 |  4096 | 4096  (0)|
+|   4 |     HASH GROUP BY                              |                          |      1 |    285K|   9001 |00:00:00.58 |   90978 |  1970K|  1126K|   17M (0)|
+|   5 |      MERGE JOIN                                |                          |      1 |    285K|   9001 |00:00:00.57 |   90978 |       |       |          |
+|   6 |       SORT JOIN                                |                          |      1 |    285K|   9001 |00:00:00.56 |   90723 |   478K|   448K|  424K (0)|
+|   7 |        VIEW                                    | VW_GBC_18                |      1 |    285K|   9001 |00:00:00.55 |   90723 |       |       |          |
+|   8 |         HASH GROUP BY                          |                          |      1 |    285K|   9001 |00:00:00.55 |   90723 |  1563K|  1317K|   11M (0)|
+|*  9 |          FILTER                                |                          |      1 |        |    215K|00:00:00.48 |   90723 |       |       |          |
+|* 10 |           HASH JOIN                            |                          |      1 |    285K|    215K|00:00:00.46 |   90723 |  5998K|  3201K| 5087K (0)|
+|  11 |            INLIST ITERATOR                     |                          |      1 |        |  87141 |00:00:00.31 |   88010 |       |       |          |
+|  12 |             TABLE ACCESS BY INDEX ROWID BATCHED| ORDERS                   |      2 |  89730 |  87141 |00:00:00.30 |   88010 |       |       |          |
+|* 13 |              INDEX RANGE SCAN                  | IX_ORDERS_STATUS_CREATED |      2 |      2 |  87141 |00:00:00.04 |     916 |       |       |          |
+|* 14 |            TABLE ACCESS FULL                   | ORDER_ITEMS              |      1 |    285K|    247K|00:00:00.06 |    2713 |       |       |          |
+|* 15 |       SORT JOIN                                |                          |   9001 |  10403 |   9001 |00:00:00.01 |     255 |   974K|   535K|  865K (0)|
+|  16 |        VIEW                                    | VW_GBF_19                |      1 |  10403 |  10001 |00:00:00.01 |     255 |       |       |          |
+|* 17 |         HASH JOIN                              |                          |      1 |  10403 |  10001 |00:00:00.01 |     255 |  1376K|  1376K| 2694K (0)|
+|  18 |          TABLE ACCESS FULL                     | CATEGORIES               |      1 |     51 |     51 |00:00:00.01 |       7 |       |       |          |
+|  19 |          TABLE ACCESS FULL                     | PRODUCTS                 |      1 |  10403 |  10001 |00:00:00.01 |     248 |       |       |          |
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+ 
+Predicate Information (identified by operation id):
+---------------------------------------------------
+ 
+   1 - filter(ROWNUM<=:3)
+   3 - filter(ROWNUM<=:3)
+   9 - filter(SYS_EXTRACT_UTC(:2)>SYS_EXTRACT_UTC(:1))
+  10 - access("OI"."ORDER_ID"="O"."ORDER_ID")
+  13 - access((("O"."STATUS"='COMPLETED' OR "O"."STATUS"='CONFIRMED')) AND "O"."SYS_NC00016$">=SYS_EXTRACT_UTC(:1) AND 
+              "O"."SYS_NC00016$"<SYS_EXTRACT_UTC(:2))
+  14 - filter("UNIT_PRICE"*"QUANTITY">=0)
+  15 - access("ITEM_1"="ITEM_1")
+       filter("ITEM_1"="ITEM_1")
+  17 - access("C"."CATEGORY_ID"="P"."CATEGORY_ID")
+ 
+Note
+-----
+   - dynamic statistics used: dynamic sampling (level=2)
+   - this is an adaptive plan
+ 

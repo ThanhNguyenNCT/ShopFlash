@@ -1,0 +1,196 @@
+# vip-customers {'source': 'redis', 'redisMode': 'AGGREGATE'}
+# statement:
+FT.AGGREGATE idx:order-analytics '@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]' TIMEOUT 0 GROUPBY 1 @userId REDUCE SUM 1 @totalAmount AS totalSpent GROUPBY 0 REDUCE AVG 1 @totalSpent AS averageSpent REDUCE COUNT 0 AS customerCount
+FT.PROFILE idx:order-analytics AGGREGATE QUERY '@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]' TIMEOUT 0 GROUPBY 3 @userId @userName @userEmail REDUCE SUM 1 @totalAmount AS totalSpent REDUCE COUNT 0 AS orderCount FILTER '@totalSpent > 74128020.3383' SORTBY 4 @totalSpent DESC @userId ASC LIMIT 0 20
+
+Lượt 1 (đã chạy, không profile): trung bình tổng chi = 74128020.3383
+Lượt 2 (profile): lọc khách có tổng chi > 74128020.3383
+Số dòng kết quả: 20
+  Total profile time=1416
+  Parsing time=0
+  Pipeline creation time=0
+  Warning
+  Iterators profile:
+    Type=INTERSECT, Time=818, Counter=87141
+    Child iterators:
+      Type=UNION, Query type=TAG, Time=232, Counter=87141
+      Child iterators:
+        Type=TAG, Term=confirmed, Time=22, Counter=25021, Size=25021
+        Type=TAG, Term=completed, Time=55, Counter=62120, Size=62120
+      Type=UNION, Query type=NUMERIC, Time=351, Counter=87141
+      Child iterators:
+        Type=NUMERIC, Term=1.76193e+09 - 1.76203e+09, Time=0, Counter=416, Size=416
+        Type=NUMERIC, Term=1.76203e+09 - 1.76213e+09, Time=0, Counter=375, Size=376
+        Type=NUMERIC, Term=1.76214e+09 - 1.76233e+09, Time=1, Counter=706, Size=710
+        Type=NUMERIC, Term=1.76233e+09 - 1.76253e+09, Time=0, Counter=687, Size=691
+        Type=NUMERIC, Term=1.76253e+09 - 1.76274e+09, Time=1, Counter=816, Size=819
+        Type=NUMERIC, Term=1.76274e+09 - 1.76282e+09, Time=0, Counter=467, Size=467
+        Type=NUMERIC, Term=1.76282e+09 - 1.76288e+09, Time=0, Counter=499, Size=499
+        Type=NUMERIC, Term=1.76288e+09 - 1.76304e+09, Time=0, Counter=578, Size=581
+        Type=NUMERIC, Term=1.76304e+09 - 1.76323e+09, Time=0, Counter=671, Size=675
+        Type=NUMERIC, Term=1.76323e+09 - 1.7634e+09, Time=1, Counter=664, Size=669
+        Type=NUMERIC, Term=1.7634e+09 - 1.76362e+09, Time=1, Counter=760, Size=769
+        Type=NUMERIC, Term=1.76362e+09 - 1.76382e+09, Time=1, Counter=734, Size=735
+        Type=NUMERIC, Term=1.76382e+09 - 1.764e+09, Time=1, Counter=712, Size=718
+        Type=NUMERIC, Term=1.764e+09 - 1.76421e+09, Time=1, Counter=723, Size=728
+        Type=NUMERIC, Term=1.76421e+09 - 1.76441e+09, Time=2, Counter=768, Size=773
+        Type=NUMERIC, Term=1.76441e+09 - 1.76463e+09, Time=1, Counter=819, Size=828
+        Type=NUMERIC, Term=1.76463e+09 - 1.76485e+09, Time=0, Counter=713, Size=716
+        Type=NUMERIC, Term=1.76485e+09 - 1.76506e+09, Time=1, Counter=727, Size=731
+        Type=NUMERIC, Term=1.76506e+09 - 1.76528e+09, Time=1, Counter=772, Size=778
+        Type=NUMERIC, Term=1.76528e+09 - 1.76539e+09, Time=0, Counter=385, Size=386
+        Type=NUMERIC, Term=1.76539e+09 - 1.76549e+09, Time=0, Counter=404, Size=405
+        Type=NUMERIC, Term=1.76549e+09 - 1.76558e+09, Time=1, Counter=663, Size=665
+        Type=NUMERIC, Term=1.76558e+09 - 1.76571e+09, Time=0, Counter=470, Size=472
+        Type=NUMERIC, Term=1.76571e+09 - 1.76584e+09, Time=0, Counter=467, Size=468
+        Type=NUMERIC, Term=1.76584e+09 - 1.76597e+09, Time=0, Counter=448, Size=448
+        Type=NUMERIC, Term=1.76597e+09 - 1.76624e+09, Time=1, Counter=949, Size=955
+        Type=NUMERIC, Term=1.76624e+09 - 1.7665e+09, Time=1, Counter=910, Size=916
+        Type=NUMERIC, Term=1.7665e+09 - 1.76663e+09, Time=0, Counter=410, Size=412
+        Type=NUMERIC, Term=1.76663e+09 - 1.76675e+09, Time=0, Counter=453, Size=453
+        Type=NUMERIC, Term=1.76676e+09 - 1.76697e+09, Time=1, Counter=817, Size=820
+        Type=NUMERIC, Term=1.76697e+09 - 1.7671e+09, Time=0, Counter=441, Size=442
+        Type=NUMERIC, Term=1.7671e+09 - 1.76723e+09, Time=0, Counter=429, Size=430
+        Type=NUMERIC, Term=1.76723e+09 - 1.76735e+09, Time=0, Counter=483, Size=487
+        Type=NUMERIC, Term=1.76735e+09 - 1.76747e+09, Time=0, Counter=512, Size=516
+        Type=NUMERIC, Term=1.76747e+09 - 1.76772e+09, Time=1, Counter=1019, Size=1025
+        Type=NUMERIC, Term=1.76772e+09 - 1.76783e+09, Time=0, Counter=450, Size=451
+        Type=NUMERIC, Term=1.76783e+09 - 1.76795e+09, Time=1, Counter=481, Size=482
+        Type=NUMERIC, Term=1.76795e+09 - 1.76805e+09, Time=0, Counter=466, Size=466
+        Type=NUMERIC, Term=1.76806e+09 - 1.76815e+09, Time=0, Counter=443, Size=443
+        Type=NUMERIC, Term=1.76815e+09 - 1.76828e+09, Time=0, Counter=509, Size=511
+        Type=NUMERIC, Term=1.76828e+09 - 1.7684e+09, Time=0, Counter=472, Size=472
+        Type=NUMERIC, Term=1.7684e+09 - 1.76852e+09, Time=0, Counter=481, Size=482
+        Type=NUMERIC, Term=1.76852e+09 - 1.76863e+09, Time=0, Counter=461, Size=463
+        Type=NUMERIC, Term=1.76863e+09 - 1.76885e+09, Time=1, Counter=972, Size=983
+        Type=NUMERIC, Term=1.76886e+09 - 1.76901e+09, Time=1, Counter=608, Size=609
+        Type=NUMERIC, Term=1.76901e+09 - 1.76918e+09, Time=1, Counter=677, Size=681
+        Type=NUMERIC, Term=1.76918e+09 - 1.76927e+09, Time=0, Counter=395, Size=395
+        Type=NUMERIC, Term=1.76927e+09 - 1.76935e+09, Time=0, Counter=402, Size=402
+        Type=NUMERIC, Term=1.76935e+09 - 1.76951e+09, Time=0, Counter=635, Size=640
+        Type=NUMERIC, Term=1.76951e+09 - 1.76967e+09, Time=0, Counter=669, Size=671
+        Type=NUMERIC, Term=1.76968e+09 - 1.76983e+09, Time=1, Counter=650, Size=653
+        Type=NUMERIC, Term=1.76983e+09 - 1.77004e+09, Time=1, Counter=557, Size=560
+        Type=NUMERIC, Term=1.77004e+09 - 1.77033e+09, Time=0, Counter=553, Size=554
+        Type=NUMERIC, Term=1.77033e+09 - 1.77055e+09, Time=1, Counter=488, Size=495
+        Type=NUMERIC, Term=1.77055e+09 - 1.77078e+09, Time=0, Counter=448, Size=448
+        Type=NUMERIC, Term=1.77078e+09 - 1.77102e+09, Time=0, Counter=468, Size=470
+        Type=NUMERIC, Term=1.77102e+09 - 1.77127e+09, Time=0, Counter=551, Size=554
+        Type=NUMERIC, Term=1.77127e+09 - 1.77153e+09, Time=0, Counter=512, Size=513
+        Type=NUMERIC, Term=1.77153e+09 - 1.77175e+09, Time=0, Counter=476, Size=476
+        Type=NUMERIC, Term=1.77175e+09 - 1.77201e+09, Time=0, Counter=527, Size=529
+        Type=NUMERIC, Term=1.77201e+09 - 1.77227e+09, Time=0, Counter=528, Size=528
+        Type=NUMERIC, Term=1.77227e+09 - 1.77242e+09, Time=0, Counter=409, Size=410
+        Type=NUMERIC, Term=1.77242e+09 - 1.77259e+09, Time=0, Counter=386, Size=387
+        Type=NUMERIC, Term=1.77259e+09 - 1.77277e+09, Time=0, Counter=434, Size=434
+        Type=NUMERIC, Term=1.77277e+09 - 1.77293e+09, Time=0, Counter=431, Size=431
+        Type=NUMERIC, Term=1.77293e+09 - 1.77309e+09, Time=0, Counter=428, Size=428
+        Type=NUMERIC, Term=1.77309e+09 - 1.77325e+09, Time=0, Counter=402, Size=403
+        Type=NUMERIC, Term=1.77326e+09 - 1.77357e+09, Time=1, Counter=807, Size=809
+        Type=NUMERIC, Term=1.77357e+09 - 1.77387e+09, Time=1, Counter=747, Size=754
+        Type=NUMERIC, Term=1.77387e+09 - 1.77404e+09, Time=0, Counter=429, Size=430
+        Type=NUMERIC, Term=1.77404e+09 - 1.77419e+09, Time=0, Counter=417, Size=417
+        Type=NUMERIC, Term=1.77419e+09 - 1.77436e+09, Time=0, Counter=429, Size=430
+        Type=NUMERIC, Term=1.77436e+09 - 1.77453e+09, Time=0, Counter=434, Size=434
+        Type=NUMERIC, Term=1.77453e+09 - 1.77483e+09, Time=1, Counter=775, Size=783
+        Type=NUMERIC, Term=1.77483e+09 - 1.77501e+09, Time=0, Counter=452, Size=454
+        Type=NUMERIC, Term=1.77501e+09 - 1.77517e+09, Time=0, Counter=429, Size=431
+        Type=NUMERIC, Term=1.77517e+09 - 1.77535e+09, Time=0, Counter=523, Size=526
+        Type=NUMERIC, Term=1.77535e+09 - 1.7755e+09, Time=0, Counter=420, Size=421
+        Type=NUMERIC, Term=1.7755e+09 - 1.77567e+09, Time=0, Counter=438, Size=441
+        Type=NUMERIC, Term=1.77568e+09 - 1.77585e+09, Time=0, Counter=461, Size=466
+        Type=NUMERIC, Term=1.77585e+09 - 1.77602e+09, Time=0, Counter=514, Size=515
+        Type=NUMERIC, Term=1.77602e+09 - 1.7762e+09, Time=0, Counter=471, Size=471
+        Type=NUMERIC, Term=1.7762e+09 - 1.77635e+09, Time=0, Counter=391, Size=395
+        Type=NUMERIC, Term=1.77635e+09 - 1.7765e+09, Time=0, Counter=422, Size=423
+        Type=NUMERIC, Term=1.7765e+09 - 1.77664e+09, Time=0, Counter=422, Size=425
+        Type=NUMERIC, Term=1.77664e+09 - 1.77681e+09, Time=0, Counter=444, Size=446
+        Type=NUMERIC, Term=1.77681e+09 - 1.77711e+09, Time=1, Counter=823, Size=825
+        Type=NUMERIC, Term=1.77711e+09 - 1.77742e+09, Time=1, Counter=875, Size=880
+        Type=NUMERIC, Term=1.77742e+09 - 1.77758e+09, Time=0, Counter=432, Size=432
+        Type=NUMERIC, Term=1.77758e+09 - 1.77773e+09, Time=0, Counter=462, Size=463
+        Type=NUMERIC, Term=1.77773e+09 - 1.77789e+09, Time=0, Counter=494, Size=497
+        Type=NUMERIC, Term=1.77789e+09 - 1.77805e+09, Time=0, Counter=464, Size=465
+        Type=NUMERIC, Term=1.77805e+09 - 1.77832e+09, Time=1, Counter=768, Size=772
+        Type=NUMERIC, Term=1.77832e+09 - 1.77845e+09, Time=0, Counter=419, Size=419
+        Type=NUMERIC, Term=1.77845e+09 - 1.7786e+09, Time=0, Counter=434, Size=436
+        Type=NUMERIC, Term=1.7786e+09 - 1.77885e+09, Time=1, Counter=715, Size=719
+        Type=NUMERIC, Term=1.77885e+09 - 1.77909e+09, Time=1, Counter=781, Size=786
+        Type=NUMERIC, Term=1.77909e+09 - 1.77924e+09, Time=0, Counter=409, Size=411
+        Type=NUMERIC, Term=1.77924e+09 - 1.77939e+09, Time=0, Counter=423, Size=424
+        Type=NUMERIC, Term=1.77939e+09 - 1.77953e+09, Time=0, Counter=440, Size=440
+        Type=NUMERIC, Term=1.77953e+09 - 1.77966e+09, Time=0, Counter=411, Size=414
+        Type=NUMERIC, Term=1.77966e+09 - 1.77982e+09, Time=0, Counter=477, Size=480
+        Type=NUMERIC, Term=1.77982e+09 - 1.77999e+09, Time=0, Counter=473, Size=475
+        Type=NUMERIC, Term=1.77999e+09 - 1.78016e+09, Time=0, Counter=541, Size=542
+        Type=NUMERIC, Term=1.78016e+09 - 1.78032e+09, Time=0, Counter=512, Size=513
+        Type=NUMERIC, Term=1.78032e+09 - 1.78047e+09, Time=0, Counter=491, Size=493
+        Type=NUMERIC, Term=1.78047e+09 - 1.78064e+09, Time=0, Counter=519, Size=521
+        Type=NUMERIC, Term=1.78064e+09 - 1.7808e+09, Time=0, Counter=579, Size=580
+        Type=NUMERIC, Term=1.7808e+09 - 1.78096e+09, Time=0, Counter=534, Size=535
+        Type=NUMERIC, Term=1.78096e+09 - 1.78121e+09, Time=1, Counter=806, Size=811
+        Type=NUMERIC, Term=1.78121e+09 - 1.78134e+09, Time=0, Counter=468, Size=469
+        Type=NUMERIC, Term=1.78134e+09 - 1.78147e+09, Time=0, Counter=485, Size=486
+        Type=NUMERIC, Term=1.78147e+09 - 1.78159e+09, Time=0, Counter=373, Size=374
+        Type=NUMERIC, Term=1.78159e+09 - 1.78172e+09, Time=0, Counter=409, Size=409
+        Type=NUMERIC, Term=1.78172e+09 - 1.78185e+09, Time=0, Counter=446, Size=448
+        Type=NUMERIC, Term=1.78185e+09 - 1.78198e+09, Time=0, Counter=432, Size=433
+        Type=NUMERIC, Term=1.78198e+09 - 1.78219e+09, Time=0, Counter=722, Size=725
+        Type=NUMERIC, Term=1.78219e+09 - 1.78241e+09, Time=1, Counter=739, Size=741
+        Type=NUMERIC, Term=1.78241e+09 - 1.7826e+09, Time=1, Counter=652, Size=653
+        Type=NUMERIC, Term=1.7826e+09 - 1.78279e+09, Time=1, Counter=667, Size=669
+        Type=NUMERIC, Term=1.78279e+09 - 1.783e+09, Time=0, Counter=600, Size=600
+        Type=NUMERIC, Term=1.783e+09 - 1.78324e+09, Time=1, Counter=759, Size=763
+        Type=NUMERIC, Term=1.78324e+09 - 1.78347e+09, Time=1, Counter=650, Size=652
+        Type=NUMERIC, Term=1.78348e+09 - 1.78372e+09, Time=0, Counter=712, Size=715
+        Type=NUMERIC, Term=1.78373e+09 - 1.78397e+09, Time=1, Counter=757, Size=758
+        Type=NUMERIC, Term=1.78397e+09 - 1.78419e+09, Time=0, Counter=632, Size=634
+        Type=NUMERIC, Term=1.78419e+09 - 1.78445e+09, Time=1, Counter=780, Size=782
+        Type=NUMERIC, Term=1.78445e+09 - 1.7847e+09, Time=1, Counter=729, Size=732
+        Type=NUMERIC, Term=1.7847e+09 - 1.78496e+09, Time=1, Counter=748, Size=754
+        Type=NUMERIC, Term=1.78496e+09 - 1.7852e+09, Time=1, Counter=753, Size=757
+        Type=NUMERIC, Term=1.78521e+09 - 1.78547e+09, Time=1, Counter=733, Size=738
+        Type=NUMERIC, Term=1.78547e+09 - 1.78568e+09, Time=1, Counter=773, Size=774
+        Type=NUMERIC, Term=1.78568e+09 - 1.78591e+09, Time=1, Counter=718, Size=721
+        Type=NUMERIC, Term=1.78591e+09 - 1.78616e+09, Time=1, Counter=834, Size=838
+        Type=NUMERIC, Term=1.78616e+09 - 1.78641e+09, Time=1, Counter=860, Size=866
+        Type=NUMERIC, Term=1.78641e+09 - 1.78656e+09, Time=0, Counter=453, Size=454
+        Type=NUMERIC, Term=1.78656e+09 - 1.7867e+09, Time=1, Counter=453, Size=453
+        Type=NUMERIC, Term=1.7867e+09 - 1.78694e+09, Time=1, Counter=873, Size=880
+        Type=NUMERIC, Term=1.78694e+09 - 1.78707e+09, Time=0, Counter=393, Size=394
+        Type=NUMERIC, Term=1.78707e+09 - 1.7872e+09, Time=0, Counter=426, Size=432
+        Type=NUMERIC, Term=1.7872e+09 - 1.78734e+09, Time=0, Counter=464, Size=466
+        Type=NUMERIC, Term=1.78734e+09 - 1.78747e+09, Time=0, Counter=479, Size=480
+        Type=NUMERIC, Term=1.78747e+09 - 1.78761e+09, Time=0, Counter=443, Size=444
+        Type=NUMERIC, Term=1.78761e+09 - 1.78773e+09, Time=0, Counter=417, Size=418
+        Type=NUMERIC, Term=1.78773e+09 - 1.78795e+09, Time=1, Counter=697, Size=701
+        Type=NUMERIC, Term=1.78795e+09 - 1.78815e+09, Time=1, Counter=749, Size=749
+        Type=NUMERIC, Term=1.78815e+09 - 1.78837e+09, Time=1, Counter=762, Size=763
+        Type=NUMERIC, Term=1.78837e+09 - 1.78858e+09, Time=1, Counter=741, Size=744
+        Type=NUMERIC, Term=1.78858e+09 - 1.78877e+09, Time=1, Counter=801, Size=803
+        Type=NUMERIC, Term=1.78877e+09 - 1.78899e+09, Time=1, Counter=763, Size=768
+        Type=NUMERIC, Term=1.78899e+09 - 1.78918e+09, Time=1, Counter=725, Size=726
+        Type=NUMERIC, Term=1.78918e+09 - 1.7894e+09, Time=1, Counter=843, Size=852
+        Type=NUMERIC, Term=1.7894e+09 - 1.78958e+09, Time=1, Counter=641, Size=646
+        Type=NUMERIC, Term=1.78958e+09 - 1.78977e+09, Time=0, Counter=687, Size=690
+        Type=NUMERIC, Term=1.78977e+09 - 1.78995e+09, Time=1, Counter=767, Size=772
+        Type=NUMERIC, Term=1.78995e+09 - 1.79014e+09, Time=0, Counter=684, Size=687
+        Type=NUMERIC, Term=1.79014e+09 - 1.79034e+09, Time=0, Counter=706, Size=709
+        Type=NUMERIC, Term=1.79034e+09 - 1.79051e+09, Time=0, Counter=718, Size=720
+        Type=NUMERIC, Term=1.79051e+09 - 1.7907e+09, Time=0, Counter=680, Size=685
+        Type=NUMERIC, Term=1.7907e+09 - 1.79089e+09, Time=1, Counter=705, Size=709
+        Type=NUMERIC, Term=1.79089e+09 - 1.79106e+09, Time=1, Counter=760, Size=764
+        Type=NUMERIC, Term=1.79106e+09 - 1.79124e+09, Time=1, Counter=763, Size=764
+        Type=NUMERIC, Term=1.79124e+09 - 1.79134e+09, Time=0, Counter=389, Size=393
+        Type=NUMERIC, Term=1.79134e+09 - 1.79144e+09, Time=0, Counter=399, Size=401
+        Type=NUMERIC, Term=1.79144e+09 - 1.79155e+09, Time=0, Counter=423, Size=425
+        Type=NUMERIC, Term=1.79155e+09 - 1.79165e+09, Time=0, Counter=484, Size=486
+        Type=NUMERIC, Term=1.79165e+09 - 1.79181e+09, Time=0, Counter=679, Size=681
+        Type=NUMERIC, Term=1.79181e+09 - 1.792e+09, Time=1, Counter=764, Size=765
+        Type=NUMERIC, Term=1.792e+09 - 1.79218e+09, Time=1, Counter=716, Size=719
+        Type=NUMERIC, Term=1.79218e+09 - 1.79234e+09, Time=1, Counter=758, Size=761
+  Result processors profile:
+    Type=Index, Time=1016, Counter=87141
+    Type=Grouper, Time=368, Counter=19274
+    Type=Filter - Predicate >, Time=26, Counter=6049
+    Type=Sorter, Time=5, Counter=20

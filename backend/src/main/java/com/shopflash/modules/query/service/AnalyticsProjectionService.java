@@ -104,8 +104,8 @@ public class AnalyticsProjectionService implements AnalyticsProjection {
         }
 
         List<Object> replies = redis.pipeline(List.of(
-                new String[] {"FT.SEARCH", ORDER_INDEX, COUNTED_STATUS, "LIMIT", "0", "0"},
-                new String[] {"FT.SEARCH", LINE_INDEX, COUNTED_STATUS, "LIMIT", "0", "0"},
+                new String[] {"FT.SEARCH", ORDER_INDEX, COUNTED_STATUS, "TIMEOUT", "0", "LIMIT", "0", "0"},
+                new String[] {"FT.SEARCH", LINE_INDEX, COUNTED_STATUS, "TIMEOUT", "0", "LIMIT", "0", "0"},
                 new String[] {"FT.INFO", ORDER_INDEX},
                 new String[] {"FT.INFO", LINE_INDEX},
                 new String[] {"HGETALL", META}));

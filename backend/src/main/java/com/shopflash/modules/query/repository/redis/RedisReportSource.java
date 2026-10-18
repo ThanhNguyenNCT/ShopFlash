@@ -347,7 +347,7 @@ public class RedisReportSource implements ReportSource {
 
     private PlanResponse planClient(ReportQuery q) {
         String index = clientIndex(q.report());
-        String[] count = {"FT.SEARCH", index, RedisAggregateCommands.filter(q), "LIMIT", "0", "0"};
+        String[] count = {"FT.SEARCH", index, RedisAggregateCommands.filter(q), "TIMEOUT", "0", "LIMIT", "0", "0"};
         long docs = RedisReplies.asLong(RedisReplies.list(redis.call(count)).get(0));
         long pages = Math.max(1, (docs + CURSOR_COUNT - 1) / CURSOR_COUNT);
         String[] fetch = clientFetch(q);

@@ -165,25 +165,25 @@ git clone <repository-url>
 cd ShopFlash
 ```
 
-### Start the Databases
+### Run everything (one command)
 
-Pull the two pinned images first (Compose never pulls them implicitly); the exact commands are in [`db/README.md`](db/README.md#setup). Then:
+Windows (PowerShell):
 
-```bash
-cp .env.example .env
-# Replace the placeholder passwords in .env (letters, digits and _ only, starting with a letter).
-docker compose up -d --wait
-docker compose exec -T redis redis-cli -e --eval /opt/shopflash/redis/init.lua
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\dev.ps1
 ```
 
-The Oracle container creates user `SHOP` on start. Flyway applies the migrations as `SHOP` when the backend starts; profile `dev` also loads the local fixtures:
+macOS / Linux:
 
 ```bash
-cd backend
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+scripts/dev.sh
 ```
 
-See [`db/README.md`](db/README.md) for reset instructions.
+The script checks Docker and the pinned images, creates `.env` with random local passwords if missing, starts Oracle and Redis, creates the Redis indexes, starts the backend (profile `dev`, with sample data) and the frontend, waits for `GET /api/health`, builds the Redis read model if it is empty, and opens http://localhost:5173. Options: `-NoBackend` / `--no-backend`, `-Mock` / `--mock` (frontend only, sample data, no Docker), `-Stop` / `--stop`.
+
+First time only: pull the two images listed in [`db/README.md`](db/README.md#setup) (Oracle is about 3.7 GB).
+
+Step-by-step manual commands, project layout and how to add your module: [`docs/HUONG_DAN_DEV.md`](docs/HUONG_DAN_DEV.md). How to use the app: [`docs/HUONG_DAN_SU_DUNG.md`](docs/HUONG_DAN_SU_DUNG.md).
 
 ### Run the Application
 

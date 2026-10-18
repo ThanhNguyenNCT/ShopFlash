@@ -1,0 +1,100 @@
+/* Khung trang khách hàng và quản trị. Mọi giá trị lấy từ biến --sf-* của design system. */
+
+/* ---- Cửa hàng (CustomerLayout) ---- */
+.sf-shop { min-height: 100vh; display: flex; flex-direction: column; background: var(--sf-color-surface-sunken); }
+
+.sf-container {
+  width: 100%;
+  max-width: calc(var(--sf-space-8) * 38); /* 1216px */
+  margin: 0 auto;
+  padding-inline: var(--sf-space-6);
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.sf-shop-header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--sf-color-surface);
+  border-bottom: 1px solid var(--sf-color-line);
+}
+.sf-shop-header__inner {
+  display: flex; align-items: center; gap: var(--sf-space-4);
+  min-height: calc(var(--sf-space-8) * 2);
+}
+.sf-shop-header__search { flex: 1 1 auto; min-width: 0; max-width: calc(var(--sf-space-8) * 15); }
+.sf-shop-header__search-row { padding-bottom: var(--sf-space-3); }
+.sf-shop-header__actions { display: flex; align-items: center; gap: var(--sf-space-1); margin-inline-start: auto; }
+
+.sf-shop-logo {
+  display: inline-flex; align-items: center; gap: var(--sf-space-2);
+  color: var(--sf-color-brand);
+  font-size: var(--sf-text-title-size);
+  line-height: var(--sf-text-title-line);
+  font-weight: var(--sf-text-display-weight);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.sf-shop-logo:hover { color: var(--sf-color-brand-hover); }
+
+.sf-shop-nav { display: flex; align-items: center; gap: var(--sf-space-1); }
+.sf-shop-nav a {
+  display: inline-flex; align-items: center; gap: var(--sf-space-2);
+  padding: var(--sf-space-2) var(--sf-space-3);
+  border-radius: var(--sf-radius-md);
+  color: var(--sf-color-ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.sf-shop-nav a:hover { background: var(--sf-color-surface-sunken); }
+.sf-shop-nav a.active { color: var(--sf-color-brand); background: var(--sf-color-brand-tint); }
+
+.sf-shop-main { flex: 1 0 auto; padding-block: var(--sf-space-6); }
+
+.sf-shop-footer {
+  border-top: 1px solid var(--sf-color-line);
+  background: var(--sf-color-surface);
+  color: var(--sf-color-ink-muted);
+  font-size: var(--sf-text-caption-size);
+  line-height: var(--sf-text-caption-line);
+}
+.sf-shop-footer__inner {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--sf-space-2);
+  padding-block: var(--sf-space-4);
+}
+
+/* Danh sách link dọc trong Drawer (mobile) */
+.sf-drawer-nav { display: grid; gap: var(--sf-space-1); }
+.sf-drawer-nav.sf-shop-nav { display: grid; }
+
+@media (max-width: 767px) {
+  .sf-container { padding-inline: var(--sf-space-4); }
+  .sf-shop-header__inner { gap: var(--sf-space-2); min-height: calc(var(--sf-space-8) + var(--sf-space-6)); }
+  .sf-shop-logo { font-size: var(--sf-text-heading-size); line-height: var(--sf-text-heading-line); }
+  .sf-shop-main { padding-block: var(--sf-space-4); }
+}
+
+/* ---- Quản trị (AdminLayout) ---- */
+.sf-admin-brand {
+  display: flex; align-items: center; gap: var(--sf-space-2);
+  padding: var(--sf-space-4);
+  color: var(--sf-color-brand);
+  font-weight: var(--sf-text-display-weight);
+  font-size: var(--sf-text-heading-size);
+  line-height: var(--sf-text-heading-line);
+  white-space: nowrap;
+}
+.sf-admin-brand:hover { color: var(--sf-color-brand-hover); }
+.sf-admin-brand small {
+  color: var(--sf-color-ink-muted);
+  font-weight: 600;
+  font-size: var(--sf-text-label-size);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.sf-admin-header {
+  display: flex; align-items: center; gap: var(--sf-space-2);
+  border-bottom: 1px solid var(--sf-color-line);
+  min-width: 0;
+}
+.sf-admin-header__user { display: inline-flex; align-items: center; gap: var(--sf-space-2); min-width: 0; margin-inline-end: auto; }
+.sf-admin-header__name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }

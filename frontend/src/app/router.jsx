@@ -1,25 +1,59 @@
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Button, Result, Spin } from 'antd';
-import { createBrowserRouter, Navigate, Outlet, useNavigate } from 'react-router-dom';
+import { createBrowserRouter, Outlet, useMatches, useNavigate } from 'react-router-dom';
 import AdminLayout from '@/shared/layouts/AdminLayout';
+import CustomerLayout from '@/shared/layouts/CustomerLayout';
+import { RequireAdmin } from '@/shared/auth';
+import authRoutes from '@/shared/auth/routes';
 
-// Gom routes.jsx của mọi module. Mỗi file export default một mảng:
-//   { path: '/admin/...', element: <Page />, menu?: { label, icon } }
-// Route bắt đầu bằng /admin được đặt trong AdminLayout; path đúng bằng /admin là trang chủ quản trị (index).
-const moduleRoutes = Object.values(import.meta.glob('../modules/*/routes.jsx', { eager: true }))
-  .flatMap((mod) => mod.default ?? []);
+// Gom routes.jsx của mọi module (và shared/auth cho F0). Mỗi file export default một mảng:
+//   {
+//     path: '/admin/...' | '/...',
+//     element: <Page />,
+//     title?: 'Tiêu đề tab trình duyệt',
+//     menu?: { label, icon, order, group, owner?, feature?, status?: 'todo' },   // chỉ dùng cho route /admin
+//   }
+// Route bắt đầu bằng /admin: nằm trong AdminLayout, sau RequireAdmin. Path đúng bằng /admin là trang chủ quản trị (index).
+// Route khác (kể cả /login, /register): nằm trong CustomerLayout. Chi tiết: frontend/AGENTS.md.
+const moduleRoutes = [
+  ...authRoutes,
+  ...Object.values(import.meta.glob('../modules/*/routes.jsx', { eager: true })).flatMap((mod) => mod.default ?? []),
+];
 
 const isAdmin = (path) => path === '/admin' || path.startsWith('/admin/');
 
-export const adminMenu = moduleRoutes.filter((r) => r.menu && isAdmin(r.path));
+// Thứ tự nhóm trong menu quản trị. Nhóm lạ xếp cuối, theo tên.
+export const MENU_GROUPS = ['Tổng quan', 'Catalog', 'Flash sale', 'Báo cáo', 'Hệ thống'];
+const groupRank = (g) => {
+  const i = MENU_GROUPS.indexOf(g);
+  return i === -1 ? MENU_GROUPS.length : i;
+};
+
+/** Mục menu quản trị đã sắp: theo nhóm (MENU_GROUPS), rồi menu.order, rồi path. */
+export const adminMenu = moduleRoutes
+  .filter((r) => r.menu && isAdmin(r.path))
+  .sort((a, b) => groupRank(a.menu.group) - groupRank(b.menu.group)
+    || String(a.menu.group ?? '').localeCompare(String(b.menu.group ?? ''))
+    || (a.menu.order ?? 99) - (b.menu.order ?? 99)
+    || a.path.localeCompare(b.path));
 
 function HomeButton() {
   const navigate = useNavigate();
   return <Button type="primary" onClick={() => navigate('/')}>Về trang chủ</Button>;
 }
 
-// Khung gốc: trang của module được lazy-load nên mọi route cần một Suspense, kể cả trang ngoài AdminLayout.
+// Tiêu đề tab: lấy `title` của route sâu nhất có khai báo.
+function useDocumentTitle() {
+  const matches = useMatches();
+  const title = [...matches].reverse().find((m) => m.handle?.title)?.handle.title;
+  useEffect(() => {
+    document.title = title ? `${title} · ShopFlash` : 'ShopFlash';
+  }, [title]);
+}
+
+// Khung gốc: trang của module được lazy-load nên mọi route cần một Suspense.
 function RootLayout() {
+  useDocumentTitle();
   return (
     <Suspense fallback={<Spin />}>
       <Outlet />
@@ -35,20 +69,37 @@ function NotFound() {
   return <Result status="404" title="404" subTitle="Không tìm thấy trang bạn yêu cầu." extra={<HomeButton />} />;
 }
 
+const toRoute = ({ path, element, title }, relPath) => ({
+  ...(relPath === null ? { index: true } : { path: relPath }),
+  element,
+  handle: title ? { title } : undefined,
+});
+
 const adminChildren = moduleRoutes
   .filter((r) => isAdmin(r.path))
-  .map(({ path, element }) => (path === '/admin' ? { index: true, element } : { path: path.slice('/admin/'.length), element }));
+  .map((r) => toRoute(r, r.path === '/admin' ? null : r.path.slice('/admin/'.length)));
+
+const customerChildren = moduleRoutes
+  .filter((r) => !isAdmin(r.path))
+  .map((r) => (r.path === '/' ? toRoute(r, null) : toRoute(r, r.path)));
 
 export const router = createBrowserRouter([
   {
     element: <RootLayout />,
     errorElement: <RouteError />,
     children: [
-      // Tạm thời: chưa có trang chủ cho khách hàng nên chuyển thẳng vào báo cáo quản trị. Bỏ khi có trang chủ.
-      { path: '/', element: <Navigate to="/admin/reports" replace /> },
-      { path: '/admin', element: <AdminLayout menu={adminMenu} />, children: adminChildren },
-      ...moduleRoutes.filter((r) => !isAdmin(r.path)).map(({ path, element }) => ({ path, element })),
-      { path: '*', element: <NotFound /> },
+      {
+        path: '/admin',
+        element: <RequireAdmin><AdminLayout menu={adminMenu} /></RequireAdmin>,
+        errorElement: <RouteError />,
+        children: adminChildren,
+      },
+      {
+        path: '/',
+        element: <CustomerLayout />,
+        errorElement: <RouteError />,
+        children: [...customerChildren, { path: '*', element: <NotFound />, handle: { title: 'Không tìm thấy trang' } }],
+      },
     ],
   },
 ]);

@@ -2,16 +2,11 @@ import dayjs from 'dayjs';
 import { DatePicker, Segmented, Select, Tooltip } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { JOIN_HINTS, REDIS_MODES, SOURCES } from '../../api';
+import { defaultRange } from '../../format';
 
 const SOURCE_OPTIONS = SOURCES.map((s) => ({ value: s, label: s === 'oracle' ? 'Oracle' : 'Redis' }));
 const JOIN_HINT_LABEL = { AUTO: 'Tự chọn (AUTO)', NL: 'Nested loops (NL)', HASH: 'Hash join (HASH)', MERGE: 'Sort-merge (MERGE)' };
 const REDIS_MODE_LABEL = { AGGREGATE: 'FT.AGGREGATE', CLIENT: 'Tính ở Java' };
-
-// Mặc định: 12 tháng gần nhất tính cả tháng hiện tại, từ ngày 1 của tháng cách đây 11 tháng đến hôm nay.
-export function defaultRange() {
-  const today = dayjs();
-  return [today.subtract(11, 'month').startOf('month'), today];
-}
 
 const presets = () => {
   const today = dayjs();

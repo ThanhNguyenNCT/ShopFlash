@@ -3,10 +3,12 @@ import { Button, Flex, Space, Table, Tag, Typography } from 'antd';
 import { SwapOutlined } from '@ant-design/icons';
 import { tokens } from '@/shared/design-system';
 import { getReport } from '../../api';
+import { formatInt, formatMs, formatRange, formatRatio } from '../../format';
 import ErrorAlert from './ErrorAlert';
 import ReportPicker, { DEFAULT_PICK } from './ReportPicker';
+import StaleAlert from './StaleAlert';
 import StatementView from './StatementView';
-import { HINT_LABEL, formatCount, formatMs, rangeParams, reportParams, settle, sourceLabel } from './labUtils';
+import { HINT_LABEL, rangeParams, reportLabel, reportParams, runKey, settle, sourceLabel } from './labUtils';
 
 const RUNS = [
   { key: 'oracle', source: 'oracle', params: { joinHint: 'AUTO' } },
@@ -18,8 +20,8 @@ const COLUMNS = [
   { title: 'Nguồn', dataIndex: 'source', render: (v) => <Tag>{sourceLabel(v)}</Tag> },
   { title: 'Chế độ', dataIndex: 'variant', render: (v) => HINT_LABEL[v] ?? v },
   { title: 'Thời gian', dataIndex: 'elapsedMs', align: 'right', render: (v) => <span className="sf-num">{formatMs(v)}</span> },
-  { title: 'Round-trip', dataIndex: 'roundTrips', align: 'right', render: (v) => <span className="sf-num">{formatCount(v)}</span> },
-  { title: 'Số dòng', dataIndex: 'rowCount', align: 'right', render: (v) => <span className="sf-num">{formatCount(v)}</span> },
+  { title: 'Round-trip', dataIndex: 'roundTrips', align: 'right', render: (v) => <span className="sf-num">{formatInt(v)}</span> },
+  { title: 'Số dòng', dataIndex: 'rowCount', align: 'right', render: (v) => <span className="sf-num">{formatInt(v)}</span> },
   {
     title: 'Trạng thái',
     key: 'status',
@@ -30,14 +32,18 @@ const COLUMNS = [
 // D4: AGGREGATE tính trên server Redis (1 round-trip); CLIENT kéo từng trang về Java tự gom (nhiều round-trip).
 export default function RoundTripSection({ range }) {
   const [pick, setPick] = useState({ ...DEFAULT_PICK, report: 'revenue-by-category' });
-  const [rows, setRows] = useState(null);
+  // { rows, key, report, range } của lần chạy gần nhất; bỏ đi khi bắt đầu chạy lại.
+  const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const seq = useRef(0);
+  const base = { ...rangeParams(range), ...reportParams(pick.report, pick) };
+  const key = runKey(pick.report, base);
 
   const execute = async () => {
     const id = ++seq.current;
     setLoading(true);
-    const base = { ...rangeParams(range), ...reportParams(pick.report, pick) };
+    setResult(null);
+    const ran = { key, report: pick.report, range };
     // Chạy lần lượt, không song song: gọi cùng lúc thì các cách tranh CPU của máy với nhau và thời gian bị đội lên.
     const results = [];
     for (const r of RUNS) {
@@ -48,8 +54,9 @@ export default function RoundTripSection({ range }) {
       }
     }
     if (id !== seq.current) return;
-    setRows(
-      RUNS.map((r, i) => {
+    setResult({
+      ...ran,
+      rows: RUNS.map((r, i) => {
         const { value, error } = settle(results[i]);
         const meta = value?.meta ?? {};
         return {
@@ -65,12 +72,16 @@ export default function RoundTripSection({ range }) {
           error,
         };
       }),
-    );
+    });
     setLoading(false);
   };
 
+  const rows = result?.rows;
   const agg = rows?.find((r) => r.key === 'redis-agg');
   const client = rows?.find((r) => r.key === 'redis-client');
+  const bothOk = agg && client && !agg.error && !client.error && agg.roundTrips > 0 && client.roundTrips > 0;
+  const timed = bothOk && agg.elapsedMs > 0 && client.elapsedMs > 0;
+  const clientSlower = timed && client.elapsedMs >= agg.elapsedMs;
 
   return (
     <Space orientation="vertical" size={tokens.space[4]} className="sf-lab-full">
@@ -85,11 +96,17 @@ export default function RoundTripSection({ range }) {
           Chạy 3 cách
         </Button>
       </Flex>
-      {rows && (
+      {result && <StaleAlert stale={result.key !== key} action="Chạy 3 cách" />}
+      {result && (
+        <Typography.Text type="secondary">
+          {reportLabel(result.report)} · {formatRange(result.range)}
+        </Typography.Text>
+      )}
+      {(rows || loading) && (
         <Table
           size="small"
           columns={COLUMNS}
-          dataSource={rows}
+          dataSource={rows ?? []}
           loading={loading}
           pagination={false}
           scroll={{ x: 'max-content' }}
@@ -104,12 +121,18 @@ export default function RoundTripSection({ range }) {
           }}
         />
       )}
-      {agg?.roundTrips && client?.roundTrips && !agg.error && !client.error && (
+      {bothOk && (
         <Typography.Text>
-          CLIENT cần <Typography.Text strong className="sf-num">{formatCount(client.roundTrips)}</Typography.Text> round-trip so với{' '}
-          <Typography.Text strong className="sf-num">{formatCount(agg.roundTrips)}</Typography.Text> của AGGREGATE
-          {agg.elapsedMs > 0 && client.elapsedMs > 0 && (
-            <>, chậm hơn <Typography.Text strong className="sf-num">{(client.elapsedMs / agg.elapsedMs).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}</Typography.Text> lần</>
+          CLIENT cần <Typography.Text strong className="sf-num">{formatInt(client.roundTrips)}</Typography.Text> round-trip so với{' '}
+          <Typography.Text strong className="sf-num">{formatInt(agg.roundTrips)}</Typography.Text> của AGGREGATE
+          {timed && (
+            <>
+              , {clientSlower ? 'chậm hơn' : 'nhanh hơn'}{' '}
+              <Typography.Text strong className="sf-num">
+                {formatRatio(clientSlower ? client.elapsedMs / agg.elapsedMs : agg.elapsedMs / client.elapsedMs)}
+              </Typography.Text>{' '}
+              lần
+            </>
           )}
           . Mở từng dòng để xem lệnh đã gửi.
         </Typography.Text>

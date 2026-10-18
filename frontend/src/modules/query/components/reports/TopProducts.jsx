@@ -3,7 +3,7 @@ import { Segmented, Table } from 'antd';
 import { PriceTag, tokens } from '@/shared/design-system';
 import ReportCard from './ReportCard';
 import useReport from './useReport';
-import { formatInt } from './format';
+import { formatInt } from '../../format';
 
 const LIMITS = [5, 10, 20];
 

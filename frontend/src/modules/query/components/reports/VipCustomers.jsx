@@ -3,7 +3,7 @@ import { PriceTag, formatVND } from '@/shared/design-system';
 import ReportCard from './ReportCard';
 import useReport from './useReport';
 import usePager from './usePager';
-import { formatInt } from './format';
+import { formatInt } from '../../format';
 
 const columns = [
   {
@@ -43,8 +43,8 @@ export default function VipCustomers({ params }) {
         scroll={{ x: 'max-content' }}
         locale={{ emptyText: 'Không có khách nào vượt mức chi tiêu trung bình' }}
         pagination={{
-          current: page?.page ?? pager.page,
-          pageSize: page?.size ?? pager.size,
+          current: pager.page,
+          pageSize: pager.size,
           total: page?.total ?? 0,
           showSizeChanger: true,
           pageSizeOptions: [10, 20, 50, 100],

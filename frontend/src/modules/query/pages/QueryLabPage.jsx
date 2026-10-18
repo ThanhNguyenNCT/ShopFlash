@@ -8,7 +8,7 @@ import RoundTripSection from '../components/lab/RoundTripSection';
 import SubquerySection from '../components/lab/SubquerySection';
 import ConsistencySection from '../components/lab/ConsistencySection';
 import BenchmarkSection from '../components/lab/BenchmarkSection';
-import { DATE_FORMAT, defaultRange } from '../components/lab/labUtils';
+import { defaultRange } from '../format';
 import '../components/lab/lab.css';
 
 // Phòng thí nghiệm query processing: 6 điểm khác nhau giữa Oracle và Redis + đo hiệu năng.
@@ -46,7 +46,6 @@ export default function QueryLabPage() {
               { label: '12 tháng gần nhất', value: defaultRange() },
               { label: 'Năm nay', value: [defaultRange()[1].startOf('year'), defaultRange()[1]] },
             ]}
-            title={`${range[0].format(DATE_FORMAT)} → ${range[1].format(DATE_FORMAT)}`}
           />
         </Flex>
       </Flex>

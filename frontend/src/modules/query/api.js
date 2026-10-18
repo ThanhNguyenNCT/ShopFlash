@@ -47,16 +47,18 @@ export async function getPlan(report, params) {
 /** body: { from, to, limit, warmup, runs, variants: [{ source, variant }] } → { report, results[] } */
 export async function runBenchmark(report, body = {}) {
   if (USE_MOCK) return mock.benchmark(report, body);
-  const { data } = await apiClient.post(`${BASE}/${report}/benchmark`, body);
+  // Không giới hạn thời gian: số lần × số biến thể có thể chạy vài phút.
+  const { data } = await apiClient.post(`${BASE}/${report}/benchmark`, body, { timeout: 0 });
   return data;
 }
 
-/** Cùng request với runBenchmark nhưng nhận CSV; trả Blob để tải về. */
+/** Cùng request với runBenchmark nhưng nhận CSV; trả Blob để tải về. Giao diện tự dựng CSV từ kết quả đã đo nên không dùng hàm này. */
 export async function downloadBenchmarkCsv(report, body = {}) {
   if (USE_MOCK) return new Blob([mock.benchmarkCsv(report, body)], { type: 'text/csv' });
   const { data } = await apiClient.post(`${BASE}/${report}/benchmark`, body, {
     headers: { Accept: 'text/csv' },
     responseType: 'blob',
+    timeout: 0,
   });
   return data;
 }
@@ -71,7 +73,9 @@ export async function getAnalyticsStatus() {
 /** Dựng lại read model Redis từ Oracle → { orders, lines, elapsedMs } */
 export async function rebuildAnalytics() {
   if (USE_MOCK) return mock.rebuild();
-  const { data } = await apiClient.post(`${BASE}/analytics/rebuild`);
+  // Không giới hạn thời gian: dựng lại 100 nghìn đơn mất vài chục giây.
+  // Gửi {} để axios đặt Content-Type: application/json (backend chỉ nhận JSON cho POST đổi trạng thái).
+  const { data } = await apiClient.post(`${BASE}/analytics/rebuild`, {}, { timeout: 0 });
   return data;
 }
 

@@ -2,11 +2,10 @@ import { Table } from 'antd';
 import { columnsFor, rowKeyFor } from './labUtils';
 
 // Bảng dòng kết quả của một báo cáo; phân trang phía client 10 dòng một trang.
-export default function ResultTable({ report, rows, loading }) {
+export default function ResultTable({ report, rows }) {
   return (
     <Table
       size="small"
-      loading={loading}
       columns={columnsFor(report, rows)}
       dataSource={rows ?? []}
       rowKey={rowKeyFor(report)}

@@ -3,11 +3,13 @@ import { Button, Card, Col, Flex, Row, Select, Space, Spin, Typography } from 'a
 import { ApartmentOutlined } from '@ant-design/icons';
 import { tokens } from '@/shared/design-system';
 import { JOIN_HINTS, getPlan } from '../../api';
+import { formatRange } from '../../format';
 import ErrorAlert from './ErrorAlert';
 import PlanView from './PlanView';
 import ReportPicker, { DEFAULT_PICK } from './ReportPicker';
+import StaleAlert from './StaleAlert';
 import StatementView from './StatementView';
-import { HINT_LABEL, JOIN_REPORTS, rangeParams, reportParams, settle } from './labUtils';
+import { HINT_LABEL, JOIN_REPORTS, rangeParams, reportLabel, reportParams, runKey, settle } from './labUtils';
 
 const hintOptions = JOIN_HINTS.map((h) => ({ value: h, label: HINT_LABEL[h] }));
 
@@ -33,18 +35,21 @@ export default function OptimizerSection({ range }) {
   const [plans, setPlans] = useState(null);
   const [loading, setLoading] = useState(false);
   const seq = useRef(0);
+  const base = { ...rangeParams(range), ...reportParams(pick.report, pick) };
+  const key = runKey(pick.report, base, hintA, hintB);
 
   const execute = async () => {
     const id = ++seq.current;
     setLoading(true);
-    const base = { ...rangeParams(range), ...reportParams(pick.report, pick) };
+    setPlans(null);
+    const ran = { key, report: pick.report, range, hintA, hintB };
     const results = await Promise.allSettled([
       getPlan(pick.report, { ...base, source: 'oracle', joinHint: hintA }),
       getPlan(pick.report, { ...base, source: 'oracle', joinHint: hintB }),
       getPlan(pick.report, { ...base, source: 'redis', redisMode: 'AGGREGATE' }),
     ]);
     if (id !== seq.current) return;
-    setPlans({ a: settle(results[0]), b: settle(results[1]), redis: settle(results[2]), hintA, hintB });
+    setPlans({ ...ran, a: settle(results[0]), b: settle(results[1]), redis: settle(results[2]) });
     setLoading(false);
   };
 
@@ -63,6 +68,14 @@ export default function OptimizerSection({ range }) {
           Xem kế hoạch
         </Button>
       </Flex>
+      {plans && (
+        <>
+          <StaleAlert stale={plans.key !== key} action="Xem kế hoạch" />
+          <Typography.Text type="secondary">
+            {reportLabel(plans.report)} · {formatRange(plans.range)}
+          </Typography.Text>
+        </>
+      )}
       <Row gutter={[tokens.space[4], tokens.space[4]]}>
         <Col xs={24} xl={12}>
           <PlanPanel title={`Oracle · ${plans?.hintA ?? hintA}`} slot={plans?.a} loading={loading} />

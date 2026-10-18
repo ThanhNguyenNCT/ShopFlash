@@ -1,5 +1,6 @@
 import { Descriptions, Tag } from 'antd';
-import { HINT_LABEL, formatCount, formatMs } from './labUtils';
+import { formatInt, formatMs } from '../../format';
+import { HINT_LABEL } from './labUtils';
 
 // Tóm tắt meta của một response báo cáo: biến thể, thời gian, số round-trip, số dòng.
 export default function MetaInfo({ meta }) {
@@ -13,8 +14,8 @@ export default function MetaInfo({ meta }) {
       items={[
         { key: 'variant', label: 'Biến thể', children: <Tag className="sf-lab-tag-wrap">{HINT_LABEL[meta.variant] ?? meta.variant}</Tag> },
         { key: 'ms', label: 'Thời gian', children: <span className="sf-num">{formatMs(meta.elapsedMs)}</span> },
-        { key: 'rt', label: 'Round-trip', children: <span className="sf-num">{formatCount(meta.roundTrips)}</span> },
-        { key: 'rows', label: 'Số dòng', children: <span className="sf-num">{formatCount(meta.rowCount)}</span> },
+        { key: 'rt', label: 'Round-trip', children: <span className="sf-num">{formatInt(meta.roundTrips)}</span> },
+        { key: 'rows', label: 'Số dòng', children: <span className="sf-num">{formatInt(meta.rowCount)}</span> },
       ]}
     />
   );

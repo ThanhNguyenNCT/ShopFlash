@@ -4,7 +4,7 @@ import { PriceTag, formatVND, tokens } from '@/shared/design-system';
 import ReportCard from './ReportCard';
 import useReport from './useReport';
 import { ChartTooltip, axisProps, barRadius, cursorFill, gridProps } from './chartTheme';
-import { formatInt, formatVNDCompact } from './format';
+import { formatInt, formatVNDCompact } from '../../format';
 
 const BAR_COLOR = tokens.color.brand;
 const ROW_HEIGHT = tokens.space[8] + tokens.space[1];

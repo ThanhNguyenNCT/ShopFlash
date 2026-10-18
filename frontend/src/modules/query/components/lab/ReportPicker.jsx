@@ -6,7 +6,7 @@ export const DEFAULT_PICK = { report: 'top-products', limit: 10, page: 1, size: 
 
 // Chọn báo cáo + limit (top-products) / trang, cỡ trang (báo cáo phân trang).
 // reports: danh sách được phép chọn (mặc định tất cả). value/onChange: { report, limit, page, size }.
-export default function ReportPicker({ value, onChange, reports = REPORTS, showPaging = true }) {
+export default function ReportPicker({ value, onChange, reports = REPORTS }) {
   const meta = REPORTS.find((r) => r.slug === value.report);
   const set = (patch) => onChange({ ...value, ...patch });
   // InputNumber trả null khi xóa trắng: giữ giá trị cũ để luôn gửi tham số hợp lệ (1–100, trang ≥ 1).
@@ -24,7 +24,7 @@ export default function ReportPicker({ value, onChange, reports = REPORTS, showP
       {value.report === 'top-products' && (
         <InputNumber prefix="Top" min={1} max={100} precision={0} value={value.limit} onChange={num('limit')} />
       )}
-      {showPaging && meta?.paged && (
+      {meta?.paged && (
         <>
           <InputNumber prefix="Trang" min={1} precision={0} value={value.page} onChange={num('page')} />
           <InputNumber prefix="Cỡ trang" min={1} max={100} precision={0} value={value.size} onChange={num('size')} />

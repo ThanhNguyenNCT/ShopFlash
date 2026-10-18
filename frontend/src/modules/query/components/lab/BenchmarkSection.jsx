@@ -1,12 +1,13 @@
-import { useState } from 'react';
 import { Alert, Button, Card, Checkbox, Flex, Form, InputNumber, Select, Space, Table, Tag, Typography } from 'antd';
 import { DashboardOutlined, DownloadOutlined } from '@ant-design/icons';
 import { Bar, BarChart, CartesianGrid, Cell, ErrorBar, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import dayjs from 'dayjs';
 import { tokens } from '@/shared/design-system';
-import { JOIN_HINTS, REDIS_MODES, REPORTS, downloadBenchmarkCsv, runBenchmark } from '../../api';
+import { JOIN_HINTS, REDIS_MODES, REPORTS, runBenchmark } from '../../api';
+import { formatInt, formatMs, formatRange } from '../../format';
 import ErrorAlert from './ErrorAlert';
-import { formatCount, formatMs, rangeParams, reportLabel, sourceLabel, useApi } from './labUtils';
+import StaleAlert from './StaleAlert';
+import { rangeParams, reportLabel, runKey, sourceLabel, useApi } from './labUtils';
 
 const SOURCE_COLOR = { oracle: tokens.color.brand, redis: tokens.color.info };
 const ALL_VARIANTS = [
@@ -30,7 +31,7 @@ const TABLE_COLUMNS = [
   },
   { title: 'p50', dataIndex: 'p50Ms', align: 'right', render: (v) => <span className="sf-num">{formatMs(v)}</span> },
   { title: 'p95', dataIndex: 'p95Ms', align: 'right', render: (v) => <span className="sf-num">{formatMs(v)}</span> },
-  { title: 'Round-trip', dataIndex: 'roundTrips', align: 'right', render: (v) => <span className="sf-num">{formatCount(v)}</span> },
+  { title: 'Round-trip', dataIndex: 'roundTrips', align: 'right', render: (v) => <span className="sf-num">{formatInt(v)}</span> },
 ];
 
 const axisTick = { fontSize: tokens.text.caption[0], fill: tokens.color.inkMuted };
@@ -77,13 +78,37 @@ function BenchmarkChart({ results }) {
   );
 }
 
+// CSV cùng cột với CSV của backend (mỗi mẫu một dòng), dựng từ kết quả đang hiện nên khớp bảng và không phải đo lại.
+const CSV_HEADER = 'report,source,variant,run,elapsedMs,roundTrips';
+
+function toCsv({ report, results }) {
+  const lines = results.flatMap((r) =>
+    (r.samplesMs ?? []).map((ms, i) => [report, r.source, r.variant, i + 1, ms, r.roundTrips].join(',')));
+  return `${[CSV_HEADER, ...lines].join('\n')}\n`;
+}
+
+function downloadCsv(result) {
+  const blob = new Blob([toCsv(result)], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `benchmark-${result.report}-${dayjs().format('YYYYMMDD-HHmmss')}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// Gắn tham số của lần đo vào kết quả: tiêu đề và cảnh báo "tham số đã đổi" luôn khớp với số liệu đang hiện,
+// và chỉ có khi đo thành công.
+const measure = async (report, body, run) => ({ ...(await runBenchmark(report, body)), run });
+
 // Đo hiệu năng: chạy lặp nhiều lần mỗi biến thể trên backend, trả thống kê thời gian.
 export default function BenchmarkSection({ range }) {
   const [form] = Form.useForm();
-  const report = Form.useWatch('report', form) ?? 'top-products';
-  const bench = useApi(runBenchmark);
-  const csv = useApi(downloadBenchmarkCsv);
-  const [lastBody, setLastBody] = useState(null);
+  const values = Form.useWatch([], form);
+  const report = values?.report ?? 'top-products';
+  const bench = useApi(measure);
   const reportMeta = REPORTS.find((r) => r.slug === report);
 
   const variantOptions = ALL_VARIANTS.map((v) => ({
@@ -92,41 +117,30 @@ export default function BenchmarkSection({ range }) {
     disabled: v.source === 'redis' && report === 'unsold-products',
   }));
 
-  const buildBody = (values) => ({
+  const buildBody = (v) => ({
     ...rangeParams(range),
-    ...(values.report === 'top-products' ? { limit: values.limit } : {}),
-    warmup: values.warmup,
-    runs: values.runs,
-    variants: values.variants
-      .filter((k) => !(values.report === 'unsold-products' && k.startsWith('redis:')))
+    ...(v.report === 'top-products' ? { limit: v.limit } : {}),
+    warmup: v.warmup,
+    runs: v.runs,
+    variants: (v.variants ?? [])
+      .filter((k) => !(v.report === 'unsold-products' && k.startsWith('redis:')))
       .map((k) => {
         const [source, variant] = k.split(':');
         return { source, variant };
       }),
   });
 
-  const onFinish = async (values) => {
-    const body = buildBody(values);
-    setLastBody({ report: values.report, body });
-    await bench.run(values.report, body);
-  };
+  const keyOfRun = (v) => runKey(v.report, buildBody(v));
+  const currentKey = values ? keyOfRun(values) : null;
 
-  const onDownload = async () => {
-    const values = await form.validateFields().catch(() => null);
-    if (!values) return;
-    const blob = await csv.run(values.report, buildBody(values));
-    if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `benchmark-${values.report}-${dayjs().format('YYYYMMDD-HHmmss')}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+  const onFinish = async (v) => {
+    const body = buildBody(v);
+    await bench.run(v.report, body, { key: keyOfRun(v), report: v.report, body, range });
   };
 
   const results = bench.data?.results ?? [];
+  const lastRun = bench.data?.run;
+  const stale = results.length > 0 && lastRun?.key !== currentKey;
 
   return (
     <Space orientation="vertical" size={tokens.space[4]} className="sf-lab-full">
@@ -184,19 +198,23 @@ export default function BenchmarkSection({ range }) {
           <Button type="primary" htmlType="submit" icon={<DashboardOutlined />} loading={bench.loading}>
             {bench.loading ? 'Đang đo…' : 'Chạy đo'}
           </Button>
-          <Button icon={<DownloadOutlined />} loading={csv.loading} onClick={onDownload} disabled={bench.loading}>
+          <Button icon={<DownloadOutlined />} onClick={() => downloadCsv(bench.data)} disabled={bench.loading || results.length === 0}>
             Tải CSV
           </Button>
         </Flex>
       </Form>
       <ErrorAlert error={bench.error} title="Đo hiệu năng thất bại" />
-      <ErrorAlert error={csv.error} title="Không tải được CSV" />
       {(results.length > 0 || bench.loading) && (
         <Card
           size="small"
-          title={lastBody ? `${reportLabel(lastBody.report)} · ${lastBody.body.runs} lần đo, ${lastBody.body.warmup} lần khởi động` : 'Kết quả'}
+          title={
+            !bench.loading && lastRun
+              ? `${reportLabel(lastRun.report)} · ${formatRange(lastRun.range)} · ${lastRun.body.runs} lần đo, ${lastRun.body.warmup} lần khởi động`
+              : 'Đang đo…'
+          }
         >
           <Space orientation="vertical" size={tokens.space[4]} className="sf-lab-full">
+            <StaleAlert stale={stale} action="Chạy đo" />
             <Table
               size="small"
               columns={TABLE_COLUMNS}

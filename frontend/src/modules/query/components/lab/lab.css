@@ -26,12 +26,12 @@
 .sf-lab-plan__line--join {
   background: var(--sf-color-brand-tint);
   color: var(--sf-color-brand);
-  font-weight: 700;
+  font-weight: var(--sf-text-title-weight);
 }
 
 .sf-lab-plan__line--warn {
   color: var(--sf-color-warning);
-  font-weight: 700;
+  font-weight: var(--sf-text-title-weight);
 }
 
 .sf-lab-match {

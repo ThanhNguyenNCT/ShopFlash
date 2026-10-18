@@ -3,15 +3,17 @@ import { Alert, Button, Card, Col, Flex, Row, Space, Table, Typography } from 'a
 import { PlayCircleOutlined } from '@ant-design/icons';
 import { formatVND, tokens } from '@/shared/design-system';
 import { compareReport } from '../../api';
+import { EMPTY, formatRange } from '../../format';
 import ErrorAlert from './ErrorAlert';
 import MatchBadge from './MatchBadge';
 import MetaInfo from './MetaInfo';
 import ReportPicker, { DEFAULT_PICK } from './ReportPicker';
 import ResultTable from './ResultTable';
+import StaleAlert from './StaleAlert';
 import StatementView from './StatementView';
-import { isMoneyField, rangeParams, reportLabel, reportParams, sourceLabel, useApi } from './labUtils';
+import { isMoneyField, rangeParams, reportLabel, reportParams, runKey, sourceLabel, useApi } from './labUtils';
 
-const fmtValue = (field, v) => (v === null || v === undefined ? '—' : isMoneyField(field) ? formatVND(v) : String(v));
+const fmtValue = (field, v) => (v === null || v === undefined ? EMPTY : isMoneyField(field) ? formatVND(v) : String(v));
 
 const MISMATCH_COLUMNS = [
   { title: 'Khóa', dataIndex: 'key', render: (v) => <span className="sf-code">{v}</span> },
@@ -41,8 +43,15 @@ function SourcePanel({ source, result, report }) {
 export default function CompareSection({ range }) {
   const [pick, setPick] = useState(DEFAULT_PICK);
   const { data, loading, error, run } = useApi(compareReport);
+  // Tham số của lần chạy gần nhất, để ghi lên kết quả và báo khi tham số đang chọn đã khác.
+  const [ran, setRan] = useState(null);
+  const params = { ...rangeParams(range), ...reportParams(pick.report, pick) };
+  const key = runKey(pick.report, params);
 
-  const execute = () => run(pick.report, { ...rangeParams(range), ...reportParams(pick.report, pick) });
+  const execute = () => {
+    setRan({ key, range });
+    run(pick.report, params);
+  };
 
   return (
     <Space orientation="vertical" size={tokens.space[4]} className="sf-lab-full">
@@ -60,11 +69,12 @@ export default function CompareSection({ range }) {
       <ErrorAlert error={error} title="Không so sánh được" />
       {data && (
         <>
+          <StaleAlert stale={ran?.key !== key} action="So sánh hai nguồn" />
           <Card size="small">
             <Flex wrap gap={tokens.space[3]} align="center">
               <MatchBadge match={data.match} />
               <Typography.Text>
-                {reportLabel(data.report)}
+                {reportLabel(data.report)} · {formatRange(ran?.range)}
                 {data.match === null && ' — một bên không hỗ trợ báo cáo này nên không so được.'}
                 {data.match === false && ` — ${data.mismatches?.length ?? 0} chỗ lệch (tối đa 5 được liệt kê).`}
                 {data.match === true && ' — mọi dòng trùng khóa và trùng giá trị.'}

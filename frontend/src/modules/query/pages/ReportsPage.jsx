@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { Col, Row, Typography } from 'antd';
 import { tokens } from '@/shared/design-system';
 import { REPORTS } from '../api';
-import ReportsToolbar, { defaultRange } from '../components/reports/ReportsToolbar';
+import ReportsToolbar from '../components/reports/ReportsToolbar';
+import { DATE_FORMAT, defaultRange } from '../format';
 import RevenueByMonth from '../components/reports/RevenueByMonth';
 import RevenueByCategory from '../components/reports/RevenueByCategory';
 import TopProducts from '../components/reports/TopProducts';
@@ -19,8 +20,8 @@ function paramsFor(slug, filters) {
   const { range, source, joinHint, redisMode } = filters;
   const p = { source };
   if (!DATELESS_REPORTS.has(slug)) {
-    p.from = range[0].format('YYYY-MM-DD');
-    p.to = range[1].format('YYYY-MM-DD');
+    p.from = range[0].format(DATE_FORMAT);
+    p.to = range[1].format(DATE_FORMAT);
   }
   if (source === 'oracle' && JOIN_REPORTS.has(slug)) p.joinHint = joinHint;
   if (source === 'redis') p.redisMode = redisMode;

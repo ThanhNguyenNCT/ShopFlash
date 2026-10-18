@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button, Modal, Tag, Tooltip, Typography } from 'antd';
 import { CodeOutlined } from '@ant-design/icons';
-import { formatInt, formatMs } from './format';
+import { formatInt, formatMs } from '../../format';
 
 const SOURCE_LABEL = { oracle: 'Oracle', redis: 'Redis' };
 

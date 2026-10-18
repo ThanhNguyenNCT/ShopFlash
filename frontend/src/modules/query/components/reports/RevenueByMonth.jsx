@@ -4,7 +4,7 @@ import { formatVND, tokens } from '@/shared/design-system';
 import ReportCard from './ReportCard';
 import useReport from './useReport';
 import { ChartTooltip, axisProps, barRadius, cursorFill, gridProps } from './chartTheme';
-import { formatInt, formatMonth, formatVNDCompact } from './format';
+import { formatInt, formatMonth, formatVNDCompact } from '../../format';
 
 const REVENUE_COLOR = tokens.color.brand;
 const ORDERS_COLOR = tokens.color.info;

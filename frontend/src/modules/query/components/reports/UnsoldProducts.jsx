@@ -3,7 +3,7 @@ import { PriceTag } from '@/shared/design-system';
 import ReportCard from './ReportCard';
 import useReport from './useReport';
 import usePager from './usePager';
-import { formatInt } from './format';
+import { formatInt } from '../../format';
 
 const columns = [
   { title: 'Mã', dataIndex: 'productId', key: 'productId', render: (v) => <span className="sf-code">#{v}</span> },
@@ -57,8 +57,8 @@ export default function UnsoldProducts({ params }) {
             scroll={{ x: 'max-content' }}
             locale={{ emptyText: 'Mọi sản phẩm đều đã bán được ít nhất một lần' }}
             pagination={{
-              current: page?.page ?? pager.page,
-              pageSize: page?.size ?? pager.size,
+              current: pager.page,
+              pageSize: pager.size,
               total: page?.total ?? 0,
               showSizeChanger: true,
               pageSizeOptions: [10, 20, 50, 100],

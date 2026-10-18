@@ -3,10 +3,11 @@ import { Button, Card, Col, Empty, Flex, Popconfirm, Row, Select, Space, Table, 
 import { CloudDownloadOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 import { tokens } from '@/shared/design-system';
 import { JOIN_HINTS, changeOracleStats, getPlan } from '../../api';
+import { formatInt, formatMs, formatRange } from '../../format';
 import ErrorAlert from './ErrorAlert';
 import PlanView from './PlanView';
 import ReportPicker, { DEFAULT_PICK } from './ReportPicker';
-import { HINT_LABEL, JOIN_REPORTS, formatCount, formatDateTime, formatMs, rangeParams, reportParams, useApi } from './labUtils';
+import { HINT_LABEL, JOIN_REPORTS, formatDateTime, rangeParams, reportLabel, reportParams, runKey, useApi } from './labUtils';
 
 const ACTION_LABEL = { DELETE: 'Sau khi xóa thống kê', GATHER: 'Sau khi thu thập thống kê' };
 
@@ -16,7 +17,7 @@ const STAT_COLUMNS = [
     title: 'Số dòng (NUM_ROWS)',
     dataIndex: 'numRows',
     align: 'right',
-    render: (v) => (v === null || v === undefined ? <Tag color="warning">chưa có</Tag> : <span className="sf-num">{formatCount(v)}</span>),
+    render: (v) => (v === null || v === undefined ? <Tag color="warning">chưa có</Tag> : <span className="sf-num">{formatInt(v)}</span>),
   },
   {
     title: 'Phân tích lần cuối',
@@ -35,7 +36,11 @@ export default function StatsSection({ range }) {
   const stats = useApi(changeOracleStats);
   const [lastAction, setLastAction] = useState(null);
   // Hai kế hoạch gần nhất: [cũ, mới]. Mỗi lần xem lại thì đẩy kế hoạch mới vào, kế hoạch cũ vẫn hiện để so.
-  const [plans, setPlans] = useState([]);
+  // Chỉ so hai kế hoạch cùng báo cáo, cùng hint, cùng khoảng thời gian: đổi một trong số đó thì kế hoạch cũ bị ẩn.
+  const [allPlans, setPlans] = useState([]);
+  const params = { ...rangeParams(range), ...reportParams(pick.report, pick), source: 'oracle', joinHint: hint };
+  const key = runKey(pick.report, params);
+  const plans = allPlans.filter((p) => p.key === key);
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError] = useState(null);
   const seq = useRef(0);
@@ -50,15 +55,11 @@ export default function StatsSection({ range }) {
     setPlanLoading(true);
     setPlanError(null);
     try {
-      const plan = await getPlan(pick.report, {
-        ...rangeParams(range),
-        ...reportParams(pick.report, pick),
-        source: 'oracle',
-        joinHint: hint,
-      });
+      const plan = await getPlan(pick.report, params);
       if (id !== seq.current) return;
       const label = lastAction ? ACTION_LABEL[lastAction] : 'Trước khi đổi thống kê';
-      setPlans((prev) => [...prev, { plan, label, report: pick.report, hint, at: new Date().toISOString() }].slice(-2));
+      const entry = { plan, label, key, report: pick.report, hint, range, at: new Date().toISOString() };
+      setPlans((prev) => [...prev.filter((p) => p.key === key), entry].slice(-2));
     } catch (e) {
       if (id === seq.current) setPlanError(e);
     } finally {
@@ -96,8 +97,8 @@ export default function StatsSection({ range }) {
         title="Thống kê bảng"
         extra={stats.data && <Typography.Text type="secondary" className="sf-num">{stats.data.action} · {formatMs(stats.data.elapsedMs)}</Typography.Text>}
       >
-        {stats.data ? (
-          <Table size="small" columns={STAT_COLUMNS} dataSource={stats.data.tables} rowKey="table" pagination={false} scroll={{ x: 'max-content' }} loading={stats.loading} />
+        {stats.data || stats.loading ? (
+          <Table size="small" columns={STAT_COLUMNS} dataSource={stats.data?.tables ?? []} rowKey="table" pagination={false} scroll={{ x: 'max-content' }} loading={stats.loading} />
         ) : (
           <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Bấm Xóa hoặc Thu thập thống kê để xem số liệu từng bảng" />
         )}
@@ -113,7 +114,14 @@ export default function StatsSection({ range }) {
       <Row gutter={[tokens.space[4], tokens.space[4]]}>
         {plans.length === 0 && (
           <Col xs={24}>
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có kế hoạch. Bấm Xem lại kế hoạch." />
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description={
+                allPlans.length > 0
+                  ? 'Báo cáo, hint hoặc khoảng thời gian đã đổi nên kế hoạch cũ được ẩn. Bấm Xem lại kế hoạch.'
+                  : 'Chưa có kế hoạch. Bấm Xem lại kế hoạch.'
+              }
+            />
           </Col>
         )}
         {plans.map((p, i) => (
@@ -121,8 +129,11 @@ export default function StatsSection({ range }) {
             <Card
               size="small"
               title={`${plans.length === 2 && i === 0 ? 'Trước' : 'Mới nhất'}: ${p.label}`}
-              extra={<Typography.Text type="secondary" className="sf-num">{p.hint} · {formatDateTime(p.at)?.absolute}</Typography.Text>}
+              extra={<Typography.Text type="secondary" className="sf-num">{formatDateTime(p.at)?.absolute}</Typography.Text>}
             >
+              <Typography.Paragraph type="secondary">
+                {reportLabel(p.report)} · hint {p.hint} · {formatRange(p.range)}
+              </Typography.Paragraph>
               <PlanView lines={p.plan.lines} />
             </Card>
           </Col>

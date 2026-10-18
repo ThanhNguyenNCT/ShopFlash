@@ -1,6 +1,6 @@
 import { tokens } from '@/shared/design-system';
 
-const { color, text, space, radius } = tokens;
+const { color, text, radius } = tokens;
 
 // Thuộc tính dùng chung cho trục và lưới recharts: chữ phụ, lưới mờ, không viền trục thừa.
 export const axisProps = {
@@ -33,4 +33,3 @@ export function ChartTooltip({ active, title, rows }) {
 }
 
 export const barRadius = radius.sm;
-export const chartGap = space[2];

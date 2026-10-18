@@ -3,10 +3,12 @@ import { Alert, Button, Card, Col, Flex, Row, Space, Spin, Statistic, Typography
 import { BranchesOutlined } from '@ant-design/icons';
 import { formatVND, tokens } from '@/shared/design-system';
 import { getReport } from '../../api';
+import { formatInt, formatMs, formatRange } from '../../format';
 import ErrorAlert from './ErrorAlert';
 import ResultTable from './ResultTable';
+import StaleAlert from './StaleAlert';
 import StatementView from './StatementView';
-import { formatCount, formatMs, rangeParams, settle, sourceLabel } from './labUtils';
+import { rangeParams, runKey, sourceLabel } from './labUtils';
 
 const PAGE = { page: 1, size: 20 };
 
@@ -14,13 +16,13 @@ function SideCard({ report, source, slot, loading }) {
   const meta = slot?.value?.meta;
   const rows = slot?.value?.data?.rows;
   return (
-    <Card size="small" title={`${sourceLabel(source)}${meta ? ` · ${formatCount(meta.roundTrips)} round-trip` : ''}`}>
+    <Card size="small" title={`${sourceLabel(source)}${meta ? ` · ${formatInt(meta.roundTrips)} round-trip` : ''}`}>
       <Spin spinning={loading}>
         <Space orientation="vertical" size={tokens.space[3]} className="sf-lab-full">
           <ErrorAlert error={slot?.error} />
           {meta && (
             <Flex wrap gap={tokens.space[6]}>
-              <Statistic title="Round-trip" value={meta.roundTrips ?? 0} />
+              <Statistic title="Round-trip" value={formatInt(meta.roundTrips)} />
               <Statistic title="Thời gian" value={formatMs(meta.elapsedMs)} />
               {slot.value.data?.summary && (
                 <Statistic title="Chi tiêu trung bình" value={formatVND(slot.value.data.summary.averageSpent)} />
@@ -40,28 +42,54 @@ function SideCard({ report, source, slot, loading }) {
   );
 }
 
+// Chạy một nguồn; lỗi được giữ lại thành { value, error } để khung của nguồn đó tự hiện.
+async function runSource(report, params) {
+  try {
+    return { value: await getReport(report, params), error: null };
+  } catch (error) {
+    return { value: null, error };
+  }
+}
+
 function usePair(report, range) {
   const [state, setState] = useState(null);
   const [loading, setLoading] = useState(false);
   const seq = useRef(0);
+  const base = { ...rangeParams(range), ...PAGE };
+  const key = runKey(report, base);
   const run = async () => {
     const id = ++seq.current;
     setLoading(true);
-    const base = { ...rangeParams(range), ...PAGE };
+    setState(null);
+    const ran = { key, range };
     // Lần lượt Oracle rồi Redis: chạy song song thì hai bên tranh CPU, thời gian đặt cạnh nhau sẽ sai.
-    const oracle = await Promise.allSettled([getReport(report, { ...base, source: 'oracle' })]);
-    const redis = await Promise.allSettled([getReport(report, { ...base, source: 'redis' })]);
+    const oracle = await runSource(report, { ...base, source: 'oracle' });
+    const redis = await runSource(report, { ...base, source: 'redis' });
     if (id !== seq.current) return;
-    setState({ oracle: settle(oracle[0]), redis: settle(redis[0]) });
+    setState({ ...ran, oracle, redis });
     setLoading(false);
   };
-  return { state, loading, run };
+  return { state, loading, run, stale: !!state && state.key !== key };
+}
+
+// Khoảng thời gian của lần chạy + cảnh báo khi tham số đã đổi sau đó.
+function PairHeader({ pair, datelessNote }) {
+  if (!pair.state) return null;
+  return (
+    <Space orientation="vertical" size={tokens.space[2]} className="sf-lab-full" style={{ marginBottom: tokens.space[4] }}>
+      <StaleAlert stale={pair.stale} action="Chạy trên hai nguồn" />
+      <Typography.Text type="secondary">
+        {datelessNote ?? `Khoảng thời gian: ${formatRange(pair.state.range)}`}
+      </Typography.Text>
+    </Space>
+  );
 }
 
 // D5: Oracle viết subquery/anti-join trong một câu; Redis không có subquery nên phải tách lượt hoặc không làm được.
 export default function SubquerySection({ range }) {
   const vip = usePair('vip-customers', range);
-  const unsold = usePair('unsold-products', range);
+  // Báo cáo này không theo khoảng ngày (backend bỏ qua from/to) nên không gửi, và đổi ngày không làm kết quả cũ đi.
+  const unsold = usePair('unsold-products', null);
 
   return (
     <Space orientation="vertical" size={tokens.space[4]} className="sf-lab-full">
@@ -78,6 +106,7 @@ export default function SubquerySection({ range }) {
             Chạy trên hai nguồn
           </Button>
         </Flex>
+        <PairHeader pair={vip} />
         <Row gutter={[tokens.space[4], tokens.space[4]]}>
           <Col xs={24} xl={12}>
             <SideCard report="vip-customers" source="oracle" slot={vip.state?.oracle} loading={vip.loading} />
@@ -94,6 +123,7 @@ export default function SubquerySection({ range }) {
             Chạy trên hai nguồn
           </Button>
         </Flex>
+        <PairHeader pair={unsold} datelessNote="Báo cáo này tính trên toàn bộ dữ liệu, không theo khoảng thời gian." />
         <Row gutter={[tokens.space[4], tokens.space[4]]}>
           <Col xs={24} xl={12}>
             <SideCard report="unsold-products" source="oracle" slot={unsold.state?.oracle} loading={unsold.loading} />

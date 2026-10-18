@@ -4,10 +4,10 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/vi';
 import { PriceTag } from '@/shared/design-system';
 import { REPORTS } from '../../api';
+import { DATE_FORMAT, formatInt } from '../../format';
 
 dayjs.extend(relativeTime);
 
-export const DATE_FORMAT = 'YYYY-MM-DD';
 export const JOIN_REPORTS = REPORTS.filter((r) => r.joinHint);
 export const reportLabel = (slug) => REPORTS.find((r) => r.slug === slug)?.label ?? slug;
 export const sourceLabel = (source) => (source === 'redis' ? 'Redis' : 'Oracle');
@@ -20,12 +20,6 @@ export const HINT_LABEL = {
   AGGREGATE: 'AGGREGATE (FT.AGGREGATE trên server)',
   CLIENT: 'CLIENT (kéo về Java tự tính)',
 };
-
-export function defaultRange() {
-  // Giống mặc định của backend và trang Báo cáo: từ ngày 1 của tháng cách đây 11 tháng tới hôm nay.
-  const today = dayjs();
-  return [today.subtract(11, 'month').startOf('month'), today];
-}
 
 export function rangeParams(range) {
   if (!range?.[0] || !range?.[1]) return {};
@@ -41,15 +35,8 @@ export function reportParams(report, { limit, page, size } = {}) {
   return params;
 }
 
-export function formatMs(ms) {
-  if (ms === null || ms === undefined || Number.isNaN(Number(ms))) return '—';
-  return `${Number(ms).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} ms`;
-}
-
-export function formatCount(n) {
-  if (n === null || n === undefined) return '—';
-  return Number(n).toLocaleString('vi-VN');
-}
+// Khóa so sánh tham số: kết quả chỉ còn "hiện hành" khi tham số đang chọn trùng tham số của lần chạy.
+export const runKey = (...parts) => JSON.stringify(parts);
 
 export function formatDateTime(iso) {
   if (!iso) return null;
@@ -60,7 +47,7 @@ export function formatDateTime(iso) {
 const MONEY_FIELDS = new Set(['revenue', 'totalSpent', 'basePrice', 'averageSpent']);
 export const isMoneyField = (field) => MONEY_FIELDS.has(field);
 
-const num = (v) => <span className="sf-num">{formatCount(v)}</span>;
+const num = (v) => <span className="sf-num">{formatInt(v)}</span>;
 const money = (v) => <PriceTag price={v} size="sm" />;
 const code = (v) => <span className="sf-code">{v}</span>;
 
@@ -115,26 +102,34 @@ export function columnsFor(report, rows = []) {
 
 export const rowKeyFor = (report) => ROW_KEY[report] ?? ((_, i) => i);
 
+const IDLE = { loading: false, error: null, data: null };
+
 // Gọi API có loading/error; bỏ qua kết quả của lần gọi cũ nếu người dùng bấm lại.
+// Bắt đầu lần chạy mới hay chạy lỗi thì bỏ dữ liệu cũ, để không hiện kết quả lần trước như thể là kết quả hiện tại.
 export function useApi(fn) {
-  const [state, setState] = useState({ loading: false, error: null, data: null });
+  const [state, setState] = useState(IDLE);
   const seq = useRef(0);
   const run = useCallback(
     async (...args) => {
       const id = ++seq.current;
-      setState((s) => ({ ...s, loading: true, error: null }));
+      setState({ ...IDLE, loading: true });
       try {
         const data = await fn(...args);
-        if (id === seq.current) setState({ loading: false, error: null, data });
+        if (id === seq.current) setState({ ...IDLE, data });
         return data;
       } catch (error) {
-        if (id === seq.current) setState((s) => ({ ...s, loading: false, error }));
+        if (id === seq.current) setState({ ...IDLE, error });
         return undefined;
       }
     },
     [fn],
   );
-  return { ...state, run };
+  // Xóa kết quả/lỗi đang hiện và bỏ qua response của lần gọi đang chờ (nếu có).
+  const reset = useCallback(() => {
+    seq.current += 1;
+    setState(IDLE);
+  }, []);
+  return { ...state, run, reset };
 }
 
 // Kết quả của Promise.allSettled → { value, error } để mỗi khung tự hiện lỗi của mình.

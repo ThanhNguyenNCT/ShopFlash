@@ -1,22 +1,23 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Button, Card, Flex, Popconfirm, Space, Spin, Table, Tag, Typography } from 'antd';
 import { BuildOutlined, CheckCircleOutlined, ExclamationCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { tokens } from '@/shared/design-system';
 import { getAnalyticsStatus, rebuildAnalytics } from '../../api';
+import { EMPTY, formatInt, formatMs } from '../../format';
 import ErrorAlert from './ErrorAlert';
-import { formatCount, formatDateTime, formatMs, useApi } from './labUtils';
+import { formatDateTime, useApi } from './labUtils';
 
 const diffCell = (oracle, redis) => {
-  if (oracle === undefined || redis === undefined || oracle === null || redis === null) return '—';
+  if (oracle === undefined || redis === undefined || oracle === null || redis === null) return EMPTY;
   const d = redis - oracle;
   if (d === 0) return <Tag color="success">Bằng nhau</Tag>;
-  return <Tag color="error" className="sf-num">{d > 0 ? '+' : ''}{formatCount(d)}</Tag>;
+  return <Tag color="error" className="sf-num">{d > 0 ? '+' : ''}{formatInt(d)}</Tag>;
 };
 
 const COLUMNS = [
   { title: 'Đại lượng', dataIndex: 'label' },
-  { title: 'Oracle (nguồn gốc)', dataIndex: 'oracle', align: 'right', render: (v) => <span className="sf-num">{formatCount(v)}</span> },
-  { title: 'Redis (read model)', dataIndex: 'redis', align: 'right', render: (v) => <span className="sf-num">{formatCount(v)}</span> },
+  { title: 'Oracle (nguồn gốc)', dataIndex: 'oracle', align: 'right', render: (v) => <span className="sf-num">{formatInt(v)}</span> },
+  { title: 'Redis (read model)', dataIndex: 'redis', align: 'right', render: (v) => <span className="sf-num">{formatInt(v)}</span> },
   { title: 'Chênh (Redis − Oracle)', key: 'diff', render: (_, r) => diffCell(r.oracle, r.redis) },
 ];
 
@@ -30,9 +31,21 @@ export default function ConsistencySection() {
     loadStatus();
   }, [loadStatus]);
 
+  // Thời điểm lần dựng lại gần nhất xong, để thông báo kết quả không bị hiểu là của lần sau.
+  const [rebuiltAt, setRebuiltAt] = useState(null);
+
   const doRebuild = async () => {
     const res = await rebuild.run();
-    if (res) loadStatus();
+    if (res) {
+      setRebuiltAt(new Date().toISOString());
+      loadStatus();
+    }
+  };
+
+  // Làm mới trạng thái thì bỏ thông báo dựng lại cũ (thành công hay lỗi): bảng trạng thái mới là số liệu hiện hành.
+  const refresh = () => {
+    if (!rebuild.loading) rebuild.reset();
+    loadStatus();
   };
 
   const s = status.data;
@@ -86,12 +99,12 @@ export default function ConsistencySection() {
         </Spin>
       </Card>
       <Flex wrap gap={tokens.space[3]}>
-        <Button icon={<ReloadOutlined />} loading={status.loading} onClick={() => loadStatus()}>
+        <Button icon={<ReloadOutlined />} loading={status.loading} onClick={refresh}>
           Làm mới
         </Button>
         <Popconfirm
           title="Dựng lại read model Redis?"
-          description="Xóa toàn bộ order:analytics:* và order:line:* rồi nạp lại từ Oracle. Có thể mất vài chục giây."
+          description="Ghi đè mọi document order:analytics:* và order:line:* từ Oracle theo lô, rồi xóa các key không còn trong Oracle. Báo cáo không bao giờ thấy read model trống trong lúc dựng. Mất khoảng 20–35 giây với 100 nghìn đơn."
           okText="Dựng lại"
           cancelText="Hủy"
           onConfirm={doRebuild}
@@ -107,8 +120,8 @@ export default function ConsistencySection() {
         <Alert
           type="success"
           showIcon
-          title={`Đã dựng lại trong ${formatMs(rebuild.data.elapsedMs)}`}
-          description={`Nạp ${formatCount(rebuild.data.orders)} đơn và ${formatCount(rebuild.data.lines)} dòng hàng từ Oracle.`}
+          title={`Đã dựng lại trong ${formatMs(rebuild.data.elapsedMs)}${rebuiltAt ? ` (xong lúc ${formatDateTime(rebuiltAt).absolute})` : ''}`}
+          description={`Nạp ${formatInt(rebuild.data.orders)} đơn và ${formatInt(rebuild.data.lines)} dòng hàng từ Oracle.`}
         />
       )}
     </Space>

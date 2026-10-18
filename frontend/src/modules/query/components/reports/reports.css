@@ -146,7 +146,7 @@
   line-height: var(--sf-text-caption-line);
 }
 
-.sf-chart-tooltip__title { font-weight: 600; margin-bottom: var(--sf-space-1); }
+.sf-chart-tooltip__title { font-weight: var(--sf-text-heading-weight); margin-bottom: var(--sf-space-1); }
 
 .sf-chart-tooltip__row {
   display: flex;

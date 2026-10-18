@@ -5,6 +5,7 @@ const HINTS = {
   REDIS_UNAVAILABLE: 'Không kết nối được Redis. Kiểm tra container Redis đã chạy chưa.',
   NETWORK_ERROR: 'Không gọi được backend. Kiểm tra Spring Boot đang chạy ở cổng 8080, hoặc chạy chế độ mock.',
   ORACLE_ERROR: 'Oracle báo lỗi. Xem chi tiết bên dưới.',
+  TIMEOUT: 'Request chạy quá lâu nên trình duyệt ngừng chờ; backend có thể vẫn đang chạy. Thu hẹp khoảng thời gian rồi thử lại, hoặc xem log backend.',
 };
 
 // Hiện lỗi đã chuẩn hóa { status, code, message, details } của shared/api/client.

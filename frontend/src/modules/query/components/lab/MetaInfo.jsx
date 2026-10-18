@@ -7,10 +7,11 @@ export default function MetaInfo({ meta }) {
   return (
     <Descriptions
       size="small"
-      column={{ xs: 1, sm: 2 }}
+      layout="vertical"
+      column={{ xs: 2, md: 4 }}
       bordered
       items={[
-        { key: 'variant', label: 'Biến thể', children: <Tag>{HINT_LABEL[meta.variant] ?? meta.variant}</Tag> },
+        { key: 'variant', label: 'Biến thể', children: <Tag className="sf-lab-tag-wrap">{HINT_LABEL[meta.variant] ?? meta.variant}</Tag> },
         { key: 'ms', label: 'Thời gian', children: <span className="sf-num">{formatMs(meta.elapsedMs)}</span> },
         { key: 'rt', label: 'Round-trip', children: <span className="sf-num">{formatCount(meta.roundTrips)}</span> },
         { key: 'rows', label: 'Số dòng', children: <span className="sf-num">{formatCount(meta.rowCount)}</span> },

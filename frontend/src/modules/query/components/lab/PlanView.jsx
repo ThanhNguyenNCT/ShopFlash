@@ -9,7 +9,8 @@ export function joinOperations(lines = []) {
   return [...new Set(ops)];
 }
 
-// Kế hoạch thực thi dạng chữ đơn cách, cuộn ngang; dòng có phép join được tô màu brand.
+// Kế hoạch thực thi dạng chữ đơn cách, cuộn ngang và dọc (FT.PROFILE có thể dài hàng nghìn dòng);
+// dòng có phép join được tô màu brand.
 export default function PlanView({ lines, emptyText = 'Chưa có kế hoạch' }) {
   if (!lines?.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={emptyText} />;
   const joins = joinOperations(lines);
@@ -20,7 +21,7 @@ export default function PlanView({ lines, emptyText = 'Chưa có kế hoạch' }
           Phép join: <Typography.Text strong>{joins.join(', ')}</Typography.Text>
         </Typography.Paragraph>
       )}
-      <pre className="sf-lab-mono" aria-label="Kế hoạch thực thi">
+      <pre className="sf-lab-mono sf-lab-mono--plan" aria-label="Kế hoạch thực thi">
         {lines.map((line, i) => {
           const cls = JOIN_RE.test(line) ? ' sf-lab-plan__line--join' : WARN_RE.test(line) ? ' sf-lab-plan__line--warn' : '';
           return (

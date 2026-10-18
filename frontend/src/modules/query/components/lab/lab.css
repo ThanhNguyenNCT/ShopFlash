@@ -16,6 +16,11 @@
 
 .sf-lab-mono--wrap { white-space: pre-wrap; word-break: break-word; }
 
+/* FT.PROFILE trả hàng nghìn dòng: giới hạn chiều cao, cuộn bên trong khung. */
+.sf-lab-mono--plan { max-height: calc(var(--sf-space-8) * 15); overflow: auto; }
+
+.sf-lab-tag-wrap { white-space: normal; }
+
 .sf-lab-plan__line { display: block; min-height: var(--sf-text-caption-line); }
 
 .sf-lab-plan__line--join {

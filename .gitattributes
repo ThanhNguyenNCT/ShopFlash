@@ -1,0 +1,5 @@
+# Script được mount vào container Linux phải giữ LF, kể cả khi máy Windows bật core.autocrlf.
+*.sh  text eol=lf
+*.lua text eol=lf
+*.sql text eol=lf
+mvnw  text eol=lf

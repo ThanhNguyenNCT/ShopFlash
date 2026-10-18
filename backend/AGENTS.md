@@ -5,10 +5,11 @@ Java Spring Boot, REST API trả JSON cho frontend.
 ## Build và database
 
 - Java 21, Maven Wrapper: `./mvnw`.
-- Flyway tự chạy khi ứng dụng khởi động.
-- Migration Oracle nằm trong `src/main/resources/db/migration/` theo tên `V<number>__description.sql`.
+- Flyway tự chạy khi ứng dụng khởi động, bằng user `SHOP`. User này do `src/main/resources/db/oracle-init/` tạo sẵn khi container Oracle khởi động.
+- Migration Oracle nằm trong `src/main/resources/db/migration/` theo tên `V<number>__<module>_<mô tả>.sql`.
+- Dữ liệu mẫu nằm trong `src/main/resources/db/dev-seed/` dạng `R__10_<module>_seed.sql` (Flyway chạy repeatable theo thứ tự chữ cái, nên seed lõi `R__00_core_seed.sql` luôn chạy trước), chỉ chạy với profile `dev` (`./mvnw spring-boot:run -Dspring-boot.run.profiles=dev`).
 - Redis initializer nằm trong `src/main/resources/db/redis/`.
-- Không sửa migration đã áp dụng; tạo version mới để thay đổi schema hoặc seed.
+- Không sửa migration đã có trên `main`; tạo version mới để thay đổi schema.
 
 ## Bố cục
 

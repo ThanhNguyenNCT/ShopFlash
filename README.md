@@ -155,8 +155,7 @@ The main requirements for running the project locally include:
 - Java Development Kit (JDK) 21
 - Node.js
 - Docker Engine with Docker Compose v2
-- local image `container-registry.oracle.com/database/free:latest-lite`
-- local image `redis/redis-stack-server:latest`
+- the Oracle Database Free and Redis Stack images pinned by digest in `compose.yaml` (see [`db/README.md`](db/README.md#versions))
 - Git
 
 ### Clone the Repository
@@ -168,24 +167,20 @@ cd ShopFlash
 
 ### Start the Databases
 
+Pull the two pinned images first (Compose never pulls them implicitly); the exact commands are in [`db/README.md`](db/README.md#setup). Then:
+
 ```bash
 cp .env.example .env
-# Replace the placeholder passwords in .env.
+# Replace the placeholder passwords in .env (letters, digits and _ only, starting with a letter).
 docker compose up -d --wait
 docker compose exec -T redis redis-cli -e --eval /opt/shopflash/redis/init.lua
 ```
 
-Compose uses the two fixed local images and never pulls them implicitly. If one is missing, download it explicitly first. For Redis:
-
-```bash
-docker pull redis/redis-stack-server:latest
-```
-
-Oracle migrations and seed data are applied automatically by Flyway when the backend starts:
+The Oracle container creates user `SHOP` on start. Flyway applies the migrations as `SHOP` when the backend starts; profile `dev` also loads the local fixtures:
 
 ```bash
 cd backend
-./mvnw spring-boot:run
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 See [`db/README.md`](db/README.md) for reset instructions.

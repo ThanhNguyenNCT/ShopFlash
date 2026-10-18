@@ -48,12 +48,11 @@ function usePair(report, range) {
     const id = ++seq.current;
     setLoading(true);
     const base = { ...rangeParams(range), ...PAGE };
-    const res = await Promise.allSettled([
-      getReport(report, { ...base, source: 'oracle' }),
-      getReport(report, { ...base, source: 'redis' }),
-    ]);
+    // Lần lượt Oracle rồi Redis: chạy song song thì hai bên tranh CPU, thời gian đặt cạnh nhau sẽ sai.
+    const oracle = await Promise.allSettled([getReport(report, { ...base, source: 'oracle' })]);
+    const redis = await Promise.allSettled([getReport(report, { ...base, source: 'redis' })]);
     if (id !== seq.current) return;
-    setState({ oracle: settle(res[0]), redis: settle(res[1]) });
+    setState({ oracle: settle(oracle[0]), redis: settle(redis[0]) });
     setLoading(false);
   };
   return { state, loading, run };

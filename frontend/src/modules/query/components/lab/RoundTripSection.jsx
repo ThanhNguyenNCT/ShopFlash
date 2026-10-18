@@ -38,7 +38,15 @@ export default function RoundTripSection({ range }) {
     const id = ++seq.current;
     setLoading(true);
     const base = { ...rangeParams(range), ...reportParams(pick.report, pick) };
-    const results = await Promise.allSettled(RUNS.map((r) => getReport(pick.report, { ...base, source: r.source, ...r.params })));
+    // Chạy lần lượt, không song song: gọi cùng lúc thì các cách tranh CPU của máy với nhau và thời gian bị đội lên.
+    const results = [];
+    for (const r of RUNS) {
+      try {
+        results.push({ status: 'fulfilled', value: await getReport(pick.report, { ...base, source: r.source, ...r.params }) });
+      } catch (reason) {
+        results.push({ status: 'rejected', reason });
+      }
+    }
     if (id !== seq.current) return;
     setRows(
       RUNS.map((r, i) => {
@@ -68,8 +76,8 @@ export default function RoundTripSection({ range }) {
     <Space orientation="vertical" size={tokens.space[4]} className="sf-lab-full">
       <Typography.Paragraph>
         Oracle trả kết quả của cả câu SQL trong một lần gọi. Với Redis có hai cách: AGGREGATE đẩy việc gom nhóm cho FT.AGGREGATE trên
-        server (1 round-trip), còn CLIENT dùng FT.SEARCH kéo dữ liệu theo trang về Java rồi tự cộng — mỗi trang là một round-trip qua
-        mạng. Cùng kết quả nhưng số lượt gọi và thời gian khác hẳn.
+        server (1 round-trip), còn CLIENT đọc dữ liệu thô bằng con trỏ (FT.AGGREGATE … WITHCURSOR, 10.000 dòng mỗi lần) về Java rồi
+        tự gom và cộng — mỗi lần đọc là một round-trip qua mạng. Ba cách được chạy lần lượt để thời gian không ảnh hưởng nhau. Cùng kết quả nhưng số lượt gọi và thời gian khác hẳn.
       </Typography.Paragraph>
       <Flex wrap gap={tokens.space[3]} align="center">
         <ReportPicker value={pick} onChange={setPick} />

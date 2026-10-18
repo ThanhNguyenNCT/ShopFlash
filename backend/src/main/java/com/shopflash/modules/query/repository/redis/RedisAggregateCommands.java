@@ -12,6 +12,9 @@ import com.shopflash.modules.query.model.ReportQuery;
 
 /**
  * Các lệnh FT.AGGREGATE của từng báo cáo, dạng mảng tham số đúng như gõ ở redis-cli.
+ * Không dùng LOAD: mọi trường gom nhóm/cộng/trả về đều SORTABLE (tên là TEXT NOINDEX SORTABLE UNF), nên RediSearch
+ * đọc giá trị từ index thay vì parse lại JSON của từng document. Tên được gom cùng khóa (GROUPBY id + tên), vì một
+ * id luôn chỉ có một tên trong read model.
  * Mọi lệnh đều có TIMEOUT 0: cấu hình mặc định của Redis Stack là TIMEOUT 500 + ON_TIMEOUT return,
  * nghĩa là quá 500 ms thì trả kết quả dở dang mà không báo lỗi.
  */
@@ -41,23 +44,18 @@ final class RedisAggregateCommands {
 
     static String[] revenueByCategory(ReportQuery q) {
         return args("FT.AGGREGATE", LINE_INDEX, filter(q), "TIMEOUT", "0",
-                "LOAD", "3", "$.categoryName", "AS", "categoryName",
-                "GROUPBY", "1", "@categoryId",
+                "GROUPBY", "2", "@categoryId", "@categoryName",
                 "REDUCE", "SUM", "1", "@quantity", "AS", "quantity",
                 "REDUCE", "SUM", "1", "@lineTotal", "AS", "revenue",
-                "REDUCE", "FIRST_VALUE", "1", "@categoryName", "AS", "categoryName",
                 "SORTBY", "4", "@revenue", "DESC", "@categoryId", "ASC",
                 "LIMIT", "0", String.valueOf(MAX_ROWS));
     }
 
     static String[] topProducts(ReportQuery q) {
         return args("FT.AGGREGATE", LINE_INDEX, filter(q), "TIMEOUT", "0",
-                "LOAD", "6", "$.productName", "AS", "productName", "$.categoryName", "AS", "categoryName",
-                "GROUPBY", "1", "@productId",
+                "GROUPBY", "3", "@productId", "@productName", "@categoryName",
                 "REDUCE", "SUM", "1", "@quantity", "AS", "quantity",
                 "REDUCE", "SUM", "1", "@lineTotal", "AS", "revenue",
-                "REDUCE", "FIRST_VALUE", "1", "@productName", "AS", "productName",
-                "REDUCE", "FIRST_VALUE", "1", "@categoryName", "AS", "categoryName",
                 "SORTBY", "4", "@quantity", "DESC", "@productId", "ASC", "MAX", String.valueOf(q.limit()));
     }
 
@@ -74,12 +72,9 @@ final class RedisAggregateCommands {
     /** VIP lượt 2: khách có tổng chi lớn hơn trung bình (hằng số lấy từ lượt 1), một trang. */
     static String[] vipPage(ReportQuery q, String average) {
         return args("FT.AGGREGATE", ORDER_INDEX, filter(q), "TIMEOUT", "0",
-                "LOAD", "6", "$.userName", "AS", "userName", "$.userEmail", "AS", "userEmail",
-                "GROUPBY", "1", "@userId",
+                "GROUPBY", "3", "@userId", "@userName", "@userEmail",
                 "REDUCE", "SUM", "1", "@totalAmount", "AS", "totalSpent",
                 "REDUCE", "COUNT", "0", "AS", "orderCount",
-                "REDUCE", "FIRST_VALUE", "1", "@userName", "AS", "fullName",
-                "REDUCE", "FIRST_VALUE", "1", "@userEmail", "AS", "email",
                 "FILTER", "@totalSpent > " + average,
                 "SORTBY", "4", "@totalSpent", "DESC", "@userId", "ASC",
                 "LIMIT", String.valueOf(q.offset()), String.valueOf(q.size()));

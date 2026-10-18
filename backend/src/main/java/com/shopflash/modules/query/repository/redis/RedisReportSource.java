@@ -138,7 +138,7 @@ public class RedisReportSource implements ReportSource {
 
         List<VipCustomerRow> rows = new ArrayList<>();
         for (Map<String, String> r : aggregateRows(replies.get(0))) {
-            rows.add(new VipCustomerRow(longOf(r.get("userId")), r.get("fullName"), r.get("email"),
+            rows.add(new VipCustomerRow(longOf(r.get("userId")), r.get("userName"), r.get("userEmail"),
                     longOf(r.get("orderCount")), money(r.get("totalSpent"))));
         }
         List<Map<String, String>> countRows = aggregateRows(replies.get(1));
@@ -149,17 +149,18 @@ public class RedisReportSource implements ReportSource {
 
     // ---------------------------------------------------------------- CLIENT
 
-    /** Lệnh lấy document cho CLIENT: chỉ lọc theo index, LOAD các trường cần, đọc theo cursor. */
+    /**
+     * Lệnh lấy document cho CLIENT: chỉ lọc theo index, LOAD các trường cần theo alias (đều SORTABLE nên đọc từ
+     * index, không parse JSON), đọc theo cursor.
+     */
     static String[] clientFetch(ReportQuery q) {
         String filter = RedisAggregateCommands.filter(q);
         String[] load = switch (q.report()) {
             case REVENUE_BY_MONTH -> new String[] {"2", "@createdAt", "@totalAmount"};
-            case REVENUE_BY_CATEGORY -> new String[] {"6", "@categoryId", "@quantity", "@lineTotal",
-                    "$.categoryName", "AS", "categoryName"};
-            case TOP_PRODUCTS -> new String[] {"9", "@productId", "@quantity", "@lineTotal",
-                    "$.productName", "AS", "productName", "$.categoryName", "AS", "categoryName"};
-            case VIP_CUSTOMERS -> new String[] {"8", "@userId", "@totalAmount",
-                    "$.userName", "AS", "userName", "$.userEmail", "AS", "userEmail"};
+            case REVENUE_BY_CATEGORY -> new String[] {"4", "@categoryId", "@quantity", "@lineTotal", "@categoryName"};
+            case TOP_PRODUCTS -> new String[] {"5", "@productId", "@quantity", "@lineTotal", "@productName",
+                    "@categoryName"};
+            case VIP_CUSTOMERS -> new String[] {"4", "@userId", "@totalAmount", "@userName", "@userEmail"};
             case UNSOLD_PRODUCTS -> throw new IllegalStateException("unsupported");
         };
         String index = clientIndex(q.report());

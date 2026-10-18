@@ -1,6 +1,6 @@
 # ShopFlash Database Design
 
-Tài liệu này mô tả thiết kế dữ liệu đề xuất cho **ShopFlash**, tập trung vào cách phân chia dữ liệu giữa **Oracle Database** và **Redis** để đáp ứng các business flow chính của hệ thống: quản lý sản phẩm, tìm kiếm/lọc, giỏ hàng, đặt hàng, báo cáo/thống kê và Flash Sale.
+Tài liệu này mô tả thiết kế dữ liệu **nền chung** của **ShopFlash**, đã hiện thực trong `V1__schema.sql` và `redis/init.lua`. Module được bổ sung bảng hoặc key riêng bằng migration của mình và ghi thiết kế đó vào `AGENTS.md` của module. Trọng tâm là cách phân chia dữ liệu giữa **Oracle Database** và **Redis** để đáp ứng các business flow chính của hệ thống: quản lý sản phẩm, tìm kiếm/lọc, giỏ hàng, đặt hàng, báo cáo/thống kê và Flash Sale.
 
 Thiết kế theo nguyên tắc:
 
@@ -42,7 +42,7 @@ Thiết kế theo nguyên tắc:
 | Inventory | ✅ | Một phần trạng thái phục vụ runtime | Oracle |
 | Cart | ✅ | — | Oracle |
 | Order | ✅ | Analytics projection | Oracle |
-| Order Item | ✅ | Embedded trong analytics projection | Oracle |
+| Order Item | ✅ | Line-level analytics projection (`order:line:{id}`) | Oracle |
 | Flash Sale campaign | ✅ | Runtime subset | Oracle |
 | Flash Sale configuration | ✅ | Runtime subset | Oracle |
 | Flash Sale item | ✅ | Runtime quota | Oracle |
@@ -95,6 +95,28 @@ erDiagram
 
     FLASH_SALE_ITEMS o|--o{ ORDER_ITEMS : purchased_through
 ```
+
+## 2.2. Ràng buộc và index chung
+
+- Ràng buộc trên một dòng đặt bằng `CHECK`, để mọi đường ghi (code các module, seed, SQL gõ tay) đều bị chặn như nhau:
+  - `ORDERS`: `subtotal >= 0`, `0 <= discount_amount <= subtotal`, `total_amount = subtotal - discount_amount`, `cancelled_at` có giá trị khi và chỉ khi `status = 'CANCELLED'`.
+  - `ORDER_ITEMS`: `line_total = unit_price * quantity`.
+  - `USERS`: `email = LOWER(email)`. Ứng dụng hạ chữ thường trước khi ghi và khi tìm, nên `uk_users_email` không phân biệt hoa thường trên thực tế.
+- Mọi cột khóa ngoại đều có index bắt đầu bằng cột đó. Không có index thì xóa/sửa khóa ở bảng cha sẽ khóa cả bảng con, và join phải quét toàn bảng con. Câu kiểm tra, kết quả đúng là không có dòng nào:
+
+```sql
+SELECT c.table_name, cc.column_name, c.constraint_name
+FROM   user_constraints c
+JOIN   user_cons_columns cc ON cc.constraint_name = c.constraint_name
+WHERE  c.constraint_type = 'R'
+AND    NOT EXISTS (
+         SELECT 1 FROM user_ind_columns ic
+         WHERE  ic.table_name = cc.table_name
+         AND    ic.column_name = cc.column_name
+         AND    ic.column_position = cc.position);
+```
+
+- Index trên cột `TIMESTAMP WITH TIME ZONE` (`ix_orders_*_created`) được Oracle lưu dạng `SYS_EXTRACT_UTC(created_at)`; execution plan sẽ hiện hàm này.
 
 ---
 
@@ -510,6 +532,19 @@ reserved_flash_quantity:
 `on_hand_quantity` không thay đổi.
 
 10 sản phẩm còn lại quay trở lại pool bán thông thường.
+
+## Bất biến và người chịu trách nhiệm
+
+```text
+reserved_flash_quantity = Σ (allocated_quantity - sold_quantity)
+                          của các FLASH_SALE_ITEMS ACTIVE thuộc FLASH_SALES ACTIVE
+```
+
+Bất biến trải trên ba bảng nên `CHECK` không ép được. Không dùng trigger: trigger trên `FLASH_SALE_ITEMS` khóa thêm dòng đúng lúc tranh mua và dễ gặp lỗi mutating table.
+
+- Module `concurrency` giữ bất biến trong cùng transaction với thao tác thay đổi `FLASH_SALE_ITEMS` hoặc trạng thái Flash Sale.
+- View `v_inventory_invariant_check` liệt kê sản phẩm đang lệch (`reserved_flash_quantity`, `expected_reserved`). Kết quả đúng là không có dòng nào; dùng trong kiểm thử và demo.
+- Nếu module `concurrency` quyết định giữ suất từ lúc `SCHEDULED` thì sửa điều kiện trạng thái trong view bằng migration của module.
 
 ---
 
@@ -1039,6 +1074,36 @@ Ví dụ:
 | `items.quantity` | Số lượng mua |
 | `items.lineTotal` | Giá trị của item |
 
+`items` chỉ để xem chi tiết. Không gom nhóm trên `items[*]`: RediSearch gom nhóm trường nhiều giá trị theo giá trị đầu tiên, nên doanh thu theo category/product sẽ sai. Thống kê theo dòng hàng dùng projection ở §27.1.
+
+## 27.1. Order Line Projection
+
+Key:
+
+```text
+order:line:{orderItemId}
+```
+
+Type `JSON`, một document cho mỗi Order Item:
+
+```json
+{
+  "orderId": 9001,
+  "userId": 42,
+  "status": "COMPLETED",
+  "orderType": "NORMAL",
+  "createdAt": 1791280800,
+  "productId": 101,
+  "categoryId": 5,
+  "quantity": 1,
+  "lineTotal": 19990000
+}
+```
+
+Prefix là `order:line:`, không phải `order:analytics:item:`: mọi key bắt đầu bằng `order:analytics:` đều bị `idx:order-analytics` index, document dòng hàng sẽ làm sai số đơn.
+
+Module được thêm field không index (ví dụ `productName`, `categoryName`) để đọc kèm khi aggregate.
+
 Oracle giữ dữ liệu normalized:
 
 ```text
@@ -1066,7 +1131,7 @@ Type:
 RediSearch Index
 ```
 
-Có thể index:
+Index gồm:
 
 | Field | Mục đích |
 |---|---|
@@ -1075,10 +1140,28 @@ Có thể index:
 | `orderType` | So sánh Normal và Flash Sale |
 | `totalAmount` | Aggregate doanh thu |
 | `createdAt` | Filter theo khoảng thời gian |
-| `items.productId` | Thống kê theo Product |
-| `items.categoryId` | Thống kê theo Category |
-| `items.quantity` | Tổng số lượng bán |
-| `items.lineTotal` | Tổng doanh thu theo Product/Category |
+| `items[*].productId` (`itemProductId`) | Chỉ để lọc đơn có chứa Product; không dùng để gom nhóm |
+
+## 28.1. Order Line Analytics Index
+
+```text
+idx:order-line-analytics   ON JSON   PREFIX order:line:
+```
+
+| Field | Kiểu | Mục đích |
+|---|---|---|
+| `orderId`, `userId` | NUMERIC | Lọc, gom nhóm theo đơn/khách |
+| `status`, `orderType` | TAG | Chỉ tính đơn hợp lệ; so sánh Normal và Flash Sale |
+| `createdAt` | NUMERIC SORTABLE | Lọc theo khoảng thời gian |
+| `productId`, `categoryId` | NUMERIC | Gom nhóm theo Product/Category |
+| `quantity`, `lineTotal` | NUMERIC | Tổng số lượng, doanh thu |
+
+Ví dụ doanh thu theo category:
+
+```text
+FT.AGGREGATE idx:order-line-analytics "@status:{CONFIRMED|COMPLETED}"
+  GROUPBY 1 @categoryId REDUCE SUM 1 @lineTotal AS revenue
+```
 
 ---
 
@@ -1093,8 +1176,10 @@ Có thể index:
 | `flash:item:{itemId}:user_qty` | HASH | Theo dõi giới hạn mua từng user |
 | `flash:reservation:{id}` | HASH | Reservation tạm |
 | `flash:reservations:expiry` | ZSET | Theo dõi reservation timeout |
-| `order:analytics:{orderId}` | JSON | Denormalized analytics projection |
-| `idx:order-analytics` | Search Index | Query và aggregate analytics |
+| `order:analytics:{orderId}` | JSON | Denormalized analytics projection theo đơn |
+| `idx:order-analytics` | Search Index | Query và aggregate theo đơn |
+| `order:line:{orderItemId}` | JSON | Analytics projection theo dòng hàng |
+| `idx:order-line-analytics` | Search Index | Aggregate theo Product/Category |
 
 ---
 
@@ -1125,7 +1210,7 @@ Tương tự với Order Analytics:
 ```text
 Oracle Order COMMIT
         ↓
-Build order:analytics:{orderId}
+Build order:analytics:{orderId} và order:line:{orderItemId}
         ↓
 Update Redis analytics projection
 ```
@@ -1142,7 +1227,7 @@ Redis read model có thể sử dụng eventual consistency vì đây không ph�
 | **F2 – Product Management** | `PRODUCTS`, `PRODUCT_INVENTORY` | `product:{id}` |
 | **F3 – Product Search** | `PRODUCTS`, `CATEGORIES` | `idx:products` |
 | **F4 – Filter & Sort** | Product indexes | `idx:products` |
-| **F5 – Sales Reports** | `ORDERS`, `ORDER_ITEMS` | `order:analytics:{id}` |
+| **F5 – Sales Reports** | `ORDERS`, `ORDER_ITEMS` | `order:analytics:{id}`, `order:line:{id}` |
 | **F6 – Business Statistics** | `USERS`, `ORDERS`, `ORDER_ITEMS`, `PRODUCTS` | Analytics projection/index |
 | **F7 – Checkout** | `CARTS`, `CART_ITEMS`, `ORDERS`, `ORDER_ITEMS`, `PRODUCT_INVENTORY` | — |
 | **F8 – Order Management** | `ORDERS`, `ORDER_ITEMS` | Optional analytics projection |

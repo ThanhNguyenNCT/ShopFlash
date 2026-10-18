@@ -47,6 +47,8 @@ verify_index('idx:products', {
   'status', 'inStock', 'TEXT', 'TAG', 'NUMERIC', 'SORTABLE'
 })
 
+-- Một document cho mỗi Order. Gom nhóm trên trường nhiều giá trị ($.items[*]) chỉ lấy giá trị đầu tiên,
+-- nên index này không đưa categoryId/quantity/lineTotal của item vào; itemProductId chỉ dùng để lọc.
 if not index_exists('idx:order-analytics') then
   redis.call(
     'FT.CREATE', 'idx:order-analytics', 'ON', 'JSON', 'PREFIX', '1', 'order:analytics:', 'SCHEMA',
@@ -55,17 +57,40 @@ if not index_exists('idx:order-analytics') then
     '$.orderType', 'AS', 'orderType', 'TAG',
     '$.totalAmount', 'AS', 'totalAmount', 'NUMERIC', 'SORTABLE',
     '$.createdAt', 'AS', 'createdAt', 'NUMERIC', 'SORTABLE',
-    '$.items[*].productId', 'AS', 'itemProductId', 'NUMERIC',
-    '$.items[*].categoryId', 'AS', 'itemCategoryId', 'NUMERIC',
-    '$.items[*].quantity', 'AS', 'itemQuantity', 'NUMERIC',
-    '$.items[*].lineTotal', 'AS', 'itemLineTotal', 'NUMERIC'
+    '$.items[*].productId', 'AS', 'itemProductId', 'NUMERIC'
   )
+end
+
+if contains(redis.call('FT.INFO', 'idx:order-analytics'), 'itemLineTotal') then
+  error('idx:order-analytics has the old schema (itemCategoryId/itemQuantity/itemLineTotal). '
+    .. 'Run FT.DROPINDEX idx:order-analytics (documents are kept), then run init.lua again')
 end
 
 verify_index('idx:order-analytics', {
   'order:analytics:', 'userId', 'status', 'orderType', 'totalAmount',
-  'createdAt', 'itemProductId', 'itemCategoryId', 'itemQuantity',
-  'itemLineTotal', 'TAG', 'NUMERIC', 'SORTABLE'
+  'createdAt', 'itemProductId', 'TAG', 'NUMERIC', 'SORTABLE'
+})
+
+-- Một document cho mỗi Order Item, để gom nhóm theo product/category cho đúng.
+-- Prefix order:line: không được bắt đầu bằng order:analytics:, nếu không document sẽ lọt vào index trên.
+if not index_exists('idx:order-line-analytics') then
+  redis.call(
+    'FT.CREATE', 'idx:order-line-analytics', 'ON', 'JSON', 'PREFIX', '1', 'order:line:', 'SCHEMA',
+    '$.orderId', 'AS', 'orderId', 'NUMERIC',
+    '$.userId', 'AS', 'userId', 'NUMERIC',
+    '$.status', 'AS', 'status', 'TAG',
+    '$.orderType', 'AS', 'orderType', 'TAG',
+    '$.createdAt', 'AS', 'createdAt', 'NUMERIC', 'SORTABLE',
+    '$.productId', 'AS', 'productId', 'NUMERIC',
+    '$.categoryId', 'AS', 'categoryId', 'NUMERIC',
+    '$.quantity', 'AS', 'quantity', 'NUMERIC',
+    '$.lineTotal', 'AS', 'lineTotal', 'NUMERIC'
+  )
+end
+
+verify_index('idx:order-line-analytics', {
+  'order:line:', 'orderId', 'userId', 'status', 'orderType', 'createdAt',
+  'productId', 'categoryId', 'quantity', 'lineTotal', 'TAG', 'NUMERIC', 'SORTABLE'
 })
 
 return 'Redis indexes are ready'

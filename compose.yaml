@@ -2,36 +2,49 @@ name: ${COMPOSE_PROJECT_NAME:-shopflash}
 
 services:
   oracle:
-    image: container-registry.oracle.com/database/free:latest-lite
+    # Bản đầy đủ (có expdp/impdp/rman), ghim theo digest; xem db/README.md.
+    image: container-registry.oracle.com/database/free@sha256:f988b0c04c4c386cd306a2a914c0d7a9702d83acc31b064a28ad8eb6278a8fba
     pull_policy: never
     environment:
       ORACLE_PWD: ${ORACLE_ADMIN_PASSWORD:?Set ORACLE_ADMIN_PASSWORD in .env}
+      SHOP_PASSWORD: ${ORACLE_APP_PASSWORD:?Set ORACLE_APP_PASSWORD in .env}
     ports:
-      - "${ORACLE_PORT:-1521}:1521"
+      # Chỉ mở trên máy mình, không mở ra mạng wifi chung.
+      - "127.0.0.1:${ORACLE_PORT:-1521}:1521"
     volumes:
       - oracle_data:/opt/oracle/oradata
+      # Chạy mỗi lần container khởi động: tạo tablespace, user SHOP và quyền nếu chưa có.
+      - ./backend/src/main/resources/db/oracle-init:/opt/oracle/scripts/startup:ro
     healthcheck:
-      test: ["CMD-SHELL", "/opt/oracle/checkDBStatus.sh >/dev/null 2>&1"]
+      # Healthy khi đăng nhập được bằng SHOP, không chỉ khi DB đã mở: script startup chạy sau khi DB mở.
+      # Mật khẩu đi qua stdin (connect), không nằm trên dòng lệnh của sqlplus.
+      test:
+        - CMD-SHELL
+        - >-
+          printf 'whenever sqlerror exit failure\nconnect shop/%s@//localhost:1521/FREEPDB1\nselect %s from dual;\nexit\n'
+          "$${SHOP_PASSWORD}" "'SHOP_' || 'READY'" |
+          sqlplus -s -L /nolog |
+          grep -q SHOP_READY
       interval: 10s
       timeout: 10s
-      retries: 60
-      start_period: 60s
+      retries: 90
+      start_period: 120s
     restart: unless-stopped
 
   redis:
-    image: redis/redis-stack-server:latest
+    image: redis/redis-stack-server@sha256:798ab84d9f266936b034ab11c4d04a2b8e4b441884c5aa7d17ac951eefdf742a
     pull_policy: never
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
       REDISCLI_AUTH: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
       REDIS_ARGS: "--requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env} --appendonly yes"
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
       - ./backend/src/main/resources/db/redis:/opt/shopflash/redis:ro
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a $$REDIS_PASSWORD ping | grep -q PONG"]
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
       interval: 5s
       timeout: 5s
       retries: 30

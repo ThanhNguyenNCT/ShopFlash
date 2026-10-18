@@ -6,8 +6,9 @@ Kế hoạch đầy đủ nằm ngoài repo: `../assignment/KE_HOACH_BTL.md`.
 
 ## Stack
 
-- Oracle image `container-registry.oracle.com/database/free:latest-lite`, schema `SHOP`: dữ liệu nghiệp vụ, là nguồn dữ liệu chính.
-- Redis image `redis/redis-stack-server:latest` (có RediSearch, RedisJSON): session, giỏ hàng, cache, tồn kho flash sale, bảng xếp hạng.
+- Oracle Database Free bản đầy đủ (image ghim theo digest trong `compose.yaml`), schema `SHOP`: dữ liệu nghiệp vụ, là nguồn dữ liệu chính, kể cả giỏ hàng.
+- Redis Stack (ghim theo digest, có RediSearch, RedisJSON): projection tìm kiếm sản phẩm, trạng thái runtime và giữ suất flash sale, read model analytics. Dữ liệu Redis dựng lại được từ Oracle, trừ trạng thái runtime flash sale.
+- Thiết kế dữ liệu chung: `db/DATABASE_DESIGN.md`. Phiên bản đang dùng: `db/README.md`.
 - Backend: Java Spring Boot, trong `backend/`.
 - Frontend: React + Vite + Ant Design, trong `frontend/`.
 
@@ -46,11 +47,11 @@ Kế hoạch BTL chỉ để tham khảo. Đừng coi nội dung kế hoạch l�
 
 ## Lệnh database
 
-Hai image database được cố định trong `compose.yaml` và không được đọc từ `.env`. Oracle migration do Flyway của Spring Boot quản lý; Redis index được khởi tạo trực tiếp bằng `redis-cli`.
+Hai image database được ghim theo digest trong `compose.yaml`, phải `docker pull` trước (xem `db/README.md`). User `SHOP` do `db/oracle-init` tạo khi container khởi động; migration do Flyway chạy bằng user `SHOP`; Redis index khởi tạo bằng `redis-cli`.
 
 ```bash
 docker compose up -d --wait
 docker compose exec -T redis redis-cli -e --eval /opt/shopflash/redis/init.lua
 cd backend
-./mvnw spring-boot:run
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev   # bỏ profile dev nếu không cần dữ liệu mẫu
 ```

@@ -1,0 +1,2 @@
+run,capturedAt,oracleCategories,oracleProducts,redisDocuments,inSync,oracleAllocatedBytes,redisDocumentKeyBytes,footprintRedisDocuments
+1,2026-10-19T00:03:40+07:00,100,1000,1000,True,1245184,575000,1000

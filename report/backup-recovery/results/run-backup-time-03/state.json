@@ -1,0 +1,12 @@
+﻿{
+    "runId":  "backup-time-03",
+    "backupId":  "BKP-20261019T102706-3971A211",
+    "backupTiming":  {
+                         "backupId":  "BKP-20261019T102706-3971A211",
+                         "startedAt":  "2026-10-19T10:27:06.3649746+00:00",
+                         "completedAt":  "2026-10-19T10:28:07.2876876+00:00",
+                         "durationMilliseconds":  60923,
+                         "measurement":  "Backend runner duration from createdAt immediately before runner.create() to completedAt immediately after artifact creation."
+                     },
+    "updatedAt":  "2026-10-19T17:45:40.3645112+07:00"
+}

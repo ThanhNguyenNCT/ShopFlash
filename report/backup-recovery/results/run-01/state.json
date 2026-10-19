@@ -1,0 +1,169 @@
+﻿{
+    "runId":  "01",
+    "backupId":  "BKP-20261019T102301-D44AE7FD",
+    "beforeLoss":  {
+                       "backupId":  "BKP-20261019T102301-D44AE7FD",
+                       "capturedAt":  "2026-10-19T18:34:40.2631521+07:00",
+                       "oracle":  {
+                                      "tableCounts":  {
+                                                          "CARTS":  0,
+                                                          "CART_ITEMS":  0,
+                                                          "CATEGORIES":  100,
+                                                          "FLASH_SALES":  0,
+                                                          "FLASH_SALE_CONFIGS":  0,
+                                                          "FLASH_SALE_ITEMS":  0,
+                                                          "ORDERS":  0,
+                                                          "ORDER_ITEMS":  0,
+                                                          "PRODUCTS":  1000,
+                                                          "PRODUCT_INVENTORY":  1000,
+                                                          "USERS":  0
+                                                      },
+                                      "productSamples":  [
+                                                             "PRODUCT_SAMPLE|10031|STO-0001|101000.00|21|0",
+                                                             "PRODUCT_SAMPLE|10032|STO-0002|102000.00|22|0",
+                                                             "PRODUCT_SAMPLE|10033|STO-0003|103000.00|23|0"
+                                                         ],
+                                      "raw":  [
+                                                  "TABLE_COUNT|CARTS|0",
+                                                  "TABLE_COUNT|CART_ITEMS|0",
+                                                  "TABLE_COUNT|CATEGORIES|100",
+                                                  "TABLE_COUNT|FLASH_SALES|0",
+                                                  "TABLE_COUNT|FLASH_SALE_CONFIGS|0",
+                                                  "TABLE_COUNT|FLASH_SALE_ITEMS|0",
+                                                  "TABLE_COUNT|ORDERS|0",
+                                                  "TABLE_COUNT|ORDER_ITEMS|0",
+                                                  "TABLE_COUNT|PRODUCTS|1000",
+                                                  "TABLE_COUNT|PRODUCT_INVENTORY|1000",
+                                                  "TABLE_COUNT|USERS|0",
+                                                  "PRODUCT_SAMPLE|10031|STO-0001|101000.00|21|0",
+                                                  "PRODUCT_SAMPLE|10032|STO-0002|102000.00|22|0",
+                                                  "PRODUCT_SAMPLE|10033|STO-0003|103000.00|23|0"
+                                              ]
+                                  },
+                       "redis":  {
+                                     "databaseKeys":  1000,
+                                     "productDocuments":  1000,
+                                     "raw":  [
+                                                 "DBSIZE|1000",
+                                                 "PRODUCT_DOCUMENTS|1000"
+                                             ]
+                                 }
+                   },
+    "afterLoss":  {
+                      "backupId":  "BKP-20261019T102301-D44AE7FD",
+                      "capturedAt":  "2026-10-19T18:35:43.1578263+07:00",
+                      "oracle":  {
+                                     "tableCounts":  {
+                                                         "CARTS":  0,
+                                                         "CART_ITEMS":  0,
+                                                         "CATEGORIES":  0,
+                                                         "FLASH_SALES":  0,
+                                                         "FLASH_SALE_CONFIGS":  0,
+                                                         "FLASH_SALE_ITEMS":  0,
+                                                         "ORDERS":  0,
+                                                         "ORDER_ITEMS":  0,
+                                                         "PRODUCTS":  0,
+                                                         "PRODUCT_INVENTORY":  0,
+                                                         "USERS":  0
+                                                     },
+                                     "productSamples":  [
+
+                                                        ],
+                                     "raw":  [
+                                                 "TABLE_COUNT|CARTS|0",
+                                                 "TABLE_COUNT|CART_ITEMS|0",
+                                                 "TABLE_COUNT|CATEGORIES|0",
+                                                 "TABLE_COUNT|FLASH_SALES|0",
+                                                 "TABLE_COUNT|FLASH_SALE_CONFIGS|0",
+                                                 "TABLE_COUNT|FLASH_SALE_ITEMS|0",
+                                                 "TABLE_COUNT|ORDERS|0",
+                                                 "TABLE_COUNT|ORDER_ITEMS|0",
+                                                 "TABLE_COUNT|PRODUCTS|0",
+                                                 "TABLE_COUNT|PRODUCT_INVENTORY|0",
+                                                 "TABLE_COUNT|USERS|0"
+                                             ]
+                                 },
+                      "redis":  {
+                                    "databaseKeys":  0,
+                                    "productDocuments":  0,
+                                    "raw":  [
+                                                "DBSIZE|0",
+                                                "PRODUCT_DOCUMENTS|0"
+                                            ]
+                                }
+                  },
+    "oracleRecovery":  {
+                           "backupId":  "BKP-20261019T102301-D44AE7FD",
+                           "restoredAt":  "2026-10-19T18:36:32.8463389+07:00",
+                           "durationMilliseconds":  25901,
+                           "artifactSha256":  "eede9fb5807a0b48270d6b1b5ea56599d44edd62554d9bbafff1b00623f2705a",
+                           "oracle":  {
+                                          "tableCounts":  {
+                                                              "CARTS":  0,
+                                                              "CART_ITEMS":  0,
+                                                              "CATEGORIES":  100,
+                                                              "FLASH_SALES":  0,
+                                                              "FLASH_SALE_CONFIGS":  0,
+                                                              "FLASH_SALE_ITEMS":  0,
+                                                              "ORDERS":  0,
+                                                              "ORDER_ITEMS":  0,
+                                                              "PRODUCTS":  1000,
+                                                              "PRODUCT_INVENTORY":  1000,
+                                                              "USERS":  0
+                                                          },
+                                          "productSamples":  [
+                                                                 "PRODUCT_SAMPLE|10031|STO-0001|101000.00|21|0",
+                                                                 "PRODUCT_SAMPLE|10032|STO-0002|102000.00|22|0",
+                                                                 "PRODUCT_SAMPLE|10033|STO-0003|103000.00|23|0"
+                                                             ],
+                                          "raw":  [
+                                                      "TABLE_COUNT|CARTS|0",
+                                                      "TABLE_COUNT|CART_ITEMS|0",
+                                                      "TABLE_COUNT|CATEGORIES|100",
+                                                      "TABLE_COUNT|FLASH_SALES|0",
+                                                      "TABLE_COUNT|FLASH_SALE_CONFIGS|0",
+                                                      "TABLE_COUNT|FLASH_SALE_ITEMS|0",
+                                                      "TABLE_COUNT|ORDERS|0",
+                                                      "TABLE_COUNT|ORDER_ITEMS|0",
+                                                      "TABLE_COUNT|PRODUCTS|1000",
+                                                      "TABLE_COUNT|PRODUCT_INVENTORY|1000",
+                                                      "TABLE_COUNT|USERS|0",
+                                                      "PRODUCT_SAMPLE|10031|STO-0001|101000.00|21|0",
+                                                      "PRODUCT_SAMPLE|10032|STO-0002|102000.00|22|0",
+                                                      "PRODUCT_SAMPLE|10033|STO-0003|103000.00|23|0"
+                                                  ]
+                                      },
+                           "comparison":  {
+                                              "source":  "Oracle",
+                                              "matchesBaseline":  true,
+                                              "differences":  [
+
+                                                              ]
+                                          }
+                       },
+    "redisRecovery":  {
+                          "backupId":  "BKP-20261019T102301-D44AE7FD",
+                          "restoredAt":  "2026-10-19T18:37:05.7038856+07:00",
+                          "durationMilliseconds":  8946,
+                          "artifactSha256":  "882a4f4e7c17d22cdd54c1ea8143a0683f641fb4be48397e6230df008ef4e230",
+                          "liveRedisVolume":  "shopflash_redis_data",
+                          "archivedPreviousPersistence":  "/data/recovery-snapshots/run-01-BKP-20261019T102301-D44AE7FD-before-live-restore-20261019T183656",
+                          "recoveryMethod":  "Loaded RDB with AOF disabled, rebuilt AOF from loaded keys, then started the live Redis service.",
+                          "redis":  {
+                                        "databaseKeys":  1000,
+                                        "productDocuments":  1000,
+                                        "raw":  [
+                                                    "DBSIZE|1000",
+                                                    "PRODUCT_DOCUMENTS|1000"
+                                                ]
+                                    },
+                          "comparison":  {
+                                             "source":  "Redis",
+                                             "matchesBaseline":  true,
+                                             "differences":  [
+
+                                                             ]
+                                         }
+                      },
+    "updatedAt":  "2026-10-19T18:37:05.7063161+07:00"
+}

@@ -9,6 +9,6 @@ export default [
     path: '/admin/backups',
     element: <AdminBackupsPage />,
     title: 'Sao lưu và phục hồi',
-    menu: { label: 'Sao lưu', icon: <CloudServerOutlined />, group: 'Hệ thống', order: 1, owner: 'TV1', feature: 'F11', status: 'todo' },
+    menu: { label: 'Sao lưu', icon: <CloudServerOutlined />, group: 'Hệ thống', order: 1, owner: 'TV1', feature: 'F11' },
   },
 ];

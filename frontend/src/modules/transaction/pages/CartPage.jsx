@@ -1,27 +1,173 @@
-import ComingSoon from '@/shared/components/ComingSoon';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Button, Card, Empty, Flex, Input, InputNumber, Popconfirm, Spin, Typography } from 'antd';
+import { Link } from 'react-router-dom';
+import { useAuth } from '@/shared/auth';
+import { PriceTag, tokens } from '@/shared/design-system';
+import { clearCart, clearLocalToken, getCart, getLocalToken, removeCartItem, saveLocalToken, setCartItemQuantity } from '../api';
 
-// F10 Giỏ hàng (TV4). Placeholder sau bàn giao route; giao diện thật thuộc task 2.5.
 export default function CartPage() {
+  const { user } = useAuth();
+  const [tokenReady, setTokenReady] = useState(() => Boolean(getLocalToken()));
+  const [tokenInput, setTokenInput] = useState('');
+  const [cart, setCart] = useState(null);
+  const [draft, setDraft] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const requestSeq = useRef(0);
+
+  const refresh = useCallback(async () => {
+    const requestId = ++requestSeq.current;
+    setCart(null);
+    setLoading(false);
+    setBusy(false);
+    setError('');
+    setNotice('');
+    if (!user || user.role !== 'CUSTOMER' || !tokenReady) return;
+    setLoading(true);
+    try {
+      const result = await getCart(user);
+      if (requestSeq.current !== requestId) return;
+      setCart(result);
+      setDraft({});
+      setError('');
+    } catch (problem) {
+      if (requestSeq.current === requestId) setError(problem.message ?? 'Không tải được giỏ hàng.');
+    } finally {
+      if (requestSeq.current === requestId) setLoading(false);
+    }
+  }, [user, tokenReady]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const rememberToken = () => {
+    try {
+      saveLocalToken(tokenInput);
+      setTokenInput('');
+      setTokenReady(true);
+      setError('');
+      setNotice('');
+      if (tokenReady) refresh();
+    } catch (problem) {
+      setError(problem.message ?? 'Token không hợp lệ.');
+    }
+  };
+
+  const forgetToken = () => {
+    requestSeq.current += 1;
+    clearLocalToken();
+    setTokenReady(false);
+    setCart(null);
+    setDraft({});
+    setError('');
+    setNotice('');
+  };
+
+  const mutate = async (request, successMessage) => {
+    const requestId = requestSeq.current;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      const result = await request();
+      if (requestSeq.current !== requestId) return;
+      setCart(result);
+      setDraft({});
+      setNotice(successMessage);
+    } catch (problem) {
+      if (requestSeq.current !== requestId) return;
+      if (['CART_CHANGED', 'LOCK_TIMEOUT', 'DEADLOCK', 'TIMEOUT', 'NETWORK_ERROR'].includes(problem.code)) {
+        try {
+          const latest = await getCart(user);
+          if (requestSeq.current !== requestId) return;
+          setCart(latest);
+          setDraft({});
+        } catch { /* giữ lỗi gốc */ }
+        setError('Trạng thái thao tác chưa chắc chắn hoặc giỏ đã đổi. Đã tải lại giỏ nếu có thể; hãy kiểm tra trước khi thao tác tiếp.');
+      } else {
+        setError(problem.message ?? 'Không sửa được giỏ hàng.');
+      }
+    } finally {
+      if (requestSeq.current === requestId) setBusy(false);
+    }
+  };
+
+  if (!user || user.role !== 'CUSTOMER') {
+    return <Alert type="info" showIcon title="Cần tài khoản Khách" description={<Link to="/login?next=%2Fcart">Chọn tài khoản Khách để xem giỏ hàng</Link>} />;
+  }
+
   return (
-    <ComingSoon
-      feature="F10"
-      title="Giỏ hàng"
-      owner="TV4"
-      module="transaction"
-      file="frontend/src/modules/transaction/pages/CartPage.jsx"
-      description="Xem và sửa giỏ Oracle trước khi thanh toán; giá và tồn kho sẽ được kiểm tra lại tại Checkout."
-      todo={[
-        'Xem giỏ, thêm sản phẩm, sửa số lượng, xóa một sản phẩm hoặc xóa toàn bộ giỏ.',
-        'Dùng phiên bản giỏ để báo xung đột khi hai yêu cầu cùng sửa.',
-        'Giỏ rỗng có lối về danh sách sản phẩm; giỏ có hàng có lối sang /checkout.',
-      ]}
-      api={[
-        'GET /api/cart',
-        'POST /api/cart/items',
-        'PATCH /api/cart/items/{productId}',
-        'DELETE /api/cart/items/{productId}',
-        'DELETE /api/cart/items',
-      ]}
-    />
+    <div style={{ display: 'grid', gap: tokens.space[4], minWidth: 0, overflowWrap: 'anywhere' }}>
+      <Typography.Title level={2} style={{ margin: 0 }}>Giỏ hàng</Typography.Title>
+      <Typography.Text type="secondary">Giá và tồn kho sẽ được kiểm tra lại khi đặt hàng.</Typography.Text>
+      <Card title="Danh tính dùng thử trên máy local">
+        <Flex vertical gap={tokens.space[2]}>
+          <Typography.Text>Khách đang chọn: <strong>{user.email}</strong></Typography.Text>
+          <Typography.Text type="secondary">Token chỉ được giữ trong phiên của tab này và được backend đối chiếu với tài khoản Khách.</Typography.Text>
+          <Flex wrap gap={tokens.space[2]}>
+            <Input.Password aria-label="Token local" placeholder="Nhập token local 64 ký tự"
+              value={tokenInput} onChange={(event) => setTokenInput(event.target.value)} onPressEnter={rememberToken}
+              style={{ flex: '1 1 16rem', minWidth: 0 }} />
+            <Button onClick={rememberToken}>Dùng token</Button>
+            {tokenReady && <Button onClick={forgetToken}>Bỏ token</Button>}
+          </Flex>
+        </Flex>
+      </Card>
+      {error && <Alert type="error" showIcon title={error} />}
+      {notice && <Alert type="success" showIcon title={notice} />}
+      {!tokenReady && <Alert type="info" showIcon title="Nhập token local để tải giỏ hàng" />}
+      {tokenReady && loading && <Spin tip="Đang tải giỏ hàng"><div style={{ minHeight: tokens.space[8] }} /></Spin>}
+      {tokenReady && !loading && !cart && <Button onClick={refresh}>Thử tải lại</Button>}
+      {cart && cart.items.length === 0 && <Card><Empty description="Giỏ hàng đang trống"><Link to="/search">Xem sản phẩm</Link></Empty></Card>}
+      {cart && cart.items.length > 0 && (
+        <>
+          <Flex vertical gap={tokens.space[3]}>
+            {cart.items.map((item) => {
+              const quantity = Object.prototype.hasOwnProperty.call(draft, item.productId)
+                ? draft[item.productId] : item.quantity;
+              const valid = Number.isInteger(quantity) && quantity >= 1 && quantity <= 999;
+              return (
+                <Card key={item.productId}>
+                  <Flex vertical gap={tokens.space[2]}>
+                    <Link to={`/products/${item.productId}`}><Typography.Text strong>{item.name}</Typography.Text></Link>
+                    <Typography.Text type="secondary" className="sf-code">{item.sku}</Typography.Text>
+                    <Flex wrap gap={tokens.space[3]} align="center" justify="space-between">
+                      <PriceTag price={item.unitPrice} size="sm" />
+                      <Flex wrap gap={tokens.space[2]} align="center">
+                        <InputNumber aria-label={`Số lượng ${item.name}`} min={1} max={999} precision={0}
+                          value={quantity} disabled={busy}
+                          onChange={(value) => setDraft((previous) => ({ ...previous, [item.productId]: value }))} />
+                        <Button disabled={busy || !valid || quantity === item.quantity}
+                          onClick={() => mutate(() => setCartItemQuantity(user, cart.version, item.productId, quantity), 'Đã cập nhật số lượng.')}>
+                          Cập nhật
+                        </Button>
+                        <Popconfirm title="Xóa sản phẩm khỏi giỏ?" okText="Xóa" cancelText="Giữ lại"
+                          onConfirm={() => mutate(() => removeCartItem(user, cart.version, item.productId), 'Đã xóa sản phẩm.')}>
+                          <Button danger disabled={busy}>Xóa</Button>
+                        </Popconfirm>
+                      </Flex>
+                    </Flex>
+                    <Typography.Text>Thành tiền tham khảo: <PriceTag price={item.lineTotal} size="sm" /></Typography.Text>
+                  </Flex>
+                </Card>
+              );
+            })}
+          </Flex>
+          <Card>
+            <Flex wrap gap={tokens.space[3]} align="center" justify="space-between">
+              <Typography.Text strong>Tổng tham khảo: <PriceTag price={cart.totalAmount} /></Typography.Text>
+              <Flex wrap gap={tokens.space[2]}>
+                <Popconfirm title="Xóa toàn bộ sản phẩm trong giỏ?" okText="Xóa giỏ" cancelText="Giữ lại"
+                  onConfirm={() => mutate(() => clearCart(user, cart.version), 'Đã xóa toàn bộ giỏ.')}>
+                  <Button danger disabled={busy}>Xóa toàn bộ</Button>
+                </Popconfirm>
+                <Link to="/checkout"><Button type="primary" disabled={busy}>Thanh toán</Button></Link>
+              </Flex>
+            </Flex>
+          </Card>
+        </>
+      )}
+    </div>
   );
 }

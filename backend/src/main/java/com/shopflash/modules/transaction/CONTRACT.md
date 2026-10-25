@@ -11,6 +11,8 @@ Tài liệu này chốt giao diện giữa backend và frontend của module Tra
 
 ## F10 — Giỏ hàng
 
+Ví dụ yêu cầu/phản hồi, giới hạn và cách xử lý timeout: xem [CART.md](CART.md).
+
 | Phương thức | Đường dẫn | Dữ liệu vào | Kết quả |
 |---|---|---|---|
 | `GET` | `/api/cart` | Không có `userId` | `{version, items, totalAmount}`; giỏ chưa có trả `version=0`, `items=[]`, `totalAmount=0` mà không ghi Oracle |

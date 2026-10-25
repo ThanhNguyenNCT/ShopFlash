@@ -22,4 +22,4 @@ Ngày 25/10/2026, người yêu cầu xác nhận đã có sự đồng ý để
 
 ## Điểm tích hợp tiếp theo
 
-TV2 cần thay mô tả/điểm gọi nút thêm vào giỏ hiện trỏ TV5 trong module `indexing` bằng thành phần/API TV4 cung cấp ở task 2.6; TV4 không tự sửa module `indexing` trong task bàn giao. TV5 và TV4 cần thống nhất thứ tự lấy khóa Inventory khi F9 được triển khai; F10 không giữ suất Flash Sale. F0 thật vẫn là phụ thuộc riêng.
+Ngày 25/10/2026, người yêu cầu xác nhận TV2 đã đồng ý cho TV4 cập nhật điểm tích hợp F10 trong `frontend/src/modules/indexing/`. TV4 đã cung cấp `frontend/src/modules/transaction/components/AddToCartButton.jsx` và hàm `addProductToCart` trong `api.js`. Tuy nhiên Product Listing/Detail hiện vẫn là placeholder với ID minh họa; backend chưa có API sản phẩm công khai cho khách. Task 2.6 chỉ nối nút vào dữ liệu sản phẩm Oracle thật khi phần TV2 đó có sẵn, tránh gửi ID minh họa tới Cart API. TV5 và TV4 cần thống nhất thứ tự lấy khóa Inventory khi F9 được triển khai; F10 không giữ suất Flash Sale. F0 thật vẫn là phụ thuộc riêng.

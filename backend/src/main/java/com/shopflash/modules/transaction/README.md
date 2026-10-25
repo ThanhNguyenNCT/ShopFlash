@@ -2,6 +2,8 @@
 
 Hợp đồng F10/F7/F8 nằm trong [CONTRACT.md](CONTRACT.md). Tài liệu này mô tả môi trường local và các lệnh kiểm thử đã đối chiếu với `compose.yaml`, `backend/pom.xml`, `application*.properties` và `frontend/vite.config.js`.
 
+Chi tiết năm Cart API và ví dụ: xem [CART.md](CART.md).
+
 ## Môi trường local
 
 Oracle và Redis chạy trong Docker; backend Spring Boot và frontend Vite chạy trên host. Các cổng database trong `compose.yaml` chỉ bind `127.0.0.1`. Tại gốc repo, xem `db/README.md` để pull hai image đã ghim digest, tạo `.env` từ `.env.example`, đặt mật khẩu riêng và chạy:

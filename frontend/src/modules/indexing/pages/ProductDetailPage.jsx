@@ -23,7 +23,7 @@ export default function ProductDetailPage() {
         description="Thông tin đầy đủ của một sản phẩm và thao tác thêm vào giỏ."
         todo={[
           'Ảnh, tên, SKU (class sf-code), danh mục, mô tả; giá bằng PriceTag size="lg"; tình trạng còn hàng.',
-          'Nút "Thêm vào giỏ" lấy từ module concurrency (TV5 export component), không tự gọi API giỏ hàng.',
+          'Nút "Thêm vào giỏ" lấy từ module transaction (TV4: AddToCartButton), chỉ gắn khi có productId Oracle thật; không tự gọi API giỏ hàng.',
           'Nếu sản phẩm đang trong flash sale: hiện giá sale và link sang /flash-sale.',
           'Sản phẩm không tồn tại hoặc ngừng bán: Result 404 kèm nút về trang chủ. Có trạng thái loading và lỗi.',
         ]}

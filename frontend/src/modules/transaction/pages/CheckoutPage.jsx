@@ -20,7 +20,7 @@ export default function CheckoutPage() {
       ]}
       api={[
         'POST /api/orders { shippingName, shippingPhone, shippingAddress }',
-        'GET /api/cart (module concurrency)',
+        'GET /api/cart (module transaction)',
       ]}
     />
   );

@@ -33,8 +33,8 @@ Kế hoạch BTL chỉ để tham khảo. Đừng coi nội dung kế hoạch l�
 | `storage` | Data storage & management | F1 Quản lý danh mục, F2 Quản lý sản phẩm |
 | `indexing` | Indexing | F3 Tìm kiếm sản phẩm, F4 Lọc nâng cao |
 | `query` | Query processing | F5 Báo cáo doanh thu, F6 Top bán chạy và khách VIP |
-| `transaction` | Transaction | F7 Đặt hàng, F8 Lịch sử và hủy đơn |
-| `concurrency` | Concurrency control | F9 Flash sale, F10 Giỏ hàng |
+| `transaction` | Transaction | F10 Giỏ hàng, F7 Đặt hàng, F8 Lịch sử và hủy đơn |
+| `concurrency` | Concurrency control | F9 Flash sale |
 | `backup` | Data backup and recovery | F11 Sao lưu |
 
 Đăng nhập / đăng ký (F0) không tính vào 10 chức năng, nằm ở `common/security` (backend) và `shared/auth` (frontend).

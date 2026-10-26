@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Card, Empty, Flex, Input, InputNumber, Popconfirm, Spin, Typography } from 'antd';
+import { Alert, Button, Card, Empty, Flex, InputNumber, Popconfirm, Spin, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/shared/auth';
 import { PriceTag, tokens } from '@/shared/design-system';
-import { clearCart, clearLocalToken, getCart, getLocalToken, removeCartItem, saveLocalToken, setCartItemQuantity } from '../api';
+import { addCartItem, clearCart, getCart, removeCartItem, setCartItemQuantity } from '../api';
 
 export default function CartPage() {
-  const { user } = useAuth();
-  const [tokenReady, setTokenReady] = useState(() => Boolean(getLocalToken()));
-  const [tokenInput, setTokenInput] = useState('');
+  const { user, loading: authLoading } = useAuth();
   const [cart, setCart] = useState(null);
   const [draft, setDraft] = useState({});
+  const [newProductId, setNewProductId] = useState(null);
+  const [newQuantity, setNewQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -24,7 +24,7 @@ export default function CartPage() {
     setBusy(false);
     setError('');
     setNotice('');
-    if (!user || user.role !== 'CUSTOMER' || !tokenReady) return;
+    if (!user || user.role !== 'CUSTOMER') return;
     setLoading(true);
     try {
       const result = await getCart(user);
@@ -37,32 +37,9 @@ export default function CartPage() {
     } finally {
       if (requestSeq.current === requestId) setLoading(false);
     }
-  }, [user, tokenReady]);
+  }, [user]);
 
   useEffect(() => { refresh(); }, [refresh]);
-
-  const rememberToken = () => {
-    try {
-      saveLocalToken(tokenInput);
-      setTokenInput('');
-      setTokenReady(true);
-      setError('');
-      setNotice('');
-      if (tokenReady) refresh();
-    } catch (problem) {
-      setError(problem.message ?? 'Token không hợp lệ.');
-    }
-  };
-
-  const forgetToken = () => {
-    requestSeq.current += 1;
-    clearLocalToken();
-    setTokenReady(false);
-    setCart(null);
-    setDraft({});
-    setError('');
-    setNotice('');
-  };
 
   const mutate = async (request, successMessage) => {
     const requestId = requestSeq.current;
@@ -93,33 +70,41 @@ export default function CartPage() {
     }
   };
 
+  if (authLoading) return <Spin tip="Đang kiểm tra phiên đăng nhập"><div style={{ minHeight: tokens.space[8] }} /></Spin>;
   if (!user || user.role !== 'CUSTOMER') {
-    return <Alert type="info" showIcon title="Cần tài khoản Khách" description={<Link to="/login?next=%2Fcart">Chọn tài khoản Khách để xem giỏ hàng</Link>} />;
+    return <Alert type="info" showIcon title="Cần tài khoản Khách" description={<Link to="/login?next=%2Fcart">Đăng nhập bằng tài khoản Khách để xem giỏ hàng</Link>} />;
   }
 
   return (
     <div style={{ display: 'grid', gap: tokens.space[4], minWidth: 0, overflowWrap: 'anywhere' }}>
       <Typography.Title level={2} style={{ margin: 0 }}>Giỏ hàng</Typography.Title>
       <Typography.Text type="secondary">Giá và tồn kho sẽ được kiểm tra lại khi đặt hàng.</Typography.Text>
-      <Card title="Danh tính dùng thử trên máy local">
-        <Flex vertical gap={tokens.space[2]}>
-          <Typography.Text>Khách đang chọn: <strong>{user.email}</strong></Typography.Text>
-          <Typography.Text type="secondary">Token chỉ được giữ trong phiên của tab này và được backend đối chiếu với tài khoản Khách.</Typography.Text>
-          <Flex wrap gap={tokens.space[2]}>
-            <Input.Password aria-label="Token local" placeholder="Nhập token local 64 ký tự"
-              value={tokenInput} onChange={(event) => setTokenInput(event.target.value)} onPressEnter={rememberToken}
-              style={{ flex: '1 1 16rem', minWidth: 0 }} />
-            <Button onClick={rememberToken}>Dùng token</Button>
-            {tokenReady && <Button onClick={forgetToken}>Bỏ token</Button>}
-          </Flex>
-        </Flex>
-      </Card>
+      <Typography.Text type="secondary">Đang dùng giỏ của {user.email}.</Typography.Text>
       {error && <Alert type="error" showIcon title={error} />}
       {notice && <Alert type="success" showIcon title={notice} />}
-      {!tokenReady && <Alert type="info" showIcon title="Nhập token local để tải giỏ hàng" />}
-      {tokenReady && loading && <Spin tip="Đang tải giỏ hàng"><div style={{ minHeight: tokens.space[8] }} /></Spin>}
-      {tokenReady && !loading && !cart && <Button onClick={refresh}>Thử tải lại</Button>}
-      {cart && cart.items.length === 0 && <Card><Empty description="Giỏ hàng đang trống"><Link to="/search">Xem sản phẩm</Link></Empty></Card>}
+      {loading && <Spin tip="Đang tải giỏ hàng"><div style={{ minHeight: tokens.space[8] }} /></Spin>}
+      {!loading && !cart && <Button onClick={refresh}>Thử tải lại</Button>}
+      {cart && <Card title="Thêm sản phẩm vào giỏ">
+        <Flex vertical gap={tokens.space[2]}>
+          <Typography.Text type="secondary">Nhập ID sản phẩm đã có trong Oracle. Thao tác này chỉ đổi giỏ; tồn kho được kiểm tra và trừ khi đặt hàng.</Typography.Text>
+          {import.meta.env.DEV && <Typography.Text type="secondary">Dữ liệu mẫu profile dev: CORE-001 có ID 1.</Typography.Text>}
+          {import.meta.env.DEV && <Typography.Text type="secondary">Phiên bản giỏ hiện tại: {cart.version}</Typography.Text>}
+          <Flex wrap gap={tokens.space[2]} align="center">
+            <InputNumber aria-label="ID sản phẩm cần thêm" placeholder="ID sản phẩm" min={1} precision={0}
+              value={newProductId} disabled={busy} onChange={setNewProductId}
+              style={{ flex: '1 1 10rem', minWidth: 0 }} />
+            <InputNumber aria-label="Số lượng cần thêm" min={1} max={999} precision={0}
+              value={newQuantity} disabled={busy} onChange={setNewQuantity}
+              style={{ flex: '1 1 8rem', minWidth: 0 }} />
+            <Button type="primary" loading={busy}
+              disabled={!Number.isSafeInteger(newProductId) || newProductId <= 0 || !Number.isInteger(newQuantity) || newQuantity < 1 || newQuantity > 999}
+              onClick={() => mutate(() => addCartItem(user, cart.version, newProductId, newQuantity), 'Đã thêm sản phẩm vào giỏ.')}>
+              Thêm vào giỏ
+            </Button>
+          </Flex>
+        </Flex>
+      </Card>}
+      {cart && cart.items.length === 0 && <Card><Empty description="Giỏ hàng đang trống. Nhập ID sản phẩm ở trên để thêm hàng." /></Card>}
       {cart && cart.items.length > 0 && (
         <>
           <Flex vertical gap={tokens.space[3]}>
@@ -130,8 +115,8 @@ export default function CartPage() {
               return (
                 <Card key={item.productId}>
                   <Flex vertical gap={tokens.space[2]}>
-                    <Link to={`/products/${item.productId}`}><Typography.Text strong>{item.name}</Typography.Text></Link>
-                    <Typography.Text type="secondary" className="sf-code">{item.sku}</Typography.Text>
+                    <Typography.Text strong>{item.name}</Typography.Text>
+                    <Typography.Text type="secondary" className="sf-code">{item.sku} · ID {item.productId}</Typography.Text>
                     <Flex wrap gap={tokens.space[3]} align="center" justify="space-between">
                       <PriceTag price={item.unitPrice} size="sm" />
                       <Flex wrap gap={tokens.space[2]} align="center">

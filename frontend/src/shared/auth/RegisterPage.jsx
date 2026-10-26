@@ -1,22 +1,63 @@
-import ComingSoon from '@/shared/components/ComingSoon';
+import { useState } from 'react';
+import { Alert, Button, Card, Form, Input, Typography } from 'antd';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { apiClient } from '@/shared/api/client';
+import { tokens } from '@/shared/design-system';
+import safeNext from './safeNext';
 
-// F0 (TV5): thay file này bằng form đăng ký thật.
 export default function RegisterPage() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const next = safeNext(params.get('next'));
+  const loginHref = next ? `/login?next=${encodeURIComponent(next)}` : '/login';
+
+  const submit = async (values) => {
+    setBusy(true);
+    setError('');
+    try {
+      await apiClient.post('/auth/register', {
+        fullName: values.fullName.trim(), email: values.email.trim(),
+        phone: values.phone?.trim() || null, password: values.password,
+      });
+      navigate(loginHref, { replace: true });
+    } catch (problem) {
+      setError(problem.message ?? 'Không đăng ký được. Vui lòng thử lại.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <ComingSoon
-      feature="F0"
-      title="Đăng ký tài khoản"
-      owner="TV5"
-      module="shared/auth"
-      file="frontend/src/shared/auth/RegisterPage.jsx"
-      description="Khách tạo tài khoản mới để mua hàng. Đăng nhập/đăng ký không tính vào 10 chức năng nhưng cần có để demo."
-      todo={[
-        'Form họ tên, email, số điện thoại, mật khẩu, nhập lại mật khẩu; kiểm tra dữ liệu ngay trên form (email hợp lệ, mật khẩu đủ dài, hai lần nhập khớp).',
-        'Gọi API đăng ký; backend băm mật khẩu bằng bcrypt rồi lưu vào USERS (role CUSTOMER, status ACTIVE).',
-        'Báo lỗi rõ ràng khi email đã tồn tại; nút có trạng thái loading khi đang gửi.',
-        'Đăng ký xong thì đăng nhập luôn (hoặc chuyển về /login) và quay lại trang ?next nếu có.',
-      ]}
-      api={['POST /api/auth/register { fullName, email, phone, password }', 'POST /api/auth/login, POST /api/auth/logout, GET /api/auth/me']}
-    />
+    <div style={{ maxWidth: tokens.space[8] * 16, margin: '0 auto', minWidth: 0, overflowWrap: 'anywhere' }}>
+      <Card>
+        <Typography.Title level={3} style={{ marginTop: 0 }}>Đăng ký tài khoản</Typography.Title>
+        {error && <Alert type="error" showIcon title={error} style={{ marginBottom: tokens.space[4] }} />}
+        <Form layout="vertical" onFinish={submit} requiredMark={false}>
+          <Form.Item name="fullName" label="Họ và tên" rules={[{ required: true, whitespace: true, message: 'Nhập họ và tên.' }, { max: 150, message: 'Tối đa 150 ký tự.' }]}>
+            <Input autoComplete="name" maxLength={150} />
+          </Form.Item>
+          <Form.Item name="email" label="Email" rules={[{ required: true, message: 'Nhập email.' }, { type: 'email', message: 'Email không hợp lệ.' }]}>
+            <Input type="email" autoComplete="email" maxLength={255} />
+          </Form.Item>
+          <Form.Item name="phone" label="Số điện thoại (không bắt buộc)" rules={[{ max: 30, message: 'Tối đa 30 ký tự.' }]}>
+            <Input type="tel" autoComplete="tel" maxLength={30} />
+          </Form.Item>
+          <Form.Item name="password" label="Mật khẩu" rules={[{ required: true, message: 'Nhập mật khẩu.' }, { min: 10, message: 'Cần ít nhất 10 ký tự.' }, {
+            validator: async (_, value) => { if (value && new TextEncoder().encode(value).length > 72) throw new Error('Tối đa 72 byte UTF-8.'); },
+          }]}>
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+          <Form.Item name="confirm" label="Nhập lại mật khẩu" dependencies={['password']} rules={[{ required: true, message: 'Nhập lại mật khẩu.' }, ({ getFieldValue }) => ({
+            validator(_, value) { return !value || getFieldValue('password') === value ? Promise.resolve() : Promise.reject(new Error('Mật khẩu nhập lại không khớp.')); },
+          })]}>
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+          <Button type="primary" htmlType="submit" loading={busy} block>Đăng ký</Button>
+        </Form>
+        <Typography.Text>Đã có tài khoản? <Link to={loginHref}>Đăng nhập</Link></Typography.Text>
+      </Card>
+    </div>
   );
 }

@@ -13,26 +13,17 @@ docker compose up -d --wait
 docker compose exec -T redis redis-cli -e --eval /opt/shopflash/redis/init.lua
 ```
 
-Backend chạy từ thư mục `backend/` và đã nhập `../.env`. Profile `dev` nạp dữ liệu mẫu, gồm khách `customer@shopflash.local`; profile `tx-local` chỉ dùng cho HTTP local. Tạo một tệp CSV **ngoài repo** có quyền đọc giới hạn cho người chạy backend, bắt đầu bằng `token,email`. Mỗi token là 32 byte ngẫu nhiên ở dạng hex chữ thường. Ví dụ từ gốc repo:
+Backend chạy từ thư mục `backend/` và đã nhập `../.env`. Profile `dev` nạp dữ liệu mẫu, gồm khách `customer@shopflash.local` và Admin `admin@shopflash.local`. Tạo secret JWT ngẫu nhiên rồi thêm vào `.env` gốc, không commit hoặc đưa vào `VITE_*`:
 
 ```bash
-umask 077
-mkdir -p "$HOME/.config/shopflash"
-{ printf 'token,email\n'; openssl rand -hex 32 | tr -d '\n'; printf ',customer@shopflash.local\n'; } > "$HOME/.config/shopflash/tx-local-tokens.csv"
+openssl rand -base64 32
 ```
 
-Tệp có cấu trúc:
-
-```text
-token,email
-<64 ký tự hex ngẫu nhiên>,customer@shopflash.local
-```
-
-Thêm `TX_LOCAL_TOKEN_FILE=/đường/dẫn/tuyệt/đối/tới/tx-local-tokens.csv` vào `.env` (thay `$HOME` bằng đường dẫn tuyệt đối thật). Không commit tệp token, đưa token vào biến `VITE_*`, URL, log hoặc kết quả benchmark. Giữ `SERVER_ADDRESS=127.0.0.1` (hoặc dùng giá trị mặc định). Profile từ chối khởi động nếu tệp thiếu hoặc backend bind ngoài loopback.
+Đặt `JWT_SECRET_BASE64=<kết quả lệnh trên>` trong `.env`; backend từ chối khởi động nếu thiếu hoặc ngắn hơn 32 byte giải mã. Giữ `SERVER_ADDRESS=127.0.0.1` cho máy local. JWT tồn tại tối đa 30 phút; đăng xuất xóa JWT ở tab, không thu hồi token đã cấp ở nơi khác trước `exp` trừ khi tài khoản bị vô hiệu hóa.
 
 ```bash
 cd backend
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev,tx-local
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 Ở terminal khác, từ gốc repo:
@@ -42,15 +33,18 @@ cd frontend
 npm run dev
 ```
 
-Vite hiện proxy `/api` sang `http://127.0.0.1:8080`, nên frontend dùng đường dẫn tương đối qua `apiClient` và không cần cấu hình CORS. Không gọi thẳng `:8080` từ trang `:5173`. Client HTTP trên host như k6 có thể gọi `127.0.0.1:8080` trực tiếp; CORS chỉ là quy tắc của trình duyệt. Khi có giao diện F10/F7/F8, chọn khách giả lập `customer@shopflash.local` trong `useAuth()`, nhập token local vào tab và kiểm tra `GET /api/transaction/local-identity` khớp email/vai trò trước khi thao tác. Backend luôn quyết định danh tính theo token, không theo giá trị `userId` ở trình duyệt.
+Vite proxy `/api` sang `http://127.0.0.1:8080`, nên frontend dùng đường dẫn tương đối qua `apiClient` và không cần cấu hình CORS. Trình duyệt mở Vite tại `http://127.0.0.1:5173`, đăng nhập ở `/login` bằng tài khoản dev seed hoặc đăng ký tài khoản mới. Client HTTP trên host như k6 có thể gọi backend `127.0.0.1:8080` trực tiếp. Frontend giữ JWT trong `sessionStorage` của tab, khôi phục tài khoản qua `/api/auth/me`; backend xác minh JWT và tra lại trạng thái/vai trò Oracle trên mỗi request được bảo vệ.
 
 Nếu Flyway báo schema `SHOP` đã có bảng nhưng thiếu `flyway_schema_history`, **dừng lại để xác định nguồn gốc schema và dữ liệu**. Không tự bật `baselineOnMigrate`, sửa V1 hoặc xóa schema; migration V2 chỉ được Flyway áp sau khi lịch sử được xử lý đúng.
 
-Kiểm tra danh tính qua proxy sau khi hai tiến trình đã chạy (lệnh không in token):
+Kiểm tra đăng nhập và danh tính qua proxy sau khi hai tiến trình đã chạy. Mật khẩu dev seed là `ShopFlash123!`; lệnh dưới giữ JWT trong biến shell và không in token:
 
 ```bash
-tx_token=$(sed -n '2s/,.*//p' "$HOME/.config/shopflash/tx-local-tokens.csv")
-curl -sS -H "Authorization: Bearer $tx_token" http://127.0.0.1:5173/api/transaction/local-identity
+tx_token=$(curl -sS --fail-with-body -H 'Content-Type: application/json' \
+  -d '{"email":"customer@shopflash.local","password":"ShopFlash123!"}' \
+  http://127.0.0.1:5173/api/auth/login | jq -r '.accessToken')
+curl -sS -H "Authorization: Bearer $tx_token" http://127.0.0.1:5173/api/auth/me
+unset tx_token
 ```
 
 Lệnh trên phải trả email khách hàng trong Oracle. Gọi API qua proxy giúp trình duyệt giữ cùng origin; không dùng gọi thẳng từ trang `:5173` sang backend `:8080`.
@@ -63,7 +57,8 @@ Lệnh trên phải trả email khách hàng trong Oracle. Gọi API qua proxy g
 cd backend
 ./mvnw -version
 ./mvnw test -Dtest='*CoreTest'
-./mvnw test -Dtest=LocalTransactionIdentityCoreTest
+./mvnw test -Dtest=JwtConfigCoreTest,SecurityErrorWriterCoreTest,CartCoreTest
+./mvnw test -Dtest=AuthOracleIT
 ./mvnw test -Dtest=TransactionFixtureIT
 # Khi các lớp nghiệp vụ được triển khai và Flyway hoạt động:
 ./mvnw test -Dtest='CartOracleIT,CheckoutOracleIT,OrderOracleIT,TransactionSemanticsIT,RedisTransactionIT'
@@ -91,19 +86,25 @@ k6 version
 
 Nếu lệnh chưa có, các unit/integration test backend vẫn chạy; hướng dẫn đo k6 và CSV/JSON kết quả sẽ được bổ sung ở milestone benchmark. Không điền số đo giả.
 
-Sau khi có k6 CLI, có thể kiểm tra một yêu cầu từ host mà không chạy benchmark:
+Kịch bản benchmark HTTP ở task 5.4 phải đăng nhập tài khoản fixture trước mỗi lượt đo, giữ JWT trong bộ nhớ k6 và bắt đầu đồng hồ nghiệp vụ sau khi nhận token. Latency đăng nhập không được gộp vào Cart/Checkout/Order; không xuất mật khẩu hoặc JWT vào CSV/JSON thô. Reset fixture giữa các lượt như quy định của từng kịch bản.
+
+Sau khi có k6 CLI, có thể kiểm tra đăng nhập và một yêu cầu từ host mà không chạy benchmark. Mật khẩu/JWT chỉ nằm trong bộ nhớ k6, không ghi vào kết quả thô:
 
 ```bash
-cat > /tmp/shopflash-tx-local-smoke.js <<'EOF'
+cat > /tmp/shopflash-tx-jwt-smoke.js <<'EOF'
 import http from 'k6/http';
 import { check } from 'k6';
 export default function () {
-  const r = http.get('http://127.0.0.1:8080/api/transaction/local-identity', {
-    headers: { Authorization: `Bearer ${__ENV.TX_SMOKE_TOKEN}` },
+  const login = http.post('http://127.0.0.1:8080/api/auth/login', JSON.stringify({
+    email: 'customer@shopflash.local', password: __ENV.TX_SMOKE_PASSWORD,
+  }), { headers: { 'Content-Type': 'application/json' } });
+  const token = login.json('accessToken');
+  const r = http.get('http://127.0.0.1:8080/api/cart', {
+    headers: { Authorization: `Bearer ${token}` },
   });
-  check(r, { 'khách hàng đúng': (response) => response.status === 200 && response.json('email') === 'customer@shopflash.local' });
+  check(r, { 'đọc giỏ thành công': (response) => response.status === 200 });
 }
 EOF
-TX_SMOKE_TOKEN=$(sed -n '2s/,.*//p' "$HOME/.config/shopflash/tx-local-tokens.csv") k6 run --vus 1 --iterations 1 /tmp/shopflash-tx-local-smoke.js
-rm /tmp/shopflash-tx-local-smoke.js
+TX_SMOKE_PASSWORD='ShopFlash123!' k6 run --vus 1 --iterations 1 /tmp/shopflash-tx-jwt-smoke.js
+rm /tmp/shopflash-tx-jwt-smoke.js
 ```

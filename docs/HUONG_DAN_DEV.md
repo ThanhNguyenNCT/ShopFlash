@@ -61,12 +61,12 @@ cd frontend && npm install && npm run dev
 | Địa chỉ | Là gì |
 |---|---|
 | http://localhost:5173 | Cửa hàng (khách hàng) |
-| http://localhost:5173/admin | Quản trị. Đăng nhập tạm: bấm "Vào với vai trò Admin" |
+| http://localhost:5173/admin | Quản trị; đăng nhập bằng tài khoản Admin qua `/login` |
 | http://127.0.0.1:8080/api/health | Backend còn sống không, kết nối được Oracle và Redis không |
 | `localhost:1521/FREEPDB1`, user `SHOP` | Oracle (mở bằng SQL Developer / DBeaver, mật khẩu `ORACLE_APP_PASSWORD` trong `.env`) |
 | `localhost:6379` | Redis (RedisInsight, mật khẩu `REDIS_PASSWORD` trong `.env`) |
 
-Backend và database chỉ mở trên máy mình (`127.0.0.1`), máy khác cùng wifi không vào được. Lý do: chưa có đăng nhập thật (F0).
+Backend và database mặc định chỉ mở trên máy mình (`127.0.0.1`). F0 dùng JWT; xem [hướng dẫn Transaction](../backend/src/main/java/com/shopflash/modules/transaction/README.md) để đặt `JWT_SECRET_BASE64` trong `.env` trước khi chạy backend.
 
 ### Dữ liệu
 
@@ -93,7 +93,7 @@ shopflash/
 │       └── redis/init.lua         index RediSearch
 ├── frontend/src/
 │   ├── app/                       router (tự gom routes.jsx), providers
-│   ├── shared/                    api client, auth (F0 tạm), layouts, design-system, ComingSoon
+│   ├── shared/                    api client, auth (F0/JWT), layouts, design-system, ComingSoon
 │   └── modules/<module>/          pages/, components/, api.js, routes.jsx
 ├── db/DATABASE_DESIGN.md          thiết kế dữ liệu chung
 ├── docs/                          tài liệu nhóm (file này)
@@ -105,10 +105,10 @@ shopflash/
 | `storage` | TV1 | F1 danh mục, F2 sản phẩm | `/admin/categories`, `/admin/products` |
 | `indexing` | TV2 | F3 tìm kiếm, F4 lọc | `/`, `/search`, `/products/:productId` |
 | `query` | TV3 | F5 doanh thu, F6 top/VIP | `/admin`, `/admin/reports`, `/admin/reports/lab` (đã xong) |
-| `transaction` | TV4 | F7 đặt hàng, F8 đơn hàng | `/checkout`, `/orders`, `/orders/:orderId` |
-| `concurrency` | TV5 | F9 flash sale, F10 giỏ hàng | `/flash-sale`, `/cart`, `/admin/flash-sales` |
+| `transaction` | TV4 | F10 giỏ hàng, F7 đặt hàng, F8 đơn hàng | `/cart`, `/checkout`, `/orders`, `/orders/:orderId` |
+| `concurrency` | TV5 | F9 flash sale | `/flash-sale`, `/admin/flash-sales` |
 | `backup` | TV1 | F11 sao lưu | `/admin/backups` |
-| `shared/auth`, `common/security` | TV5 | F0 đăng nhập | `/login`, `/register` (đang là bản tạm) |
+| `shared/auth`, `common/security` | TV4 (TV5 đã bàn giao) | F0 đăng nhập/đăng ký JWT | `/login`, `/register` |
 
 ## 4. Làm module của bạn
 

@@ -1,4 +1,4 @@
 import { createContext } from 'react';
 
-// Giá trị: { user, isAdmin, loginAs(role), logout }. Xem AGENTS.md trong thư mục này.
+// Giá trị: { user, isAdmin, loading, login({ email, password }), logout }. Xem AGENTS.md.
 export const AuthContext = createContext(null);

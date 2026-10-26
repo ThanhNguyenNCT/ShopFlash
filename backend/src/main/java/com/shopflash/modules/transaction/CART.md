@@ -1,6 +1,6 @@
 # F10 — Hợp đồng và cách dùng Cart API
 
-Nguồn danh tính và lỗi chung: xem [CONTRACT.md](CONTRACT.md). Oracle lưu một giỏ trên mỗi khách (`uk_carts_user`); Redis không giữ giỏ. Mọi ví dụ dưới đây dùng `Authorization: Bearer <token>` của profile `tx-local` và **không gửi `userId`**. Trên môi trường có F0 thật, adapter danh tính sẽ thay token local.
+Nguồn danh tính và lỗi chung: xem [CONTRACT.md](CONTRACT.md). Oracle lưu một giỏ trên mỗi khách (`uk_carts_user`); Redis không giữ giỏ. Mọi ví dụ dưới đây dùng JWT từ F0 trong `Authorization: Bearer <token>` và **không gửi `userId`**.
 
 ## Phản hồi và phiên bản
 
@@ -45,14 +45,14 @@ Gửi lại `POST` với `X-Cart-Version: 1` và `quantity: 1` sẽ **cộng** t
 
 | Tình huống | HTTP/mã lỗi | Hành động phía client |
 |---|---|---|
-| Token thiếu/sai, tài khoản không phải khách hợp lệ | `401 AUTH_REQUIRED` hoặc `403 CUSTOMER_REQUIRED` | Chọn lại tài khoản/token |
+| Token thiếu/sai, tài khoản không phải khách hợp lệ | `401 AUTH_REQUIRED` hoặc `403 ACCESS_DENIED` | Đăng nhập lại đúng tài khoản |
 | `productId` không tồn tại, mặt hàng sửa/xóa không có trong giỏ | `404 PRODUCT_NOT_FOUND` hoặc `404 CART_ITEM_NOT_FOUND` | Tải lại giỏ hoặc chọn sản phẩm khác |
 | Sản phẩm ngừng bán | `409 PRODUCT_UNAVAILABLE` | Chọn sản phẩm khác |
 | Phiên bản cũ hoặc hai yêu cầu cùng tạo giỏ | `409 CART_CHANGED` | Tải lại giỏ; không tự lặp lệnh cộng |
 | Hết thời gian chờ khóa hoặc deadlock | `409 LOCK_TIMEOUT` hoặc `409 DEADLOCK` | Tải lại giỏ trước khi quyết định gửi thao tác mới |
 | Số lượng ngoài giới hạn, mã sản phẩm sai | `400 VALIDATION_ERROR` | Sửa dữ liệu đầu vào |
 
-**Timeout hoặc mất phản hồi của `POST` cộng hàng không chứng minh giao dịch đã rollback.** Client tải lại giỏ và hiển thị kết quả mới nhất trước khi cho người dùng bấm thêm lần nữa. Nếu gửi lại nguyên lệnh cộng ngay, số lượng có thể tăng hai lần. `PATCH` là đặt giá trị tuyệt đối nhưng vẫn phải dùng phiên bản vừa đọc. Frontend hiện giữ token local trong `sessionStorage`, so khớp email/vai trò từ `/api/transaction/local-identity` với `useAuth()` trước khi gửi Cart API.
+**Timeout hoặc mất phản hồi của `POST` cộng hàng không chứng minh giao dịch đã rollback.** Client tải lại giỏ và hiển thị kết quả mới nhất trước khi cho người dùng bấm thêm lần nữa. Nếu gửi lại nguyên lệnh cộng ngay, số lượng có thể tăng hai lần. `PATCH` là đặt giá trị tuyệt đối nhưng vẫn phải dùng phiên bản vừa đọc. Frontend giữ JWT trong `sessionStorage`, khôi phục hồ sơ qua `/api/auth/me` và tự gắn Bearer khi gọi Cart API.
 
 ## Kiểm thử
 
@@ -65,3 +65,5 @@ cd backend
 ```
 
 Schema `SHOP` local có bảng nhưng thiếu `flyway_schema_history` sẽ không chạy được bài integration test mặc định cho tới khi lịch sử schema được xử lý; không tự baseline hoặc xóa dữ liệu. Có thể dùng schema thử nghiệm riêng đã cấp quyền tương đương `SHOP` để Flyway tạo V1/V2 rồi chạy `CartOracleIT`.
+
+Để thử thủ công trên `/cart`, dùng profile `dev` và đăng nhập `customer@shopflash.local`: sản phẩm mẫu `CORE-001` có ID 1 và giỏ mẫu có sẵn một mặt hàng. Nhập ID 1 và số lượng muốn **cộng** ngay trên CartPage. `POST` làm tăng `CART_ITEMS.quantity`; `PATCH` đặt số lượng tuyệt đối; xóa giảm hoặc bỏ dòng giỏ. Các thao tác F10 này không đổi `PRODUCT_INVENTORY.on_hand_quantity`. Khi đặt đơn ở F7, Checkout mới trừ tồn kho theo số lượng được xác nhận; hủy đơn hợp lệ ở F8 mới hoàn tồn kho. Xem truy vấn đối chiếu và các bước thử trong [CART_UI_CHECKLIST.md](../../../../../../../../frontend/src/modules/transaction/CART_UI_CHECKLIST.md).

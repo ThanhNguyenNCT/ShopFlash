@@ -37,7 +37,7 @@ Kế hoạch BTL chỉ để tham khảo. Đừng coi nội dung kế hoạch l�
 | `concurrency` | Concurrency control | F9 Flash sale |
 | `backup` | Data backup and recovery | F11 Sao lưu |
 
-Đăng nhập / đăng ký (F0) không tính vào 10 chức năng, nằm ở `common/security` (backend) và `shared/auth` (frontend).
+Đăng nhập / đăng ký (F0) không tính vào 10 chức năng, nằm ở `common/security` (backend) và `shared/auth` (frontend). TV5 đã đồng ý bàn giao F0 cho TV4 để triển khai JWT phục vụ F10/F7/F8; TV5 tiếp tục phụ trách F9.
 
 ## Quy tắc
 

@@ -1,6 +1,6 @@
 # Ghi nhận bàn giao F10 cho TV4
 
-Ngày 25/10/2026, người yêu cầu xác nhận đã có sự đồng ý để thực hiện task 1.2 của OpenSpec change `transaction-checkout-orders-study`. Theo xác nhận đó, TV4 đã cập nhật quyền sở hữu F10 và chuyển route `/cart` từ TV5 sang module `transaction`. Tài liệu này ghi lại phạm vi đã chuyển; việc gắn nút vào Product Listing/Detail vẫn cần phối hợp với TV2 ở task 2.6.
+Ngày 25/10/2026, người yêu cầu xác nhận đã có sự đồng ý để thực hiện task 1.2 của OpenSpec change `transaction-checkout-orders-study`. Theo xác nhận đó, TV4 đã cập nhật quyền sở hữu F10 và chuyển route `/cart` từ TV5 sang module `transaction`. Tài liệu này ghi lại phạm vi đã chuyển; điểm nối Product Listing/Detail được để lại cho khi TV2 có dữ liệu sản phẩm Oracle thật.
 
 ## Quyền sở hữu
 
@@ -10,7 +10,7 @@ Ngày 25/10/2026, người yêu cầu xác nhận đã có sự đồng ý để
 | F7 Checkout, F8 xem/hủy đơn | TV4, module `transaction` |
 | F9 Flash Sale và phần giữ suất | TV5, module `concurrency` |
 | Gắn thành phần thêm vào giỏ vào Product Listing/Detail | TV2, module `indexing`, sau khi nhận hợp đồng của TV4 |
-| F0 thật | Người phụ trách `common/security` và `shared/auth`; TV4 chỉ tích hợp danh tính đã xác thực |
+| F0 | TV5 đã bàn giao `common/security` và `shared/auth` cho TV4; TV4 triển khai JWT và tích hợp Cart |
 
 ## File đã cập nhật trong task 1.2
 
@@ -22,4 +22,4 @@ Ngày 25/10/2026, người yêu cầu xác nhận đã có sự đồng ý để
 
 ## Điểm tích hợp tiếp theo
 
-Ngày 25/10/2026, người yêu cầu xác nhận TV2 đã đồng ý cho TV4 cập nhật điểm tích hợp F10 trong `frontend/src/modules/indexing/`. TV4 đã cung cấp `frontend/src/modules/transaction/components/AddToCartButton.jsx` và hàm `addProductToCart` trong `api.js`. Tuy nhiên Product Listing/Detail hiện vẫn là placeholder với ID minh họa; backend chưa có API sản phẩm công khai cho khách. Task 2.6 chỉ nối nút vào dữ liệu sản phẩm Oracle thật khi phần TV2 đó có sẵn, tránh gửi ID minh họa tới Cart API. TV5 và TV4 cần thống nhất thứ tự lấy khóa Inventory khi F9 được triển khai; F10 không giữ suất Flash Sale. F0 thật vẫn là phụ thuộc riêng.
+Ngày 25/10/2026, người yêu cầu xác nhận TV2 đã đồng ý cho TV4 cập nhật điểm tích hợp F10 trong `frontend/src/modules/indexing/`. Sau đó người yêu cầu chốt thử luồng Transaction ngay trên `/cart`: TV4 thêm ô nhập ID/số lượng, dùng Cart API thật và sản phẩm mẫu đã có trong Oracle profile `dev`. Product Listing/Detail vẫn là placeholder với ID minh họa, chưa nối vào Cart API; việc nối khi TV2 có sản phẩm Oracle thật để lại cho giai đoạn tích hợp. `AddToCartButton.jsx` và `addProductToCart` vẫn là điểm nối sẵn có. TV5 và TV4 cần thống nhất thứ tự lấy khóa Inventory khi F9 được triển khai; F10 không giữ suất Flash Sale. Ngày 26/10/2026, TV5 bàn giao F0 cho TV4; Cart đã dùng JWT từ F0.

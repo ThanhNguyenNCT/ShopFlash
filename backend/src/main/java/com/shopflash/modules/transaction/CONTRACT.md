@@ -1,12 +1,12 @@
 # Hợp đồng Transaction (F10, F7, F8)
 
-Tài liệu này chốt giao diện giữa backend và frontend của module Transaction theo OpenSpec change `transaction-checkout-orders-study`. Oracle là nguồn dữ liệu nghiệp vụ. F10 và route `/cart` đã được bàn giao cho TV4 trong module này; giao diện Cart thật sẽ được triển khai ở milestone 2. F9, thanh toán và xác thực F0 đầy đủ nằm ngoài phạm vi.
+Tài liệu này chốt giao diện giữa backend và frontend của module Transaction theo OpenSpec change `transaction-checkout-orders-study`. Oracle là nguồn dữ liệu nghiệp vụ. F10 và route `/cart` đã được bàn giao cho TV4. F0 cũng được TV5 bàn giao cho TV4 và dùng JWT; F9 và thanh toán nằm ngoài phạm vi.
 
 ## Danh tính và lỗi
 
 - Mọi API dưới đây lấy khách hàng từ danh tính **đã được backend kiểm tra**. Không nhận `userId` trong body, query hoặc header do trình duyệt tự khai. Thiếu danh tính trả `401`; tài khoản không phải `CUSTOMER` đang `ACTIVE` bị từ chối.
-- Khi F0 backend chưa có, profile `tx-local` chỉ chạy trên loopback. Bearer token ngẫu nhiên trong tệp ngoài Git được ánh xạ phía server tới email khách hàng Oracle. `GET /api/transaction/local-identity` chỉ có ở profile này, trả `{userId, email, role}` cho token hợp lệ để giao diện so khớp với `useAuth()` giả lập. Profile thường không có endpoint này và không tự chọn khách hàng mặc định.
-- Lỗi dùng envelope chung `{ "error": { "code", "message", "details" } }` của `GlobalExceptionHandler`; thông điệp tiếng Việt và không chứa lỗi gốc Oracle/Redis. `400 VALIDATION_ERROR` cho dữ liệu sai; `401 AUTH_REQUIRED` cho thiếu/sai token; `403 CUSTOMER_REQUIRED` cho vai trò hoặc trạng thái không hợp lệ; `404` cho mặt hàng/đơn không tìm thấy hoặc không thuộc khách; `409` cho xung đột nghiệp vụ. Hết thời gian chờ khóa và deadlock có mã riêng `LOCK_TIMEOUT`/`DEADLOCK`, chỉ hướng dẫn thử lại khi giao dịch lỗi đã rollback.
+- F0 cấp JWT qua `POST /api/auth/login`; Spring Security xác minh token, rồi tra `USERS` Oracle để kiểm tra vai trò/trạng thái hiện tại. Frontend lấy hồ sơ qua `GET /api/auth/me` và tự gắn Bearer cho Cart/Checkout/Order. Không có token local hoặc endpoint đối chiếu danh tính giả lập.
+- Lỗi dùng envelope chung `{ "error": { "code", "message", "details" } }` của `GlobalExceptionHandler`; thông điệp tiếng Việt và không chứa lỗi gốc Oracle/Redis. `400 VALIDATION_ERROR` cho dữ liệu sai; `401 AUTH_REQUIRED` cho thiếu/sai token hoặc tài khoản bị vô hiệu hóa; `403 ACCESS_DENIED` cho sai vai trò ở Spring Security; `404` cho mặt hàng/đơn không tìm thấy hoặc không thuộc khách; `409` cho xung đột nghiệp vụ. Hết thời gian chờ khóa và deadlock có mã riêng `LOCK_TIMEOUT`/`DEADLOCK`, chỉ hướng dẫn thử lại khi giao dịch lỗi đã rollback.
 - Mọi SQL có tham số dùng biến bind qua `NamedParameterJdbcTemplate`/JDBC; không nối giá trị đầu vào vào SQL.
 
 ## F10 — Giỏ hàng
@@ -48,4 +48,4 @@ Mọi truy vấn đơn lọc `user_id` ngay trong SQL; đơn của khách khác 
 
 - Unit test không cần DB: `*CoreTest`. Integration test Oracle/Redis thật: `*IT` và gọi đích danh qua Maven Surefire; không đặt `@Transactional` bao ngoài bài test cần quan sát `COMMIT`/`ROLLBACK`.
 - Dữ liệu thử nghiệm dùng user/product/giỏ/đơn riêng và Redis `txlab:*`; không sửa seed nền, khóa Flash Sale hoặc projection của module khác. Các bài test tranh chấp dùng hai kết nối và điểm đồng bộ có thời hạn, không dựa vào `Thread.sleep`.
-- Route `/cart` đã được bàn giao cho TV4. Backend Cart/Checkout/Order có thể triển khai trước khi TV2 gắn nút thêm vào giỏ và F0 thật sẵn sàng. Việc sửa module `indexing` vẫn cần thống nhất với TV2.
+- Route `/cart` đã được bàn giao cho TV4. Backend Cart/Checkout/Order dùng F0/JWT và có thể triển khai trước khi TV2 gắn nút thêm vào giỏ. Việc sửa module `indexing` vẫn cần thống nhất với TV2.

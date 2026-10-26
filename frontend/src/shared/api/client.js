@@ -1,9 +1,21 @@
 import axios from 'axios';
+import { clearAccessToken, getAccessToken } from '@/shared/auth/session';
 
 // Client chung cho mọi module. Lỗi luôn được đổi về dạng { status, code, message, details }
 // theo contract lỗi của backend: { "error": { code, message, details } }.
 // Timeout mặc định 2 phút; request chạy lâu có chủ đích (đo hiệu năng, dựng lại dữ liệu) tự truyền `timeout: 0`.
 export const apiClient = axios.create({ baseURL: '/api', timeout: 120000 });
+
+apiClient.interceptors.request.use((config) => {
+  if (/^(?:[a-z][a-z\d+.-]*:)?\/\//i.test(config.url ?? '')) return config;
+  if (/^\/auth\/(?:login|register)(?:\?|$)/.test(config.url ?? '')) return config;
+  const token = getAccessToken();
+  if (token) {
+    config.headers.set('Authorization', `Bearer ${token}`);
+    config.authToken = token;
+  }
+  return config;
+});
 
 // Với responseType 'blob' (tải file), lỗi JSON của backend cũng về dạng Blob: đọc lại thành object.
 async function errorBody(data) {
@@ -20,6 +32,11 @@ async function errorBody(data) {
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
+    if (error.response?.status === 401 && error.config?.authToken
+        && getAccessToken() === error.config.authToken) {
+      clearAccessToken();
+      window.dispatchEvent(new Event('shopflash:auth-expired'));
+    }
     const body = await errorBody(error.response?.data);
     // axios báo hết giờ bằng ECONNABORTED (hoặc ETIMEDOUT khi bật clarifyTimeoutError); "Request aborted" cũng là
     // ECONNABORTED nên phải xem thêm message.

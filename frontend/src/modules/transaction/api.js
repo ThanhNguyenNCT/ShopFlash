@@ -31,3 +31,11 @@ export const removeCartItem = (user, version, productId) => authorizedRequest(us
 export const clearCart = (user, version) => authorizedRequest(user, {
   method: 'delete', url: '/cart/items', headers: { 'X-Cart-Version': version },
 });
+
+export const getCheckoutPreview = (user) => authorizedRequest(user, {
+  method: 'get', url: '/checkout/preview',
+});
+
+export const placeOrder = (user, idempotencyKey, body) => authorizedRequest(user, {
+  method: 'post', url: '/orders', headers: { 'Idempotency-Key': idempotencyKey }, data: body,
+});

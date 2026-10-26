@@ -1,9 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Card, Empty, Flex, InputNumber, Popconfirm, Spin, Typography } from 'antd';
+import { Alert, Button, Card, Empty, Flex, InputNumber, Popconfirm, Select, Spin, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/shared/auth';
 import { PriceTag, tokens } from '@/shared/design-system';
 import { addCartItem, clearCart, getCart, removeCartItem, setCartItemQuantity } from '../api';
+
+const DEV_PRODUCTS = [
+  { value: 1, label: 'ID 1 · Core Product' },
+  { value: 101, label: 'ID 101 · Tai nghe Bluetooth' },
+  { value: 102, label: 'ID 102 · Bàn phím cơ' },
+  { value: 103, label: 'ID 103 · Chuột không dây' },
+  { value: 104, label: 'ID 104 · Màn hình 24 inch' },
+  { value: 105, label: 'ID 105 · Sạc dự phòng (hết hàng)' },
+  { value: 106, label: 'ID 106 · Loa Bluetooth (ngừng bán)' },
+];
 
 export default function CartPage() {
   const { user, loading: authLoading } = useAuth();
@@ -87,7 +97,12 @@ export default function CartPage() {
       {cart && <Card title="Thêm sản phẩm vào giỏ">
         <Flex vertical gap={tokens.space[2]}>
           <Typography.Text type="secondary">Nhập ID sản phẩm đã có trong Oracle. Thao tác này chỉ đổi giỏ; tồn kho được kiểm tra và trừ khi đặt hàng.</Typography.Text>
-          {import.meta.env.DEV && <Typography.Text type="secondary">Dữ liệu mẫu profile dev: CORE-001 có ID 1.</Typography.Text>}
+          {import.meta.env.DEV && <Flex wrap gap={tokens.space[2]} align="center">
+            <Typography.Text type="secondary">Chọn nhanh sản phẩm mẫu khi backend chạy profile dev:</Typography.Text>
+            <Select aria-label="Chọn sản phẩm mẫu" placeholder="Chọn sản phẩm mẫu" showSearch optionFilterProp="label"
+              options={DEV_PRODUCTS} value={newProductId ?? undefined} disabled={busy}
+              onChange={setNewProductId} style={{ flex: '1 1 16rem', minWidth: 0 }} />
+          </Flex>}
           {import.meta.env.DEV && <Typography.Text type="secondary">Phiên bản giỏ hiện tại: {cart.version}</Typography.Text>}
           <Flex wrap gap={tokens.space[2]} align="center">
             <InputNumber aria-label="ID sản phẩm cần thêm" placeholder="ID sản phẩm" min={1} precision={0}

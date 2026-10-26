@@ -2,7 +2,7 @@
 
 Hợp đồng F10/F7/F8 nằm trong [CONTRACT.md](CONTRACT.md). Tài liệu này mô tả môi trường local và các lệnh kiểm thử đã đối chiếu với `compose.yaml`, `backend/pom.xml`, `application*.properties` và `frontend/vite.config.js`.
 
-Chi tiết năm Cart API và ví dụ: xem [CART.md](CART.md).
+Chi tiết năm Cart API và ví dụ: xem [CART.md](CART.md). Hợp đồng đặt hàng, cách gửi lại an toàn và test F7: xem [CHECKOUT.md](CHECKOUT.md).
 
 ## Môi trường local
 
@@ -13,7 +13,7 @@ docker compose up -d --wait
 docker compose exec -T redis redis-cli -e --eval /opt/shopflash/redis/init.lua
 ```
 
-Backend chạy từ thư mục `backend/` và đã nhập `../.env`. Profile `dev` nạp dữ liệu mẫu, gồm khách `customer@shopflash.local` và Admin `admin@shopflash.local`. Tạo secret JWT ngẫu nhiên rồi thêm vào `.env` gốc, không commit hoặc đưa vào `VITE_*`:
+Backend chạy từ thư mục `backend/` và đã nhập `../.env`. Profile `dev` nạp dữ liệu mẫu, gồm khách `customer@shopflash.local`, Admin `admin@shopflash.local` và giỏ năm sản phẩm (`CORE-001`, `TX-101` đến `TX-104`). Seed Transaction còn có `TX-105` hết hàng và `TX-106` ngừng bán để thử luồng lỗi. Flyway áp `R__10_transaction_seed.sql` khi backend khởi động với profile `dev`; sau khi cập nhật seed, hãy khởi động lại backend rồi tải lại `/cart`. Tạo secret JWT ngẫu nhiên rồi thêm vào `.env` gốc, không commit hoặc đưa vào `VITE_*`:
 
 ```bash
 openssl rand -base64 32
@@ -60,8 +60,10 @@ cd backend
 ./mvnw test -Dtest=JwtConfigCoreTest,SecurityErrorWriterCoreTest,CartCoreTest
 ./mvnw test -Dtest=AuthOracleIT
 ./mvnw test -Dtest=TransactionFixtureIT
-# Khi các lớp nghiệp vụ được triển khai và Flyway hoạt động:
-./mvnw test -Dtest='CartOracleIT,CheckoutOracleIT,OrderOracleIT,TransactionSemanticsIT,RedisTransactionIT'
+./mvnw test -Dtest='CheckoutCoreTest,CartCoreTest'
+./mvnw test -Dtest='CartOracleIT,CheckoutOracleIT'
+# Các lớp F8 và nghiên cứu Transaction sẽ được triển khai ở milestone sau:
+# ./mvnw test -Dtest='OrderOracleIT,TransactionSemanticsIT,RedisTransactionIT'
 ```
 
 `TransactionFixtureIT` dùng Oracle/Redis thật, tạo dữ liệu tách biệt, kiểm tra commit trên kết nối độc lập, rồi tự dọn; nó tắt Flyway **chỉ trong bài test fixture** để không nhầm phép thử setup/reset với phép thử migration. Các bài test nghiệp vụ về sau phải chạy trên schema đã được Flyway quản lý. Không đặt `@Transactional` bao ngoài bài test cần quan sát `COMMIT`/`ROLLBACK`.

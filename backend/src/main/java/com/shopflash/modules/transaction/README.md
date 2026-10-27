@@ -63,8 +63,7 @@ cd backend
 ./mvnw test -Dtest='CheckoutCoreTest,CartCoreTest'
 ./mvnw test -Dtest='CartOracleIT,CheckoutOracleIT'
 ./mvnw test -Dtest=OrderOracleIT
-# Các lớp nghiên cứu Transaction sẽ được triển khai ở milestone sau:
-# ./mvnw test -Dtest='TransactionSemanticsIT,RedisTransactionIT'
+./mvnw test -Dtest='TransactionSemanticsIT,RedisTransactionIT'
 ```
 
 `TransactionFixtureIT` dùng Oracle/Redis thật, tạo dữ liệu tách biệt, kiểm tra commit trên kết nối độc lập, rồi tự dọn; nó tắt Flyway **chỉ trong bài test fixture** để không nhầm phép thử setup/reset với phép thử migration. Các bài test nghiệp vụ về sau phải chạy trên schema đã được Flyway quản lý. Không đặt `@Transactional` bao ngoài bài test cần quan sát `COMMIT`/`ROLLBACK`.
@@ -81,33 +80,4 @@ Lệnh cleanup chỉ xóa dữ liệu được đánh dấu bằng ID này và c
 
 Migration V2 đã được thử trên schema Oracle tạm: Flyway tạo V1 trên schema rỗng, thêm một giỏ và một đơn, áp V2, xác nhận `CARTS.version=0` và `ORDERS.checkout_request_hash IS NULL`, rồi khởi động lại để xác nhận checksum; schema tạm đã được dọn. Phép thử này không giải quyết lịch sử Flyway còn thiếu của schema `SHOP` hiện tại.
 
-Benchmark HTTP cần k6 CLI ở giai đoạn 5.x. Kiểm tra trước bằng:
-
-```bash
-k6 version
-```
-
-Nếu lệnh chưa có, các unit/integration test backend vẫn chạy; hướng dẫn đo k6 và CSV/JSON kết quả sẽ được bổ sung ở milestone benchmark. Không điền số đo giả.
-
-Kịch bản benchmark HTTP ở task 5.4 phải đăng nhập tài khoản fixture trước mỗi lượt đo, giữ JWT trong bộ nhớ k6 và bắt đầu đồng hồ nghiệp vụ sau khi nhận token. Latency đăng nhập không được gộp vào Cart/Checkout/Order; không xuất mật khẩu hoặc JWT vào CSV/JSON thô. Reset fixture giữa các lượt như quy định của từng kịch bản.
-
-Sau khi có k6 CLI, có thể kiểm tra đăng nhập và một yêu cầu từ host mà không chạy benchmark. Mật khẩu/JWT chỉ nằm trong bộ nhớ k6, không ghi vào kết quả thô:
-
-```bash
-cat > /tmp/shopflash-tx-jwt-smoke.js <<'EOF'
-import http from 'k6/http';
-import { check } from 'k6';
-export default function () {
-  const login = http.post('http://127.0.0.1:8080/api/auth/login', JSON.stringify({
-    email: 'customer@shopflash.local', password: __ENV.TX_SMOKE_PASSWORD,
-  }), { headers: { 'Content-Type': 'application/json' } });
-  const token = login.json('accessToken');
-  const r = http.get('http://127.0.0.1:8080/api/cart', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  check(r, { 'đọc giỏ thành công': (response) => response.status === 200 });
-}
-EOF
-TX_SMOKE_PASSWORD='ShopFlash123!' k6 run --vus 1 --iterations 1 /tmp/shopflash-tx-jwt-smoke.js
-rm /tmp/shopflash-tx-jwt-smoke.js
-```
+Hướng dẫn chạy lại thí nghiệm Oracle–Redis, benchmark Java và k6, cùng dữ liệu thô và báo cáo đã đo, nằm tại [`report/transaction/README.md`](../../../../../../../../report/transaction/README.md). Các test fixture dùng context web giả lập để nạp cùng cấu hình JWT/Security như ứng dụng; chúng không khởi chạy HTTP server.

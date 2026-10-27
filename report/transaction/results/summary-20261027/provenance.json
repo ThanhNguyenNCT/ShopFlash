@@ -1,0 +1,10 @@
+{
+  "database_raw": "report/transaction/results/db-2026-10-27T00-57-08-100088724Z.csv",
+  "database_runs": "report/transaction/results/db-2026-10-27T00-57-08-100088724Z-runs.jsonl",
+  "database_config": "report/transaction/results/db-2026-10-27T00-57-08-100088724Z-config.json",
+  "http_raw_dir": "report/transaction/results/http-20261027-stable",
+  "http_config": "report/transaction/results/http-20261027-stable/config.json",
+  "percentile": "linear interpolation on all valid success samples",
+  "throughput": "success count / sum of actual round wall seconds",
+  "error_rate_denominator": "success+rejected+expected_failure+error"
+}

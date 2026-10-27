@@ -1,0 +1,39 @@
+{
+  "observed_at": "2026-10-27",
+  "host": {
+    "architecture": "x86_64",
+    "cpu": "AMD Ryzen AI 7 PRO 350 w/ Radeon 860M",
+    "physical_cores": 8,
+    "logical_cpus": 16,
+    "memory_total": "26 GiB",
+    "java": "21.0.12.1",
+    "docker_server": "29.9.2"
+  },
+  "database": {
+    "oracle_image": "container-registry.oracle.com/database/free@sha256:f988b0c04c4c386cd306a2a914c0d7a9702d83acc31b064a28ad8eb6278a8fba",
+    "oracle_image_version": "23.26.0",
+    "oracle_port": "127.0.0.1:1521",
+    "redis_image": "redis/redis-stack-server@sha256:798ab84d9f266936b034ab11c4d04a2b8e4b441884c5aa7d17ac951eefdf742a",
+    "redis_version": "7.4.7",
+    "redis_port": "127.0.0.1:6380",
+    "redis_aof_enabled": true,
+    "redis_appendfsync": "everysec"
+  },
+  "application": {
+    "spring_boot": "4.1.1",
+    "vite": "8.3.4",
+    "backend": "host:8080",
+    "frontend_proxy": "host:5173/api -> host:8080/api",
+    "k6_image": "grafana/k6@sha256:3cd0ae83b47a29b273193eb998740c3b0e219fc34cdf579b90a8fc1698f5c025",
+    "k6_version": "0.55.2"
+  },
+  "source_sha256": {
+    "db_runner": "48d9266a446b8c3b36c06a2275cdb33c2fbdd371a1b6ca92af966842a8d4234c",
+    "oracle_semantics": "68410aca9d8ef7f67f9a4db2ca0979324e7ee92e1c9f37c53728354f07e56430",
+    "redis_semantics": "6cfb9cae3934443eea002f18965e989acc0d2081a0516efe94d0969c7e9f4a6a",
+    "k6_script": "3b13162e593fadbd632b8c08c2b9cc64ac054cc3629b3e71f4a9fba686e55439",
+    "http_runner": "7c1a0d807bc69bbbaf2f169d8510ffffabfb8c2c6e4cec7f06e201d682ffc47b",
+    "summarizer": "77525b8e767732550574f5dd6754f4d791541d7465f040c05b0c456bcf704759"
+  },
+  "notes": "Cấu hình local quan sát được; tải nền của máy không được cô lập hoàn toàn. Không lưu mật khẩu hoặc JWT."
+}

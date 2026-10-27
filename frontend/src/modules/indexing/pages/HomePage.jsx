@@ -156,6 +156,7 @@ export default function HomePage() {
         description="Giữ bố cục này (banner, dải flash sale, lưới sản phẩm) nhưng lấy dữ liệu thật: sản phẩm từ chỉ mục tìm kiếm (Oracle index hoặc RediSearch), flash sale từ module concurrency."
         todo={[
           'Lưới sản phẩm lấy từ API tìm kiếm của indexing (F3/F4: Oracle index hoặc RediSearch), có Skeleton khi tải, Empty khi rỗng, lỗi có nút Thử lại.',
+          'Khi dùng sản phẩm Oracle thật, nối ProductCard.onAddToCart với addProductToCart của module transaction (TV4). Không gửi ID trong SAMPLE_PRODUCTS tới Cart API.',
           'Danh mục nổi bật lấy từ CATEGORIES (module storage, TV1); bấm sang /search với bộ lọc danh mục.',
           'Dải flash sale dùng dữ liệu chương trình đang chạy của concurrency (TV5); không có chương trình thì ẩn dải.',
           'Bỏ toàn bộ dữ liệu minh họa (SAMPLE_*), Tag "Dữ liệu minh họa" và khung hướng dẫn này.',

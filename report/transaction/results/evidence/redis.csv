@@ -1,0 +1,6 @@
+scenario,steps,before,expected,actual,verification,assertion
+"redis_multi_exec","MULTI; SET order; DECR stock; DEL cart; EXEC (3 replies)","cart=1,stock=100,order=null","cart=null,stock=99,order=1","cart=null,stock=99,order=1","GET cart/stock/order bằng RedisClient riêng","PASS"
+"redis_lua_partial_write","EVAL: SET order; DECR stock sai kiểu; script lỗi","order=null,stock=not-an-integer","order=written,stock=not-an-integer","order=written,stock=not-an-integer","GET bằng RedisClient riêng sau lỗi Lua","PASS"
+"redis_watch_conflict","A WATCH cart; latch; B SET cart=2; A MULTI SET/DEL; EXEC trả nil","cart=1,order=null","cart=2,order=null","cart=2,order=null","CountDownLatch sau WATCH; GET bằng RedisClient riêng","PASS"
+"redis_discard","MULTI; SET/DECR/DEL xếp hàng; DISCARD trước EXEC","cart=1,stock=100,order=null","cart=1,stock=100,order=null","cart=1,stock=100,order=null","GET cart/stock/order; không có lệnh xếp hàng đã chạy","PASS"
+"redis_exec_runtime_error","MULTI; SET order; DECR stock sai kiểu; DEL cart; EXEC","cart=1,stock=not-an-integer,order=null","cart=null,stock=not-an-integer,order=1","cart=null,stock=not-an-integer,order=1","EXEC reply lỗi một lệnh; GET bằng RedisClient riêng","PASS"

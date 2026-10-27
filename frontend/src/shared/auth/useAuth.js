@@ -2,7 +2,7 @@ import { useContext } from 'react';
 import { AuthContext } from './AuthContext';
 
 /**
- * Người dùng hiện tại. Trả { user, isAdmin, loginAs(role), logout }.
+ * Người dùng hiện tại. Trả { user, isAdmin, loading, login({ email, password }), logout }.
  * user: null khi chưa đăng nhập, hoặc { userId, email, fullName, role: 'CUSTOMER' | 'ADMIN' }.
  */
 export default function useAuth() {

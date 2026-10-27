@@ -26,6 +26,7 @@ export default function SearchPage() {
           'Đọc q, danh mục, khoảng giá, sắp xếp, trang từ URL (?q=&categoryId=&minPrice=&maxPrice=&sort=&page=) để chia sẻ link và nút Back hoạt động đúng.',
           'F4: bộ lọc danh mục, khoảng giá, còn hàng; sắp xếp theo giá, mới nhất, bán chạy.',
           'Lưới ProductCard (Row/Col, 2 cột trên mobile), phân trang; bấm thẻ sang /products/:productId.',
+          'Khi có productId Oracle thật, nối onAddToCart bằng addProductToCart của module transaction (TV4); không gửi ID minh họa.',
           'Trạng thái loading (Skeleton), rỗng ("Không tìm thấy sản phẩm phù hợp"), lỗi có nút Thử lại.',
           'Ô tìm kiếm ở header đã gửi sang /search?q=..., không cần làm lại.',
           'Nên hiện nguồn dữ liệu (Oracle index hay RediSearch) và thời gian truy vấn để phục vụ báo cáo chủ đề Indexing.',

@@ -5,7 +5,8 @@ Chủ đề: Concurrency control.
 ## Chức năng
 
 - F9 Flash sale
-- F10 Giỏ hàng
+
+F10 Giỏ hàng đã được bàn giao cho TV4 (`transaction`). F9 giữ trách nhiệm trạng thái và suất Flash Sale; khi tích hợp với Checkout, hai module cần thống nhất thứ tự khóa `PRODUCT_INVENTORY`.
 
 ## Thiết kế
 

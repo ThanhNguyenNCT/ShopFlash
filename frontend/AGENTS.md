@@ -12,7 +12,7 @@ React + Vite + Ant Design, giao diện cho khách hàng và quản trị viên.
 - `src/app/`: router tổng và providers (`ThemeProvider` > `AuthProvider` > `RouterProvider`). Router chỉ gom `routes.jsx` của các module, không khai báo route trực tiếp.
 - `src/shared/`:
   - `api/`: axios client chung, chuẩn hóa lỗi.
-  - `auth/`: F0 (TV5). `useAuth`, `RequireAdmin`, trang đăng nhập/đăng ký. Hợp đồng: `src/shared/auth/AGENTS.md`.
+  - `auth/`: F0 (TV4 sau bàn giao từ TV5). `useAuth`, `RequireAdmin`, trang đăng nhập/đăng ký. Hợp đồng: `src/shared/auth/AGENTS.md`.
   - `design-system/`: tokens, theme, component riêng của ShopFlash.
   - `components/`: component dùng chung, vd. `ComingSoon`.
   - `layouts/`: `CustomerLayout`, `AdminLayout`.
@@ -63,12 +63,12 @@ Mọi màn hình trong kế hoạch đều đã có route. Màn hình chưa làm
 |---|---|---|---|
 | `/` | indexing | TV2 | Trang chủ (F3, F4) |
 | `/search` | indexing | TV2 | Tìm kiếm, lọc (F3, F4) |
-| `/products/:productId` | indexing | TV2 | Chi tiết sản phẩm (nút "Thêm vào giỏ" từ concurrency) |
+| `/products/:productId` | indexing | TV2 | Chi tiết sản phẩm (nút "Thêm vào giỏ" từ transaction sau tích hợp) |
 | `/flash-sale` | concurrency | TV5 | Flash sale (F9) |
-| `/cart` | concurrency | TV5 | Giỏ hàng (F10) |
+| `/cart` | transaction | TV4 | Giỏ hàng (F10) |
 | `/checkout` | transaction | TV4 | Thanh toán (F7) |
 | `/orders`, `/orders/:orderId` | transaction | TV4 | Đơn hàng của tôi, chi tiết, hủy đơn (F8) |
-| `/login`, `/register` | shared/auth | TV5 | F0 (bản tạm) |
+| `/login`, `/register` | shared/auth | TV4 | F0 dùng JWT |
 | `/admin` | query | TV3 | Tổng quan |
 | `/admin/categories`, `/admin/products` | storage | TV1 | F1, F2 |
 | `/admin/flash-sales` | concurrency | TV5 | Quản lý chương trình flash sale (F9) |

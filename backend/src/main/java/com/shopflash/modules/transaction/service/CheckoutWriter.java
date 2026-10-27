@@ -47,10 +47,15 @@ public class CheckoutWriter {
         }
         List<CartLine> cartLines = checkout.cartLines(cart.cartId());
         if (cartLines.isEmpty()) throw ApiException.conflict("CART_EMPTY", "Giỏ hàng đang trống");
-        if (cartLines.size() != command.expectedLines().size()) throw cartChanged();
-        for (int i = 0; i < cartLines.size(); i++) {
-            CartLine actual = cartLines.get(i);
-            CheckoutCommand.Line expected = command.expectedLines().get(i);
+        // expectedLines là tập mặt hàng khách chọn, không bắt buộc là toàn bộ giỏ.
+        // Normalizer và truy vấn cartLines đều sắp theo productId.
+        int cartIndex = 0;
+        for (CheckoutCommand.Line expected : command.expectedLines()) {
+            while (cartIndex < cartLines.size() && cartLines.get(cartIndex).productId() < expected.productId()) {
+                cartIndex++;
+            }
+            if (cartIndex == cartLines.size()) throw cartChanged();
+            CartLine actual = cartLines.get(cartIndex++);
             if (actual.productId() != expected.productId() || actual.quantity() != expected.quantity()) {
                 throw cartChanged();
             }

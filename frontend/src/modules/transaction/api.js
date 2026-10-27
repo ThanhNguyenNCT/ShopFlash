@@ -39,3 +39,13 @@ export const getCheckoutPreview = (user) => authorizedRequest(user, {
 export const placeOrder = (user, idempotencyKey, body) => authorizedRequest(user, {
   method: 'post', url: '/orders', headers: { 'Idempotency-Key': idempotencyKey }, data: body,
 });
+
+export const getOrders = (user, page = 1, size = 20, status = '') => authorizedRequest(user, {
+  method: 'get', url: '/orders', params: { page, size, ...(status ? { status } : {}) },
+});
+export const getOrderDetail = (user, orderId) => authorizedRequest(user, {
+  method: 'get', url: `/orders/${encodeURIComponent(orderId)}`,
+});
+export const cancelOrder = (user, orderId) => authorizedRequest(user, {
+  method: 'post', url: `/orders/${encodeURIComponent(orderId)}/cancel`,
+});

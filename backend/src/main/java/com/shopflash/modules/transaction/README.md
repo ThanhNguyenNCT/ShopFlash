@@ -2,7 +2,7 @@
 
 Hợp đồng F10/F7/F8 nằm trong [CONTRACT.md](CONTRACT.md). Tài liệu này mô tả môi trường local và các lệnh kiểm thử đã đối chiếu với `compose.yaml`, `backend/pom.xml`, `application*.properties` và `frontend/vite.config.js`.
 
-Chi tiết năm Cart API và ví dụ: xem [CART.md](CART.md). Hợp đồng đặt hàng, cách gửi lại an toàn và test F7: xem [CHECKOUT.md](CHECKOUT.md).
+Chi tiết năm Cart API và ví dụ: xem [CART.md](CART.md). Hợp đồng đặt hàng, cách gửi lại an toàn và test F7: xem [CHECKOUT.md](CHECKOUT.md). Lịch sử, hủy đơn và test F8: xem [ORDER.md](ORDER.md).
 
 ## Môi trường local
 
@@ -62,8 +62,9 @@ cd backend
 ./mvnw test -Dtest=TransactionFixtureIT
 ./mvnw test -Dtest='CheckoutCoreTest,CartCoreTest'
 ./mvnw test -Dtest='CartOracleIT,CheckoutOracleIT'
-# Các lớp F8 và nghiên cứu Transaction sẽ được triển khai ở milestone sau:
-# ./mvnw test -Dtest='OrderOracleIT,TransactionSemanticsIT,RedisTransactionIT'
+./mvnw test -Dtest=OrderOracleIT
+# Các lớp nghiên cứu Transaction sẽ được triển khai ở milestone sau:
+# ./mvnw test -Dtest='TransactionSemanticsIT,RedisTransactionIT'
 ```
 
 `TransactionFixtureIT` dùng Oracle/Redis thật, tạo dữ liệu tách biệt, kiểm tra commit trên kết nối độc lập, rồi tự dọn; nó tắt Flyway **chỉ trong bài test fixture** để không nhầm phép thử setup/reset với phép thử migration. Các bài test nghiệp vụ về sau phải chạy trên schema đã được Flyway quản lý. Không đặt `@Transactional` bao ngoài bài test cần quan sát `COMMIT`/`ROLLBACK`.

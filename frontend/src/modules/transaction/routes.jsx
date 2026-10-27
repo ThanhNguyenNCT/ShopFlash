@@ -1,4 +1,5 @@
 import { lazy } from 'react';
+import './transaction.css';
 
 // Module transaction (TV4): F10 giỏ hàng, F7 đặt hàng, F8 lịch sử và hủy đơn. Metadata route: xem frontend/AGENTS.md.
 const CartPage = lazy(() => import('./pages/CartPage'));

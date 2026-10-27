@@ -30,7 +30,7 @@ Ví dụ yêu cầu/phản hồi, giới hạn và cách xử lý timeout: xem [
 | `GET` | `/api/checkout/preview` | Không có `userId` | `{cartVersion, lines, totalAmount, warnings}`; chỉ đọc giá, trạng thái và tồn kho Oracle, không giữ hàng |
 | `POST` | `/api/orders` | `Idempotency-Key` là UUID; `{cartVersion, recipientName, recipientPhone, shippingAddress, expectedLines:[{productId,quantity,unitPrice}]}` | `{orderId, orderCode, status, totalAmount}`; cùng khóa và cùng nội dung trả cùng đơn |
 
-Checkout kiểm tra lại giỏ, giá, trạng thái và `on_hand_quantity - reserved_flash_quantity`. Thứ tự khóa trong giao dịch là **`CARTS` → `PRODUCTS` theo `product_id` tăng dần → `PRODUCT_INVENTORY` theo `product_id` tăng dần**. F2 cập nhật Product/Inventory hiện có dùng khóa/cột `version`; F9 cần thống nhất thứ tự trước khi tích hợp. Đơn `NORMAL/PENDING`, dòng hàng, giảm tồn kho, xóa giỏ và tăng phiên bản giỏ cùng `COMMIT` hoặc cùng `ROLLBACK`; tiền tính bằng `BigDecimal` với hai chữ số thập phân.
+Checkout kiểm tra lại giỏ, giá, trạng thái và `on_hand_quantity - reserved_flash_quantity`. `expectedLines` là các mặt hàng khách chọn, không cần gồm toàn bộ giỏ; từng dòng phải có cùng số lượng với giỏ tại `cartVersion` đã gửi. Thứ tự khóa trong giao dịch là **`CARTS` → `PRODUCTS` theo `product_id` tăng dần → `PRODUCT_INVENTORY` theo `product_id` tăng dần**. F2 cập nhật Product/Inventory hiện có dùng khóa/cột `version`; F9 cần thống nhất thứ tự trước khi tích hợp. Đơn `NORMAL/PENDING`, dòng hàng, giảm tồn kho, xóa các mặt hàng đã mua khỏi giỏ và tăng phiên bản giỏ cùng `COMMIT` hoặc cùng `ROLLBACK`; tiền tính bằng `BigDecimal` với hai chữ số thập phân.
 
 Các lỗi nghiệp vụ cần phân biệt: `CART_EMPTY`, `CART_CHANGED`, `PRODUCT_UNAVAILABLE`, `PRICE_CHANGED`, `OUT_OF_STOCK`, `IDEMPOTENCY_CONFLICT`. Khóa đã thuộc khách khác cũng trả `IDEMPOTENCY_CONFLICT` mà không tiết lộ đơn. Mất phản hồi quanh `COMMIT` không được coi là rollback: giao diện giữ nguyên khóa **và body đã gửi** để hỏi lại; sau khi đã có đơn hoặc lỗi xác định chưa commit mới được tạo yêu cầu mới.
 
@@ -38,11 +38,13 @@ Các lỗi nghiệp vụ cần phân biệt: `CART_EMPTY`, `CART_CHANGED`, `PROD
 
 | Phương thức | Đường dẫn | Dữ liệu vào | Kết quả |
 |---|---|---|---|
-| `GET` | `/api/orders` | `page` bắt đầu từ 1, `size` mặc định 20/tối đa 100, `status` tùy chọn | `{page, size, total, items}`; mới nhất trước, đồng hạng theo `orderId` giảm dần |
+| `GET` | `/api/orders` | `page` bắt đầu từ 1, `size` mặc định 20/tối đa 100, `status` tùy chọn | `{page, size, total, items}`; mỗi dòng có `itemCount` là tổng số đơn vị; mới nhất trước, đồng hạng theo `orderId` giảm dần |
 | `GET` | `/api/orders/{orderId}` | Không có `userId` | Chi tiết đơn và snapshot tên, SKU, giá, số lượng lúc mua |
-| `POST` | `/api/orders/{orderId}/cancel` | Không có `userId` | Trạng thái `CANCELLED`, `cancelledAt`; hoàn tồn kho đúng một lần |
+| `POST` | `/api/orders/{orderId}/cancel` | Không có `userId` hoặc body | Trả chi tiết đơn với `status=CANCELLED`, `cancelledAt`; hoàn tồn kho đúng một lần |
 
 Mọi truy vấn đơn lọc `user_id` ngay trong SQL; đơn của khách khác trả cùng `404` như đơn không tồn tại. Chỉ đơn `NORMAL/PENDING` được hủy. Giao dịch hủy khóa `ORDERS` rồi `PRODUCT_INVENTORY` theo `product_id` tăng dần, tăng `version` tồn kho; hủy lặp hoặc trạng thái sai trả `409 ORDER_NOT_CANCELLABLE`, không hoàn hàng lần nữa. Đơn `FLASH_SALE` thuộc F9. Giao diện dùng đúng trạng thái Oracle: `PENDING`, `CONFIRMED`, `COMPLETED`, `CANCELLED`.
+
+Chi tiết phản hồi, bảng trạng thái và cách kiểm tra sau khi mất phản hồi: xem [ORDER.md](ORDER.md).
 
 ## Kiểm thử và ranh giới tích hợp
 

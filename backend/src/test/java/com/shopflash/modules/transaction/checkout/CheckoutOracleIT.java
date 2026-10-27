@@ -217,6 +217,36 @@ class CheckoutOracleIT {
     }
 
     @Test
+    void checkoutSelectedLinesKeepsUnselectedCartAndInventory() throws Exception {
+        addItems(1, 2, 3);
+        jdbc.update("UPDATE products SET status = 'INACTIVE' WHERE product_id = :id", Map.of("id", productId(2)));
+        String key = UUID.randomUUID().toString();
+        CheckoutRequest selected = request(0, 1, 3);
+        place(key, selected).andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalAmount").value(200.00));
+
+        assertThat(committedCount("SELECT COUNT(*) FROM orders WHERE user_id = ?", userId())).isEqualTo(1);
+        assertThat(committedCount("""
+                SELECT COUNT(*) FROM order_items WHERE order_id IN
+                (SELECT order_id FROM orders WHERE user_id = ?)
+                """, userId())).isEqualTo(2);
+        assertThat(committedCount("SELECT COUNT(*) FROM cart_items WHERE cart_id = ?", cartId())).isEqualTo(1);
+        assertThat(committedCount("SELECT quantity FROM cart_items WHERE cart_id = ? AND product_id = ?",
+                cartId(), productId(2))).isEqualTo(1);
+        assertThat(committedCount("SELECT version FROM carts WHERE cart_id = ?", cartId())).isEqualTo(1);
+        assertThat(committedCount("SELECT on_hand_quantity FROM product_inventory WHERE product_id = ?",
+                productId(1))).isEqualTo(99);
+        assertThat(committedCount("SELECT on_hand_quantity FROM product_inventory WHERE product_id = ?",
+                productId(2))).isEqualTo(100);
+        assertThat(committedCount("SELECT on_hand_quantity FROM product_inventory WHERE product_id = ?",
+                productId(3))).isEqualTo(99);
+
+        place(key, selected).andExpect(status().isOk());
+        assertThat(committedCount("SELECT COUNT(*) FROM orders WHERE user_id = ?", userId())).isEqualTo(1);
+        assertThat(committedCount("SELECT COUNT(*) FROM cart_items WHERE cart_id = ?", cartId())).isEqualTo(1);
+    }
+
+    @Test
     void reusesNormalizedRequestAndRejectsChangedContentOrAnotherCustomer() throws Exception {
         addItems(1, 2);
         String key = UUID.randomUUID().toString();
@@ -650,9 +680,9 @@ class CheckoutOracleIT {
         }
     }
 
-    private long committedCount(String sql, long id) throws Exception {
+    private long committedCount(String sql, long... ids) throws Exception {
         try (Connection connection = dataSource.getConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setLong(1, id);
+            for (int i = 0; i < ids.length; i++) statement.setLong(i + 1, ids[i]);
             try (var rows = statement.executeQuery()) {
                 assertThat(rows.next()).isTrue();
                 return rows.getLong(1);

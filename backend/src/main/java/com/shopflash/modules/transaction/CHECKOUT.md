@@ -4,7 +4,7 @@ F7 chỉ tạo đơn `NORMAL/PENDING` cho khách `CUSTOMER` có JWT hợp lệ. 
 
 ## API
 
-`GET /api/checkout/preview` trả `cartVersion`, `lines` và `totalAmount`. Mỗi dòng có `productId`, `name`, `sku`, `quantity`, `unitPrice`, `lineTotal`, `status`, `availableQuantity = on_hand_quantity - reserved_flash_quantity`. `warnings` chứa `CART_EMPTY`, `PRODUCT_UNAVAILABLE` hoặc `OUT_OF_STOCK` khi cần. API chỉ đọc, không giữ hàng; giá/tồn phải được kiểm tra lại khi xác nhận.
+`GET /api/checkout/preview` trả toàn bộ giỏ với `cartVersion`, `lines` và `totalAmount`. Mỗi dòng có `productId`, `name`, `sku`, `quantity`, `unitPrice`, `lineTotal`, `status`, `availableQuantity = on_hand_quantity - reserved_flash_quantity`. `warnings` chứa `CART_EMPTY`, `PRODUCT_UNAVAILABLE` hoặc `OUT_OF_STOCK` khi cần. Giao diện chỉ hiển thị các dòng đã chọn, tính lại tổng và cảnh báo cho các dòng đó. API chỉ đọc, không giữ hàng; giá/tồn phải được kiểm tra lại khi xác nhận.
 
 `POST /api/orders` cần header `Idempotency-Key` là UUID và body đúng thông tin vừa xác nhận:
 
@@ -18,9 +18,9 @@ F7 chỉ tạo đơn `NORMAL/PENDING` cho khách `CUSTOMER` có JWT hợp lệ. 
 }
 ```
 
-Phản hồi thành công là `{orderId, orderCode, status, totalAmount}`. Khóa và nội dung đã chuẩn hóa giống nhau trả lại cùng đơn. Tên/số điện thoại/địa chỉ được chuẩn hóa Unicode NFC và bỏ khoảng trắng ở hai đầu; danh sách mặt hàng sắp theo ID, giá dùng hai chữ số thập phân trước khi băm SHA-256. Khóa thuộc yêu cầu hoặc khách khác trả `409 IDEMPOTENCY_CONFLICT`, không tiết lộ đơn.
+`expectedLines` chỉ gồm tập con không rỗng đã chọn trong giỏ. Phản hồi thành công là `{orderId, orderCode, status, totalAmount}`. Khóa và nội dung đã chuẩn hóa giống nhau trả lại cùng đơn. Tên/số điện thoại/địa chỉ được chuẩn hóa Unicode NFC và bỏ khoảng trắng ở hai đầu; danh sách mặt hàng sắp theo ID, giá dùng hai chữ số thập phân trước khi băm SHA-256. Khóa thuộc yêu cầu hoặc khách khác trả `409 IDEMPOTENCY_CONFLICT`, không tiết lộ đơn.
 
-Các lỗi trước khi ghi gồm `CART_EMPTY`, `CART_CHANGED`, `PRODUCT_UNAVAILABLE`, `PRICE_CHANGED`, `OUT_OF_STOCK`. Giao dịch khóa `CARTS` → toàn bộ `PRODUCTS` theo ID tăng → toàn bộ `PRODUCT_INVENTORY` theo ID tăng, rồi mới ghi đơn, dòng hàng, giảm tồn có điều kiện và dọn giỏ. Tiền dùng `BigDecimal`, ảnh chụp tên/SKU/giá nằm trong `ORDER_ITEMS`. Mọi bước cùng `COMMIT` hoặc cùng `ROLLBACK`.
+Các lỗi trước khi ghi gồm `CART_EMPTY`, `CART_CHANGED`, `PRODUCT_UNAVAILABLE`, `PRICE_CHANGED`, `OUT_OF_STOCK`. Giao dịch khóa `CARTS` → `PRODUCTS` đã chọn theo ID tăng → `PRODUCT_INVENTORY` đã chọn theo ID tăng, rồi mới ghi đơn, dòng hàng, giảm tồn có điều kiện và xóa đúng các mặt hàng đã mua. Các mặt hàng không chọn vẫn ở giỏ và không bị trừ tồn. Tiền dùng `BigDecimal`, ảnh chụp tên/SKU/giá nằm trong `ORDER_ITEMS`. Mọi bước cùng `COMMIT` hoặc cùng `ROLLBACK`.
 
 `LOCK_TIMEOUT`, `DEADLOCK`, `RETRY_SAME_REQUEST` và `ORDER_CODE_CONFLICT` cho phép gửi lại **cùng khóa và body** sau khi giao dịch lỗi đã rollback. Mất phản hồi quanh `COMMIT` không chứng minh rollback: frontend giữ bản ghi `{principalUserId, idempotencyKey, body}` trong `sessionStorage` trước khi gửi; tải lại cùng tab hoặc hết thời gian chờ thì gửi lại đúng bản ghi đó. Backend trả đơn đã lưu hoặc thử lại sau rollback. Frontend chỉ xóa bản ghi khi có `orderId` hoặc lỗi nghiệp vụ xác định chưa commit. Nếu đổi tài khoản, phải đăng nhập lại đúng chủ yêu cầu trước khi gửi lại. Đóng tab sẽ mất `sessionStorage`; kiểm tra lịch sử đơn khi F8 có mặt trước khi bắt đầu yêu cầu mới.
 

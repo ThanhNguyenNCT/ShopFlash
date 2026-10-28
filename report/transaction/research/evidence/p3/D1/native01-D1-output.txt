@@ -1,0 +1,35 @@
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+BEFORE ORDERS=0 ITEMS=0 CART_LINES=3 P1_STOCK=100 P2_STOCK=100 P3_CART=1
+TRANSIENT_ORDER_ID=28461
+FAILED_STATEMENT=-2290 ORA-02290: check constraint (SHOP.CK_CART_ITEMS_QUANTITY)
+violated
+AFTER_FAILED_STATEMENT ORDERS=1 ITEMS=2 CART_LINES=1 P1_STOCK=99 P2_STOCK=99
+P3_CART=1
+AFTER_FULL_ROLLBACK ORDERS=0 ITEMS=0 CART_LINES=3 P1_STOCK=100 P2_STOCK=100
+P3_CART=1
+
+PL/SQL procedure successfully completed.
+

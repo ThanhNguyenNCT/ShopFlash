@@ -1,16 +1,56 @@
 # Tiểu mục 3.x — Transaction trên Oracle và Redis
 
-## 1. Lý thuyết và phương pháp
+## 1. Bối cảnh và phương pháp
 
-Một giao dịch đặt đơn cần giữ cùng một kết quả cho đơn hàng, các dòng hàng, tồn kho và giỏ. Oracle cung cấp `COMMIT`/`ROLLBACK`, ràng buộc quan hệ và đọc nhất quán theo câu lệnh ở `READ COMMITTED`; khóa hàng của `SELECT ... FOR UPDATE` được giữ đến cuối giao dịch. Redis chạy các lệnh trong `MULTI/EXEC` liên tiếp, không xen lệnh từ client khác; `DISCARD` chỉ bỏ hàng đợi chưa thực thi, `WATCH` hủy `EXEC` nếu khóa đã đổi, và lỗi runtime của một lệnh trong `EXEC` không hoàn tác lệnh khác. Lua chạy không bị chen ngang nhưng lỗi sau khi ghi không tự phục hồi dữ liệu đã ghi. Các mô tả này đối chiếu với [Oracle Data Concurrency and Consistency](https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-concurrency-and-consistency.html), [Oracle SQL Processing for Application Developers](https://docs.oracle.com/en/database/oracle/oracle-database/26/adfns/sql-processing-for-application-developers.html), [Redis Transactions](https://redis.io/docs/latest/develop/using-commands/transactions/) và [Redis Scripting with Lua](https://redis.io/docs/latest/develop/programmability/eval-intro/).
+### 1.1. Giao dịch cần bảo vệ điều gì?
 
-Hai lớp đánh giá được tách riêng. **Database-level** dùng Java/JDBC/Jedis mô phỏng cùng chuỗi thao tác giỏ → đơn → dòng hàng → tồn → dọn giỏ trên hai DBMS. **Application-level** dùng k6 qua Vite proxy đo API Cart/Checkout/Order thật của ShopFlash, chỉ chạy nghiệp vụ trên Oracle. Số liệu hai lớp không được đối chiếu trực tiếp. Correctness được kiểm tra trước performance: trạng thái trước, mong đợi, thực tế sau, lệnh kiểm chứng và assertion của từng cơ chế nằm trong CSV bằng chứng; benchmark có hậu kiểm bất biến sau mỗi yêu cầu hoặc lượt.
+Trong ShopFlash, một lần Checkout `NORMAL` không chỉ ghi một dòng đơn hàng. Hệ thống phải tạo `ORDERS` và `ORDER_ITEMS`, giảm tồn ở `PRODUCT_INVENTORY`, xóa đúng các `CART_ITEMS` đã mua và giữ những dòng giỏ không mua. Nếu một bước thất bại, đơn hàng, tồn kho và giỏ phải trở về trạng thái nhất quán. Đó là lý do nghiệp vụ này cần một ranh giới giao dịch rõ ràng: các thay đổi cùng `COMMIT` hoặc cùng được `ROLLBACK`.
 
-Môi trường local ngày 27/10/2026: AMD Ryzen AI 7 PRO 350 (8 nhân, 16 luồng), RAM 26 GiB, Java 21.0.12.1, Docker 29.9.2. Oracle Database Free theo image digest trong [`compose.yaml`](../../compose.yaml) (metadata image `23.26.0`), Redis Stack cùng Compose (Redis `7.4.7`); `INFO persistence` cho `aof_enabled:1`, `CONFIG GET appendfsync` cho `everysec`. Backend và frontend chạy trên host, Oracle/Redis trong Docker. Đây là cấu hình quan sát được, không phải phép thử crash/khôi phục để đo độ bền thực tế. Công cụ, kết nối, dataset, reset và lệnh tái chạy ở [README](README.md).
+Oracle là nguồn dữ liệu nghiệp vụ chính của ShopFlash. Trên Oracle, ranh giới giao dịch bao gồm nhiều bảng có khóa ngoại và ràng buộc `CHECK`/`UNIQUE`. Redis trong nghiên cứu chỉ lưu các key mô phỏng thao tác giỏ, đơn, tồn và quota. Các key này không tạo đơn Oracle và không thay thế luồng Checkout thật. Mục tiêu là quan sát cách từng DBMS xử lý lỗi, tranh chấp và tính nhất quán trên mô hình phù hợp với nó.
 
-Mỗi tổ hợp gồm giỏ 1/5 sản phẩm × đồng thời 1/10, warm-up 50 thao tác rồi 5 lượt × 200 thao tác. Mỗi yêu cầu database dùng một fixture riêng; mỗi VU HTTP dùng khách và giỏ riêng. Đơn giá 100, số lượng mỗi dòng 1, tồn ban đầu 100/sản phẩm trong runner database. Java đo từ lúc đọc/khóa nghiệp vụ đến khi nhận `COMMIT` hoặc `EXEC`; thời gian reset không nằm trong latency. Thông lượng thành công chia cho thời gian thực toàn lượt, kể cả hậu kiểm. p50/p95 gộp từ toàn bộ mẫu thành công hợp lệ; cột `TB ± SD` tính qua năm lượt. Lỗi, từ chối hợp lệ, lỗi tiêm chủ đích và mẫu không hợp lệ được đếm riêng, không trộn vào phân vị thành công.
+Các thuật ngữ trong phần này được hiểu như sau: **statement** là một câu SQL; **transaction** là toàn bộ các câu SQL từ lúc bắt đầu đến `COMMIT`/`ROLLBACK`; **session/client** là kết nối giữ trạng thái giao dịch. `SAVEPOINT` đánh dấu điểm có thể quay lại trong một transaction. Trên Redis, `MULTI` xếp hàng lệnh, `EXEC` thực thi hàng đợi, `DISCARD` bỏ hàng đợi chưa chạy, còn `WATCH` theo dõi key để từ chối `EXEC` nếu key thay đổi. Lua chạy như một lần thực thi không bị lệnh khác chen vào, nhưng lỗi sau một lệnh ghi không tự hoàn tác ghi đó. Các định nghĩa này được đối chiếu với [tài liệu Oracle về concurrency](https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-concurrency-and-consistency.html), [xử lý SQL của Oracle](https://docs.oracle.com/en/database/oracle/oracle-database/26/adfns/sql-processing-for-application-developers.html), [Redis Transactions](https://redis.io/docs/latest/develop/using-commands/transactions/) và [Redis Lua](https://redis.io/docs/latest/develop/programmability/eval-intro/).
+
+### 1.2. Ba loại bằng chứng không có cùng mục đích
+
+| Lớp đánh giá | Công cụ | Câu hỏi được trả lời |
+|---|---|---|
+| Nghiên cứu cơ chế DBMS-native | SQL/PLSQL và SQL*Plus; Redis CLI/Lua | DBMS thực sự làm gì khi commit, rollback, gặp lỗi, chờ khóa hoặc tranh key? |
+| Benchmark database-only | Java JDBC/Jedis trong `TransactionDbBenchmarkIT` | Runner cũ mất bao lâu để hoàn thành workload mô phỏng trên mỗi DBMS? |
+| Kiểm thử và đo ứng dụng | JUnit luồng nghiệp vụ; k6 qua HTTP | API Cart–Checkout–Order của ShopFlash có đúng và nhanh ra sao trong môi trường local? |
+
+Các thí nghiệm DBMS-native có snapshot và transcript để giải thích cơ chế, không đủ mẫu để kết luận latency hoặc throughput. Benchmark Java và k6 có phép đo lặp nhưng ranh giới, payload và số thao tác khác nhau; không lấy p50 HTTP so trực tiếp với p50 database-only. [Kế hoạch nghiên cứu](RESEARCH_PLAN.md) quy định 14 case; [runbook và chỉ mục bằng chứng](research/evidence/INDEX.md) cho biết cách chạy và đọc output.
+
+### 1.3. Môi trường và cách đọc số đo cũ
+
+Lần benchmark cũ trên local ngày 27/10/2026 dùng AMD Ryzen AI 7 PRO 350 (8 nhân, 16 luồng), RAM 26 GiB, Java 21.0.12.1 và Docker 29.9.2. Oracle Database Free và Redis Stack chạy trong Docker theo image digest ở [`compose.yaml`](../../compose.yaml); Redis server là `7.4.7`, bật AOF với `appendfsync everysec`. Backend và frontend chạy trên host. Cấu hình này mô tả môi trường quan sát được, chưa phải phép thử mất điện hoặc crash recovery.
+
+Mỗi nhánh benchmark có giỏ 1 hoặc 5 sản phẩm, mức đồng thời 1 hoặc 10, 50 thao tác warm-up và 5 lượt × 200 thao tác đo. Java đo từ lúc bắt đầu đọc/khóa nghiệp vụ đến phản hồi `COMMIT` hoặc `EXEC`, không tính reset fixture; thông lượng dùng thời gian thực của toàn lượt, kể cả hậu kiểm. k6 đo API và toàn luồng HTTP riêng; đăng nhập fixture thuộc setup. p50/p95 tính từ các mẫu `success` hợp lệ, còn lỗi/từ chối/vi phạm bất biến được đếm riêng. Chi tiết cấu hình, lệnh tái chạy và dữ liệu thô ở [README Transaction](README.md); [rà soát P5](research/evidence/p5/README.md) xác nhận lại mốc mẫu và chỉ ra giới hạn của phép so.
+
+Trong các bảng dưới, **p50** là thời gian trung vị: khoảng một nửa mẫu thành công hoàn tất không chậm hơn mốc đó. **p95** là mốc mà khoảng 95% mẫu thành công không chậm hơn. **TPS** là số giao dịch thành công mỗi giây theo ranh giới đo của runner. `TB ± SD` là trung bình và độ lệch chuẩn của thống kê qua năm lượt đo; nó cho biết kết quả dao động giữa các lượt ra sao. Warm-up không được tính vào các giá trị này.
 
 ## 2. Oracle: demo và số đo
+
+### 2.1. Quan sát trực tiếp bằng SQL/PLSQL
+
+Bộ SQL chạy trên schema `SHOP/FREEPDB1` đã qua [audit chỉ đọc](research/evidence/p0/README.md). Các constraint liên quan đều đang `ENABLED`, `VALIDATED`, `NOT DEFERRABLE` và `IMMEDIATE`: Oracle kiểm tra ngay khi câu SQL vi phạm được thực thi. Các case cùng dùng fixture nghiên cứu `native01` và reset về đầu kỳ giữa những case có ghi; các lệnh trong cùng transaction luôn ở một SQL*Plus session, còn snapshot sau commit/rollback được đọc bằng session độc lập. [Chỉ mục P2/P3](research/evidence/INDEX.md) dẫn đến lệnh và output nguyên gốc.
+
+**Commit, lỗi và rollback.** Ở [A1](research/evidence/p2/A1/README.md), session tạo Order và Order Item rồi `COMMIT`; session khác thấy Order tồn tại, tồn sản phẩm giảm từ 100 xuống 99 và Cart còn hai dòng. Nhánh tạo đơn khác rồi `ROLLBACK` không làm trạng thái đã commit thay đổi. [A2](research/evidence/p2/A2/README.md) cố ý vi phạm ba constraint có thật: Oracle trả `ORA-00001` cho `UNIQUE`, `ORA-02291` cho khóa ngoại và `ORA-02290` cho `CHECK`. Những lỗi này chặn câu SQL vi phạm; chúng không chứng minh rằng toàn transaction đã tự rollback.
+
+[A3](research/evidence/p2/A3/README.md) cho thấy ba phạm vi hoàn tác khác nhau. Sau khi P1 được sửa từ 100 xuống 99 và P2 từ 100 xuống 98, một câu sửa Cart sai `CHECK` bị hủy, nhưng P1=99 và P2=98 vẫn còn trong session. `ROLLBACK TO` savepoint đưa riêng P2 về 100; full `ROLLBACK` mới đưa cả P1 về 100. [D1](research/evidence/p3/D1/README.md) áp dụng ý này cho Checkout hai mặt hàng:
+
+| Thời điểm trong cùng transaction | Order | Order Items | Dòng Cart | Tồn P1/P2 |
+|---|---:|---:|---:|---|
+| Trước Checkout | 0 | 0 | 3 | 100 / 100 |
+| Sau câu SQL cố ý lỗi `ORA-02290` | 1 | 2 | 1 | 99 / 99 |
+| Sau full `ROLLBACK` | 0 | 0 | 3 | 100 / 100 |
+
+Dòng Cart thứ ba không được mua và vẫn có số lượng 1 ở cả ba mốc. Bảng này lấy từ [output D1](research/evidence/p3/D1/native01-D1-output.txt), không phải trạng thái suy đoán. Lỗi `CHECK` chỉ hoàn tác câu SQL đặt số lượng Cart về 0; ứng dụng/session phải gọi full `ROLLBACK` để khôi phục cả Checkout.
+
+**Isolation và tranh chấp.** [B1](research/evidence/p3/B1/README.md) dùng hai session tại `READ COMMITTED`: B đọc tồn 100; A sửa còn 99 nhưng chưa commit thì B vẫn đọc 100; sau A commit, câu SELECT tiếp theo của B thấy 99. [B2](research/evidence/p3/B2/README.md) cho A và B lưu riêng tồn đã đọc 100 rồi cùng cập nhật bằng `old_stock - 1`: B phải chờ A commit, nhưng vẫn ghi từ giá trị cũ nên tồn cuối là 99 thay vì 98. Nhánh bảo vệ của B2 dùng `FOR UPDATE` buộc B chờ/từ chối và `UPDATE ... WHERE on_hand_quantity - reserved_flash_quantity >= 1` chỉ cho một lượt trừ tồn khi còn một sản phẩm. [B3](research/evidence/p3/B3/README.md) tách lượt timeout và deadlock: Oracle 26ai trả `ORA-00054`/`ORA-40097` sau `WAIT 2`, còn vòng chờ A giữ P1–B giữ P2 tạo `ORA-00060`. Cả hai session được chủ động rollback, rồi lấy lại khóa P1/P2 thành công. Mã lỗi statement không thay thế bước giải phóng transaction.
+
+**Giới hạn constraint.** [C1](research/evidence/p2/C1/README.md) đối chiếu metadata của 29 constraint trên Order, Order Item, Product và Inventory. FK/CHECK/UNIQUE bảo vệ quan hệ và giá trị trong từng row; DBMS không tự biết mặt hàng đã được chọn trong Cart, giá hiện tại đã được xác nhận hay tổng các Order Items có bằng subtotal của Order. Tồn khả dụng phải được kiểm tra trong cùng giao dịch bằng khóa hoặc conditional UPDATE.
+
+### 2.2. Baseline JUnit và benchmark Java
 
 `TransactionSemanticsIT` dùng hai JDBC connection độc lập và rào đồng bộ hữu hạn cho tranh chấp. Trong thí nghiệm commit, trạng thái `orders=0, lines=0, cart=1, stock=100, version=0` trở thành `1,1,0,99,1` sau `COMMIT` và được kết nối mới đọc thấy. Khi tiêm lỗi sau khi đã ghi đơn, dòng hàng, tồn kho và giỏ, `ROLLBACK` đưa cả năm giá trị về trạng thái ban đầu. Ở `READ COMMITTED`, phiên B thấy tồn 100 trước khi A commit và 99 sau đó. Hai phiên tranh khóa giỏ/tồn nhận lock timeout có giới hạn chờ; deadlock có kiểm soát cho một phiên thành công và một phiên nhận `ORA-00060`, không để trạng thái ghi dở. Trạng thái trước, mong đợi, thực tế, truy vấn kiểm chứng và assertion của cả sáu case được lưu trong [bằng chứng Oracle](results/evidence/oracle.csv).
 
@@ -25,6 +65,18 @@ Runner Oracle ghi đầu đơn và dòng trong các bảng có khóa ngoại, `C
 
 ## 3. Redis: demo và số đo
 
+### 3.1. Quan sát trực tiếp bằng Redis CLI/Lua
+
+Redis lưu fixture trong namespace `txresearch:native01:*`, gồm Cart, ba Inventory, quota và Order Hash mô phỏng. Đây là dữ liệu nghiên cứu độc lập với Order Oracle. Các chuỗi `MULTI`–`EXEC`/`DISCARD` và `WATCH`–đọc–`MULTI`–`EXEC` được gửi trên cùng kết nối liên tục; client quan sát dùng kết nối khác.
+
+**Xếp hàng và lỗi.** [A4](research/evidence/p2/A4/README.md) cho thấy ba lệnh nhận `QUEUED` sau `MULTI`; `EXEC` thực thi chúng theo thứ tự, tạo Order Hash, giảm tồn P1 còn 99 và xóa P1 khỏi Cart. Khi gửi `DISCARD` thay `EXEC`, không lệnh ghi nào chạy. [A5](research/evidence/p2/A5/README.md) phân biệt thời điểm lỗi: lệnh không tồn tại trong lúc xếp hàng khiến `EXECABORT` hủy cả hàng đợi; lỗi `WRONGTYPE` khi `EXEC` đang chạy không hoàn tác lệnh đã thành công trước hoặc sau nó. Lua cố ý ghi rồi gọi lệnh sai kiểu cũng để lại tồn P1=99 và Order Hash đã tạo. Vì vậy không thể diễn giải lỗi runtime Redis như full rollback của Oracle.
+
+**Tranh key và quota.** Trong [B4](research/evidence/p3/B4/README.md), A `WATCH` Inventory, đọc 100 và xếp lệnh giảm tồn; B sửa key thành 99 trên kết nối khác. `EXEC` của A trả nil, lệnh giảm tồn của A không chạy. A đọc lại rồi retry đúng một lần, kết quả 98. [B5](research/evidence/p3/B5/README.md) cho bốn client đồng thời gọi Lua giữ quota 2: đúng hai client thành công, hai client nhận `QUOTA_EXHAUSTED`; cuối cùng `remaining=0`, `held=2`. Điều này chứng minh đoạn kiểm tra–ghi trong cùng một Lua script không bị client khác chen vào, với điều kiện logic trong script đúng.
+
+**Validation phải viết tường minh.** [C2](research/evidence/p2/C2/README.md) dùng CLI ghi Order trỏ tới Product không tồn tại và tồn kho âm; Redis Hash chấp nhận cả hai giá trị vì không có FK/CHECK quan hệ như Oracle. Lua validation sau đó trả `INVALID_PRODUCT_REFERENCE` và `INVALID_STOCK`. [D2](research/evidence/p3/D2/README.md) viết Lua kiểm tra Cart, tồn khả dụng và quota **trước lệnh ghi đầu tiên**: nhánh yêu cầu P2=101 bị từ chối và key không đổi; nhánh hợp lệ cập nhật đồng thời Cart, hai Inventory, quota và Order Hash mô phỏng. Cách tiền kiểm này bảo vệ invariant của mô hình key đang thử, nhưng không tạo Order Oracle hoặc giao dịch liên DBMS.
+
+### 3.2. Baseline JUnit và benchmark Java
+
 `RedisTransactionIT` ghi lại cả lệnh và hậu kiểm bằng client riêng. `MULTI/EXEC` hợp lệ đưa `cart=1, stock=100, order=null` thành `cart=null, stock=99, order=1`. `DISCARD` giữ nguyên trạng thái vì các lệnh chỉ mới xếp hàng. Khi `DECR` gặp giá trị không phải số lúc `EXEC`, `SET order` và `DEL cart` vẫn được thực thi: không có rollback sau lỗi runtime. Sau `WATCH cart`, client khác đổi `cart=2` tại điểm đồng bộ; `EXEC` trả nil và lệnh xếp hàng không chạy. Script Lua `SET order` rồi `DECR stock` sai kiểu báo lỗi, nhưng `order=written` vẫn còn. Năm case và kết quả hậu kiểm nằm trong [bằng chứng Redis](results/evidence/redis.csv).
 
 Runner Redis dùng `WATCH` cho giỏ/tồn, đọc và kiểm tra giá/tồn bằng Jedis, rồi `MULTI/EXEC` ghi các key đơn/dòng, giảm tồn, dọn giỏ. 4.000/4.000 mẫu đo thành công; 0 từ chối, 0 lỗi hệ thống, 0 vi phạm bất biến. Đây là mô hình cùng thao tác logic, không có khóa ngoại/CHECK/unique như schema Oracle và không phải Checkout của ShopFlash. Dữ liệu nguồn cùng run ID database ở trên.
@@ -37,6 +89,8 @@ Runner Redis dùng `WATCH` cho giỏ/tồn, đọc và kiểm tra giá/tồn b�
 | 5 | 10 | 0,9906 | 1,4019 | 0,9826 ± 0,1330 | 1,3381 ± 0,2104 | 5.438,8618 | 5.500,5748 ± 680,4128 |
 
 ## 4. Bảng so sánh cơ chế
+
+Bảng dưới đặt kết quả thí nghiệm DBMS-native cạnh số benchmark cũ để thấy **cơ chế** và **phép đo** trả lời hai câu hỏi khác nhau. Các hàng latency/TPS chỉ phản ánh workload Java trong môi trường local; chúng không đo cùng mức ràng buộc, cách lưu hay chi phí kết nối của hai DBMS. [Rà soát P5](research/evidence/p5/README.md) phân tích từng sai lệch từ source và raw results.
 
 | Tiêu chí | Oracle | Redis trong thí nghiệm |
 |---|---|---|
@@ -51,7 +105,11 @@ Chênh lệch tốc độ quan sát được chỉ áp dụng cho code mô phỏ
 
 ## 5. Kết luận theo ShopFlash
 
-ShopFlash tiếp tục dùng Oracle làm nguồn chính cho giỏ, đơn và tồn kho. Khi đặt/hủy đơn có nhiều bảng và bất biến liên quan, kết quả rollback và các ràng buộc trong thí nghiệm phù hợp với cách triển khai F10/F7/F8 hiện tại. Redis phù hợp với projection tìm kiếm, analytics có thể dựng lại và trạng thái runtime Flash Sale theo kiến trúc nhóm; dùng Redis mô phỏng đặt đơn nhanh hơn trong phép đo này không đủ cơ sở chuyển nghiệp vụ đơn hàng sang Redis. Kết quả HTTP của ứng dụng được trình bày riêng ở phụ lục, không dùng để tính chênh lệch Oracle–Redis.
+**Giỏ hàng, đơn hàng và tồn kho** tiếp tục thuộc Oracle. Checkout và hủy đơn tác động nhiều bảng có quan hệ; [D1](research/evidence/p3/D1/README.md) cho thấy session có thể chủ động rollback toàn bộ khi bước cuối lỗi, còn [A2/C1](research/evidence/INDEX.md) chỉ ra những ràng buộc Oracle tự kiểm tra và những quy tắc nghiệp vụ vẫn phải đặt trong transaction. [B2/B3](research/evidence/INDEX.md) cho thấy khóa và cập nhật có điều kiện cần thiết khi nhiều yêu cầu tranh cùng tồn kho. Đây là cơ sở kỹ thuật phù hợp với cách ShopFlash đang triển khai F10/F7/F8.
+
+**Redis** phù hợp với trạng thái runtime quota, projection tìm kiếm và read model có thể dựng lại theo kiến trúc nhóm. [B4/B5](research/evidence/INDEX.md) cho thấy `WATCH` và Lua có thể kiểm soát tranh key/quota; [A5/C2](research/evidence/INDEX.md) cũng cho thấy ứng dụng phải tự xử lý lỗi sau ghi và tự viết validation. Order Hash trong nghiên cứu chỉ là mô phỏng logic; không có bằng chứng để chuyển Order thật sang Redis chỉ vì runner cũ đo được p50 thấp hơn.
+
+Các kết luận trên dựa trên fixture local và 14 case có transcript. Bộ nghiên cứu chưa thử crash recovery, mất điện, tải sản xuất hoặc transaction xuyên Oracle–Redis. Số benchmark database-only và số HTTP trong phụ lục được giữ theo kết quả đã đo; chúng không thay thế bằng chứng về tính đúng đắn của cơ chế DBMS.
 
 ## Phụ lục: phép đo HTTP của ứng dụng
 

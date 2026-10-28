@@ -1,0 +1,37 @@
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+UNIQUE SQLCODE=-1 ORA-00001: unique constraint (SHOP.UK_CART_ITEMS_CART_PRODUCT)
+violated on table SHOP.CART_ITEMS columns (CART_ID, PRODUCT_ID)
+ORA-03301:
+(ORA-00001 details) row with column values (CART_ID:10520, PRODUCT_ID:12941)
+already exists
+FK SQLCODE=-2291 ORA-02291: integrity constraint (SHOP.FK_ORDER_ITEMS_ORDER)
+violated - parent key not found
+CHECK SQLCODE=-2290 ORA-02290: check constraint (SHOP.CK_CART_ITEMS_QUANTITY)
+violated
+A2_ROLLBACK=OK
+
+PL/SQL procedure successfully completed.
+

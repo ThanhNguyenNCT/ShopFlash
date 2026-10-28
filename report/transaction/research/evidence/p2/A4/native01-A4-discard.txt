@@ -1,0 +1,7 @@
+CONNECTION=one redis-cli; MODE=discard
+COMMANDS=MULTI; HSET txresearch:native01:order; HINCRBY txresearch:native01:inventory:12941 on_hand -1; HDEL txresearch:native01:cart 12941; DISCARD
+OK
+QUEUED
+QUEUED
+QUEUED
+OK

@@ -1,0 +1,29 @@
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+RESET_COMMITTED RUN_ID=native01 ORDERS=1 ORDER_ITEMS=1 CART_ITEMS=3
+INVENTORY_ON_HAND=100
+
+PL/SQL procedure successfully completed.
+

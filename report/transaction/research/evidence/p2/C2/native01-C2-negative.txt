@@ -1,0 +1,3 @@
+MODE=negative RUN_ID=native01
+ERR INVALID_STOCK
+

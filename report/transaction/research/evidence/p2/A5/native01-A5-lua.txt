@@ -1,0 +1,3 @@
+MODE=lua RUN_ID=native01
+WRONGTYPE Operation against a key holding the wrong kind of value script: 6bcbcd950d0acdf0ae840fb4e912e471210a44df, on @user_script:4.
+

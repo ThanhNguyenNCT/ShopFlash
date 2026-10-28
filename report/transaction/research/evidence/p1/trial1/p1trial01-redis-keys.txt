@@ -1,0 +1,5 @@
+txresearch:p1trial01:cart
+txresearch:p1trial01:inventory:12935
+txresearch:p1trial01:inventory:12936
+txresearch:p1trial01:inventory:12937
+txresearch:p1trial01:quota

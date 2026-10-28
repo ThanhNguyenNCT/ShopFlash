@@ -1,17 +1,15 @@
 # Nghiên cứu Transaction DBMS-native
 
-Nguồn quyết định phạm vi và phương pháp là [`../RESEARCH_PLAN.md`](../RESEARCH_PLAN.md). OpenSpec change `transaction-dbms-native-research` quản lý phân rã/triển khai. Chỉ chạy trên Docker Compose ShopFlash **local/dev đã xác minh không dùng chung**. Bộ này dùng SQL/PLSQL và Redis CLI/Lua, không cần Spring Boot; không ghi vào `flash:*`, các projection, hoặc fixture `txlab:*`.
+Runbook này cùng [chỉ mục bằng chứng](evidence/INDEX.md) mô tả 14 thí nghiệm đã thực hiện. Chỉ chạy trên Docker Compose ShopFlash **local/dev đã xác minh không dùng chung**. Bộ này dùng SQL/PLSQL và Redis CLI/Lua, không cần Spring Boot; không ghi vào `flash:*`, các projection, hoặc fixture `txlab:*`.
 
 ## Bắt đầu từ đâu?
 
-1. Đọc [kế hoạch nghiên cứu](../RESEARCH_PLAN.md) để biết câu hỏi, 14 thí nghiệm và phương pháp đã chốt.
-2. Đọc P0 và P1 bên dưới trước khi tạo fixture. Mỗi run có ID Oracle và danh sách key Redis riêng; không dùng số ID trong transcript cũ cho run mới.
-3. Mở [chỉ mục bằng chứng](evidence/INDEX.md) để chọn case và đọc hồ sơ của case trước khi xem output `.txt`. Hồ sơ giải thích ý nghĩa của từng mốc; transcript giữ nguyên phản hồi DBMS.
-4. Đọc [báo cáo Transaction](../SECTION_TRANSACTION.md) để xem kết quả được diễn giải trong bối cảnh ShopFlash. [P5](evidence/p5/README.md) chỉ rà soát benchmark cũ, không phải một thí nghiệm thứ 15.
+1. Đọc P0 và P1 bên dưới trước khi tạo fixture. Mỗi run có ID Oracle và danh sách key Redis riêng; không dùng số ID trong transcript cũ cho run mới.
+2. Mở [chỉ mục bằng chứng](evidence/INDEX.md) để chọn case và đọc hồ sơ của case trước khi xem output `.txt`. Hồ sơ giải thích ý nghĩa của từng mốc; transcript giữ nguyên phản hồi DBMS.
+3. Đọc [báo cáo Transaction](../SECTION_TRANSACTION.md) để xem kết quả được diễn giải trong bối cảnh ShopFlash. [P5](evidence/p5/README.md) chỉ rà soát benchmark cũ, không phải một thí nghiệm thứ 15.
 
 ```text
 report/transaction/
-├── RESEARCH_PLAN.md       Quyết định phạm vi và phương pháp
 ├── SECTION_TRANSACTION.md Phần báo cáo để đọc kết luận
 └── research/
     ├── README.md           Hướng dẫn chạy và dọn fixture (file này)

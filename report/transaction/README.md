@@ -2,7 +2,7 @@
 
 Thư mục này chứa thí nghiệm tính đúng đắn, phép đo cơ chế database và phép đo HTTP của F10 → F7 → F8. Oracle là nguồn dữ liệu nghiệp vụ của ShopFlash. Redis trong phép đo database chỉ là mô phỏng cùng thao tác logic; không thay thế giao dịch đặt hàng thật.
 
-Để đọc theo đúng mục đích, bắt đầu từ [RESEARCH_PLAN.md](RESEARCH_PLAN.md) (phạm vi và phương pháp), tiếp đến [runbook nghiên cứu DBMS-native](research/README.md) và [chỉ mục 14 thí nghiệm](research/evidence/INDEX.md). [SECTION_TRANSACTION.md](SECTION_TRANSACTION.md) là phần diễn giải để đưa vào báo cáo. Các mục Java/JUnit/k6 bên dưới là baseline kiểm thử và benchmark cũ, được giữ riêng với bằng chứng SQL/PLSQL và Redis CLI/Lua.
+Để đọc theo đúng mục đích, bắt đầu từ [runbook nghiên cứu DBMS-native](research/README.md) và [chỉ mục 14 thí nghiệm](research/evidence/INDEX.md). [SECTION_TRANSACTION.md](SECTION_TRANSACTION.md) là phần diễn giải để đưa vào báo cáo. Các mục Java/JUnit/k6 bên dưới là baseline kiểm thử và benchmark cũ, được giữ riêng với bằng chứng SQL/PLSQL và Redis CLI/Lua.
 
 ## 1. Môi trường
 

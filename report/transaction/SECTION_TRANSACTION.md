@@ -18,7 +18,7 @@ Các thuật ngữ trong phần này được hiểu như sau: **statement** là
 | Benchmark database-only | Java JDBC/Jedis trong `TransactionDbBenchmarkIT` | Runner cũ mất bao lâu để hoàn thành workload mô phỏng trên mỗi DBMS? |
 | Kiểm thử và đo ứng dụng | JUnit luồng nghiệp vụ; k6 qua HTTP | API Cart–Checkout–Order của ShopFlash có đúng và nhanh ra sao trong môi trường local? |
 
-Các thí nghiệm DBMS-native có snapshot và transcript để giải thích cơ chế, không đủ mẫu để kết luận latency hoặc throughput. Benchmark Java và k6 có phép đo lặp nhưng ranh giới, payload và số thao tác khác nhau; không lấy p50 HTTP so trực tiếp với p50 database-only. [Kế hoạch nghiên cứu](RESEARCH_PLAN.md) quy định 14 case; [runbook và chỉ mục bằng chứng](research/evidence/INDEX.md) cho biết cách chạy và đọc output.
+Các thí nghiệm DBMS-native có snapshot và transcript để giải thích cơ chế, không đủ mẫu để kết luận latency hoặc throughput. Benchmark Java và k6 có phép đo lặp nhưng ranh giới, payload và số thao tác khác nhau; không lấy p50 HTTP so trực tiếp với p50 database-only. [Runbook](research/README.md) và [chỉ mục bằng chứng](research/evidence/INDEX.md) liệt kê 14 case và cho biết cách chạy, đọc output.
 
 ### 1.3. Môi trường và cách đọc số đo cũ
 

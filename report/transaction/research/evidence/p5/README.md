@@ -1,6 +1,6 @@
 # P5 — Rà soát benchmark hiện có
 
-Chỉ đọc runner, k6, cấu hình, raw results và phép tổng hợp ngày 27/10/2026; không chạy lại hoặc sửa file benchmark. Phạm vi/quyết định nghiên cứu vẫn theo `report/transaction/RESEARCH_PLAN.md`.
+Chỉ đọc runner, k6, cấu hình, raw results và phép tổng hợp ngày 27/10/2026; không chạy lại hoặc sửa file benchmark. P5 chỉ rà soát phương pháp và giới hạn của số liệu benchmark đã có.
 
 **Cách đọc số đo:** warm-up là lượt chạy làm nóng, không đưa vào thống kê chính. Mỗi “round” là một lượt 200 thao tác; 5 round giúp thấy dao động giữa các lượt. p50 là thời gian mà khoảng một nửa mẫu thành công không vượt quá, p95 là mốc của khoảng 95% mẫu thành công. TPS là số thao tác thành công chia thời gian thực của lượt; nó phụ thuộc vào việc tính cả những bước nào trong ranh giới đo. RTT (round trip) là một lượt gửi lệnh qua mạng và nhận phản hồi; đếm câu lệnh logic không tự cho biết số RTT. `N` trong bảng dưới là số dòng sản phẩm của giỏ.
 

@@ -1,6 +1,6 @@
 # Chỉ mục bằng chứng nghiên cứu Transaction
 
-Đây là nơi bắt đầu đọc kết quả. Mỗi thí nghiệm có một thư mục riêng: `README.md` giải thích mục tiêu, cách làm và kết luận; các file `.txt` bên cạnh là output nguyên gốc từ Oracle hoặc Redis. Tất cả thí nghiệm dùng fixture `native01` trên ShopFlash local và đã được dọn sau khi hoàn tất. [RESEARCH_PLAN.md](../../RESEARCH_PLAN.md) quyết định phạm vi và phương pháp; OpenSpec chỉ quản lý công việc triển khai.
+Đây là nơi bắt đầu đọc kết quả của 14 thí nghiệm. Mỗi thí nghiệm có một thư mục riêng: `README.md` giải thích mục tiêu, cách làm và kết luận; các file `.txt` bên cạnh là output nguyên gốc từ Oracle hoặc Redis. Các thí nghiệm dùng fixture riêng trên ShopFlash local và đã được dọn sau khi hoàn tất.
 
 ## Cấu trúc
 

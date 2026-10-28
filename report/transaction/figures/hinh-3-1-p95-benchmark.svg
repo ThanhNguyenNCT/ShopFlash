@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="775" viewBox="0 0 1320 775" role="img" aria-label="Hình 3.1 · p95 của hai implementation">
+<rect width="1320" height="775" fill="#FFFFFF"/>
+<text x="64" y="58" fill="#172B45" font-family="DejaVu Sans" font-weight="700" font-size="34">Hình 3.1 · p95 của hai implementation</text>
+<text x="64" y="95" fill="#506176" font-family="DejaVu Sans" font-size="22">Database benchmark · 5 lượt × 200 mẫu thành công mỗi cấu hình · đơn vị: ms</text>
+<rect x="788" y="119" width="28" height="20" rx="3" fill="#245F91" stroke="#245F91" stroke-width="0"/>
+<text x="826" y="137" fill="#172B45" font-family="DejaVu Sans" font-size="22" font-weight="400" text-anchor="start">Oracle</text>
+<rect x="950" y="119" width="28" height="20" rx="3" fill="#B95F16" stroke="#B95F16" stroke-width="0"/>
+<text x="988" y="137" fill="#172B45" font-family="DejaVu Sans" font-size="22" font-weight="400" text-anchor="start">Redis</text>
+<line x1="108" y1="600.0" x2="1260" y2="600.0" stroke="#77899E" stroke-width="1.5"/>
+<text x="87" y="607.0" fill="#506176" font-family="DejaVu Sans" font-size="19" font-weight="400" text-anchor="end">0</text>
+<line x1="108" y1="539.1428571428571" x2="1260" y2="539.1428571428571" stroke="#DCE4EC" stroke-width="1.5"/>
+<text x="87" y="546.1428571428571" fill="#506176" font-family="DejaVu Sans" font-size="19" font-weight="400" text-anchor="end">1</text>
+<line x1="108" y1="478.2857142857143" x2="1260" y2="478.2857142857143" stroke="#DCE4EC" stroke-width="1.5"/>
+<text x="87" y="485.2857142857143" fill="#506176" font-family="DejaVu Sans" font-size="19" font-weight="400" text-anchor="end">2</text>
+<line x1="108" y1="417.42857142857144" x2="1260" y2="417.42857142857144" stroke="#DCE4EC" stroke-width="1.5"/>
+<text x="87" y="424.42857142857144" fill="#506176" font-family="DejaVu Sans" font-size="19" font-weight="400" text-anchor="end">3</text>
+<line x1="108" y1="356.57142857142856" x2="1260" y2="356.57142857142856" stroke="#DCE4EC" stroke-width="1.5"/>
+<text x="87" y="363.57142857142856" fill="#506176" font-family="DejaVu Sans" font-size="19" font-weight="400" text-anchor="end">4</text>
+<line x1="108" y1="295.7142857142857" x2="1260" y2="295.7142857142857" stroke="#DCE4EC" stroke-width="1.5"/>
+<text x="87" y="302.7142857142857" fill="#506176" font-family="DejaVu Sans" font-size="19" font-weight="400" text-anchor="end">5</text>
+<line x1="108" y1="234.8571428571429" x2="1260" y2="234.8571428571429" stroke="#DCE4EC" stroke-width="1.5"/>
+<text x="87" y="241.8571428571429" fill="#506176" font-family="DejaVu Sans" font-size="19" font-weight="400" text-anchor="end">6</text>
+<line x1="108" y1="174.0" x2="1260" y2="174.0" stroke="#DCE4EC" stroke-width="1.5"/>
+<text x="87" y="181.0" fill="#506176" font-family="DejaVu Sans" font-size="19" font-weight="400" text-anchor="end">7</text>
+<text x="108" y="164" fill="#172B45" font-family="DejaVu Sans" font-size="21" font-weight="700" text-anchor="start">p95 (ms)</text>
+<rect x="163" y="518.3540571428572" width="67" height="81.64594285714284" rx="4" fill="#245F91" stroke="#245F91" stroke-width="0"/>
+<text x="196.5" y="507.3540571428572" fill="#245F91" font-family="DejaVu Sans" font-size="22" font-weight="700" text-anchor="middle">1,342</text>
+<rect x="251" y="587.1652285714285" width="67" height="12.834771428571429" rx="4" fill="#B95F16" stroke="#B95F16" stroke-width="0"/>
+<text x="284.5" y="576.1652285714285" fill="#B95F16" font-family="DejaVu Sans" font-size="22" font-weight="700" text-anchor="middle">0,211</text>
+<text x="243" y="640" fill="#172B45" font-family="DejaVu Sans" font-size="23" font-weight="700" text-anchor="middle">Giỏ 1</text>
+<text x="243" y="672" fill="#506176" font-family="DejaVu Sans" font-size="20" font-weight="400" text-anchor="middle">1 worker</text>
+<rect x="443" y="416.7591428571428" width="67" height="183.24085714285715" rx="4" fill="#245F91" stroke="#245F91" stroke-width="0"/>
+<text x="476.5" y="405.7591428571428" fill="#245F91" font-family="DejaVu Sans" font-size="22" font-weight="700" text-anchor="middle">3,011</text>
+<rect x="531" y="557.5825714285714" width="67" height="42.417428571428566" rx="4" fill="#B95F16" stroke="#B95F16" stroke-width="0"/>
+<text x="564.5" y="546.5825714285714" fill="#B95F16" font-family="DejaVu Sans" font-size="22" font-weight="700" text-anchor="middle">0,697</text>
+<text x="523" y="640" fill="#172B45" font-family="DejaVu Sans" font-size="23" font-weight="700" text-anchor="middle">Giỏ 1</text>
+<text x="523" y="672" fill="#506176" font-family="DejaVu Sans" font-size="20" font-weight="400" text-anchor="middle">10 worker</text>
+<rect x="723" y="439.37365714285716" width="67" height="160.62634285714287" rx="4" fill="#245F91" stroke="#245F91" stroke-width="0"/>
+<text x="756.5" y="428.37365714285716" fill="#245F91" font-family="DejaVu Sans" font-size="22" font-weight="700" text-anchor="middle">2,639</text>
+<rect x="811" y="572.0665714285715" width="67" height="27.93342857142857" rx="4" fill="#B95F16" stroke="#B95F16" stroke-width="0"/>
+<text x="844.5" y="561.0665714285715" fill="#B95F16" font-family="DejaVu Sans" font-size="22" font-weight="700" text-anchor="middle">0,459</text>
+<text x="803" y="640" fill="#172B45" font-family="DejaVu Sans" font-size="23" font-weight="700" text-anchor="middle">Giỏ 5</text>
+<text x="803" y="672" fill="#506176" font-family="DejaVu Sans" font-size="20" font-weight="400" text-anchor="middle">1 worker</text>
+<rect x="1003" y="227.77337142857147" width="67" height="372.22662857142853" rx="4" fill="#245F91" stroke="#245F91" stroke-width="0"/>
+<text x="1036.5" y="216.77337142857147" fill="#245F91" font-family="DejaVu Sans" font-size="22" font-weight="700" text-anchor="middle">6,116</text>
+<rect x="1091" y="514.6843714285715" width="67" height="85.31562857142856" rx="4" fill="#B95F16" stroke="#B95F16" stroke-width="0"/>
+<text x="1124.5" y="503.68437142857147" fill="#B95F16" font-family="DejaVu Sans" font-size="22" font-weight="700" text-anchor="middle">1,402</text>
+<text x="1083" y="640" fill="#172B45" font-family="DejaVu Sans" font-size="23" font-weight="700" text-anchor="middle">Giỏ 5</text>
+<text x="1083" y="672" fill="#506176" font-family="DejaVu Sans" font-size="20" font-weight="400" text-anchor="middle">10 worker</text>
+<line x1="62" y1="702" x2="1258" y2="702" stroke="#D6DEE8" stroke-width="1"/>
+<text x="64" y="732" fill="#506176" font-family="DejaVu Sans" font-size="19" font-weight="400" text-anchor="start">Chỉ số pooled p95 của implementation benchmark; hai workload chưa được chuẩn hóa hoàn toàn.</text>
+<text x="64" y="760" fill="#506176" font-family="DejaVu Sans" font-size="17" font-weight="400" text-anchor="start">Nguồn: results/summary-20261027/database-summary.csv (đối chiếu comparison.md).</text>
+</svg>

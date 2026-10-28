@@ -1,0 +1,13 @@
+1
+1
+1
+1
+1
+CLEANUP_DONE RUN_ID=p1trial01 KEYS_LISTED=5
+RESULT=CREATED
+RUN_ID=p1trial01
+KEY=txresearch:p1trial01:cart
+KEY=txresearch:p1trial01:inventory:12938
+KEY=txresearch:p1trial01:inventory:12939
+KEY=txresearch:p1trial01:inventory:12940
+KEY=txresearch:p1trial01:quota

@@ -1,0 +1,69 @@
+redis_version:7.4.7
+redis_mode:standalone
+rdb_last_bgsave_status:ok
+aof_enabled:1
+aof_last_write_status:ok
+appendfsync
+everysec
+name
+search
+ver
+21020
+path
+/opt/redis-stack/lib/redisearch.so
+args
+MAXSEARCHRESULTS
+10000
+MAXAGGREGATERESULTS
+10000
+name
+RedisCompat
+ver
+1
+path
+/opt/redis-stack/lib/rediscompat.so
+args
+
+name
+redisgears_2
+ver
+20020
+path
+/opt/redis-stack/lib/redisgears.so
+args
+v8-plugin-path
+/opt/redis-stack/lib/libredisgears_v8_plugin.so
+name
+timeseries
+ver
+11206
+path
+/opt/redis-stack/lib/redistimeseries.so
+args
+
+name
+ReJSON
+ver
+20809
+path
+/opt/redis-stack/lib/rejson.so
+args
+
+name
+bf
+ver
+20816
+path
+/opt/redis-stack/lib/redisbloom.so
+args
+
+
+# Keyspace
+db0:keys=5,expires=0,avg_ttl=0,subexpiry=0
+product:* 0
+flash:* 0
+order:analytics:* 0
+order:line:* 0
+txlab:* 0
+txresearch:* 5
+1

@@ -1,0 +1,7 @@
+MODE=queue RUN_ID=native01
+OK
+QUEUED
+ERR unknown command 'TXRESEARCH_INVALID_COMMAND', with args beginning with: 
+
+EXECABORT Transaction discarded because of previous errors.
+

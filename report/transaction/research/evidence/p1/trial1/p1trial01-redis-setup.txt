@@ -1,0 +1,7 @@
+RESULT=CREATED
+RUN_ID=p1trial01
+KEY=txresearch:p1trial01:cart
+KEY=txresearch:p1trial01:inventory:12935
+KEY=txresearch:p1trial01:inventory:12936
+KEY=txresearch:p1trial01:inventory:12937
+KEY=txresearch:p1trial01:quota

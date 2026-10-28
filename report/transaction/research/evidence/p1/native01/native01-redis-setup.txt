@@ -1,0 +1,7 @@
+RESULT=CREATED
+RUN_ID=native01
+KEY=txresearch:native01:cart
+KEY=txresearch:native01:inventory:12941
+KEY=txresearch:native01:inventory:12942
+KEY=txresearch:native01:inventory:12943
+KEY=txresearch:native01:quota

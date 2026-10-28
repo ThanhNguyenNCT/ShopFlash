@@ -1,0 +1,138 @@
+2026-10-28T12:25:01+07:00 SCENARIO=B2 P1=12955 P2=12956
+2026-10-28T12:25:01+07:00 A> SET AUTOCOMMIT OFF | SET PAGESIZE 100 | SET LINESIZE 180 | VARIABLE p1 NUMBER | VARIABLE p2 NUMBER | EXEC :p1 := 12955; | EXEC :p2 := 12956;
+2026-10-28T12:25:01+07:00 A< 
+2026-10-28T12:25:01+07:00 A< PL/SQL procedure successfully completed.
+2026-10-28T12:25:01+07:00 A< 
+2026-10-28T12:25:01+07:00 A< 
+2026-10-28T12:25:01+07:00 A< PL/SQL procedure successfully completed.
+2026-10-28T12:25:01+07:00 A< 
+2026-10-28T12:25:01+07:00 A< __TXRESEARCH_1__
+2026-10-28T12:25:01+07:00 B> SET AUTOCOMMIT OFF | SET PAGESIZE 100 | SET LINESIZE 180 | VARIABLE p1 NUMBER | VARIABLE p2 NUMBER | EXEC :p1 := 12955; | EXEC :p2 := 12956;
+2026-10-28T12:25:01+07:00 B< 
+2026-10-28T12:25:01+07:00 B< PL/SQL procedure successfully completed.
+2026-10-28T12:25:01+07:00 B< 
+2026-10-28T12:25:01+07:00 B< 
+2026-10-28T12:25:01+07:00 B< PL/SQL procedure successfully completed.
+2026-10-28T12:25:01+07:00 B< 
+2026-10-28T12:25:01+07:00 B< __TXRESEARCH_2__
+2026-10-28T12:25:01+07:00 PHASE=risk stale read/write; hai lượt mua cùng đọc 100
+2026-10-28T12:25:01+07:00 A> VARIABLE old_stock NUMBER | BEGIN |   SELECT on_hand_quantity INTO :old_stock FROM product_inventory WHERE product_id = :p1; |   IF :old_stock <> 100 THEN RAISE_APPLICATION_ERROR(-20010, 'B2 fixture phai bat dau tu 100'); END IF; | END; | / | PRINT old_stock
+2026-10-28T12:25:01+07:00 A< 
+2026-10-28T12:25:01+07:00 A< PL/SQL procedure successfully completed.
+2026-10-28T12:25:01+07:00 A< 
+2026-10-28T12:25:01+07:00 A< 
+2026-10-28T12:25:01+07:00 A<  OLD_STOCK
+2026-10-28T12:25:01+07:00 A< ----------
+2026-10-28T12:25:01+07:00 A<        100
+2026-10-28T12:25:01+07:00 A< 
+2026-10-28T12:25:01+07:00 A< __TXRESEARCH_3__
+2026-10-28T12:25:01+07:00 B> VARIABLE old_stock NUMBER | BEGIN |   SELECT on_hand_quantity INTO :old_stock FROM product_inventory WHERE product_id = :p1; |   IF :old_stock <> 100 THEN RAISE_APPLICATION_ERROR(-20010, 'B2 fixture phai bat dau tu 100'); END IF; | END; | / | PRINT old_stock
+2026-10-28T12:25:01+07:00 B< 
+2026-10-28T12:25:01+07:00 B< PL/SQL procedure successfully completed.
+2026-10-28T12:25:01+07:00 B< 
+2026-10-28T12:25:01+07:00 B< 
+2026-10-28T12:25:01+07:00 B<  OLD_STOCK
+2026-10-28T12:25:01+07:00 B< ----------
+2026-10-28T12:25:01+07:00 B<        100
+2026-10-28T12:25:01+07:00 B< 
+2026-10-28T12:25:01+07:00 B< __TXRESEARCH_4__
+2026-10-28T12:25:01+07:00 A> UPDATE product_inventory SET on_hand_quantity = :old_stock - 1 WHERE product_id = :p1;
+2026-10-28T12:25:01+07:00 A< 
+2026-10-28T12:25:01+07:00 A< 1 row updated.
+2026-10-28T12:25:01+07:00 A< 
+2026-10-28T12:25:01+07:00 A< __TXRESEARCH_5__
+2026-10-28T12:25:01+07:00 B> UPDATE product_inventory SET on_hand_quantity = :old_stock - 1 WHERE product_id = :p1;
+2026-10-28T12:25:03+07:00 B_WAIT_CONFIRMED: UPDATE chua hoan tat khi A giu khoa
+2026-10-28T12:25:03+07:00 A> COMMIT;
+2026-10-28T12:25:03+07:00 B< 
+2026-10-28T12:25:03+07:00 B< 1 row updated.
+2026-10-28T12:25:03+07:00 B< 
+2026-10-28T12:25:03+07:00 B< __TXRESEARCH_6__
+2026-10-28T12:25:03+07:00 A< 
+2026-10-28T12:25:03+07:00 A< Commit complete.
+2026-10-28T12:25:03+07:00 A< 
+2026-10-28T12:25:03+07:00 A< __TXRESEARCH_7__
+2026-10-28T12:25:03+07:00 B> COMMIT;
+2026-10-28T12:25:03+07:00 B< 
+2026-10-28T12:25:03+07:00 B< Commit complete.
+2026-10-28T12:25:03+07:00 B< 
+2026-10-28T12:25:03+07:00 B< __TXRESEARCH_8__
+2026-10-28T12:25:03+07:00 A> SELECT on_hand_quantity FROM product_inventory WHERE product_id = :p1;
+2026-10-28T12:25:03+07:00 A< 
+2026-10-28T12:25:03+07:00 A< ON_HAND_QUANTITY
+2026-10-28T12:25:03+07:00 A< ----------------
+2026-10-28T12:25:03+07:00 A< 	      99
+2026-10-28T12:25:03+07:00 A< 
+2026-10-28T12:25:03+07:00 A< __TXRESEARCH_9__
+2026-10-28T12:25:03+07:00 PHASE=protected FOR UPDATE + conditional UPDATE
+2026-10-28T12:25:03+07:00 A> UPDATE product_inventory SET on_hand_quantity = 1 WHERE product_id = :p1; | COMMIT;
+2026-10-28T12:25:03+07:00 A< 
+2026-10-28T12:25:03+07:00 A< 1 row updated.
+2026-10-28T12:25:03+07:00 A< 
+2026-10-28T12:25:03+07:00 A< 
+2026-10-28T12:25:03+07:00 A< Commit complete.
+2026-10-28T12:25:03+07:00 A< 
+2026-10-28T12:25:03+07:00 A< __TXRESEARCH_10__
+2026-10-28T12:25:03+07:00 A> SELECT on_hand_quantity FROM product_inventory WHERE product_id = :p1 FOR UPDATE WAIT 3;
+2026-10-28T12:25:03+07:00 A< 
+2026-10-28T12:25:03+07:00 A< ON_HAND_QUANTITY
+2026-10-28T12:25:03+07:00 A< ----------------
+2026-10-28T12:25:03+07:00 A< 	       1
+2026-10-28T12:25:03+07:00 A< 
+2026-10-28T12:25:03+07:00 A< __TXRESEARCH_11__
+2026-10-28T12:25:03+07:00 B> SELECT on_hand_quantity FROM product_inventory WHERE product_id = :p1 FOR UPDATE WAIT 2;
+2026-10-28T12:25:05+07:00 B< SELECT on_hand_quantity FROM product_inventory WHERE product_id = :p1 FOR UPDATE WAIT 2
+2026-10-28T12:25:05+07:00 B<                              *
+2026-10-28T12:25:05+07:00 B< ERROR at line 1:
+2026-10-28T12:25:05+07:00 B< ORA-00054: Failed to acquire a lock (Type: "TX", Name: "Transaction", Description: "Lock held by a transaction to allow other transactions to wait for it") because it is currently
+2026-10-28T12:25:05+07:00 B< held by another session. The resource being locked can be identified by 458784 ("usn<<16 | slot") and 941 ("sequence")
+2026-10-28T12:25:05+07:00 B< ORA-40097: Failure to acquire row lock, currently held by transaction ID 7.32.941
+2026-10-28T12:25:05+07:00 B< Help: https://docs.oracle.com/error-help/db/ora-00054/
+2026-10-28T12:25:05+07:00 B< 
+2026-10-28T12:25:05+07:00 B< 
+2026-10-28T12:25:05+07:00 B< __TXRESEARCH_12__
+2026-10-28T12:25:05+07:00 B> ROLLBACK;
+2026-10-28T12:25:05+07:00 B< 
+2026-10-28T12:25:05+07:00 B< Rollback complete.
+2026-10-28T12:25:05+07:00 B< 
+2026-10-28T12:25:05+07:00 B< __TXRESEARCH_13__
+2026-10-28T12:25:05+07:00 A> UPDATE product_inventory SET on_hand_quantity = on_hand_quantity - 1, version = version + 1 WHERE product_id = :p1 AND on_hand_quantity - reserved_flash_quantity >= 1; | COMMIT;
+2026-10-28T12:25:05+07:00 A< 
+2026-10-28T12:25:05+07:00 A< 1 row updated.
+2026-10-28T12:25:05+07:00 A< 
+2026-10-28T12:25:05+07:00 A< 
+2026-10-28T12:25:05+07:00 A< Commit complete.
+2026-10-28T12:25:05+07:00 A< 
+2026-10-28T12:25:05+07:00 A< __TXRESEARCH_14__
+2026-10-28T12:25:05+07:00 B> UPDATE product_inventory SET on_hand_quantity = on_hand_quantity - 1, version = version + 1 WHERE product_id = :p1 AND on_hand_quantity - reserved_flash_quantity >= 1; | COMMIT;
+2026-10-28T12:25:05+07:00 B< 
+2026-10-28T12:25:05+07:00 B< 0 rows updated.
+2026-10-28T12:25:05+07:00 B< 
+2026-10-28T12:25:05+07:00 B< 
+2026-10-28T12:25:05+07:00 B< Commit complete.
+2026-10-28T12:25:05+07:00 B< 
+2026-10-28T12:25:05+07:00 B< __TXRESEARCH_15__
+2026-10-28T12:25:05+07:00 B> SELECT on_hand_quantity FROM product_inventory WHERE product_id = :p1;
+2026-10-28T12:25:05+07:00 B< 
+2026-10-28T12:25:05+07:00 B< ON_HAND_QUANTITY
+2026-10-28T12:25:05+07:00 B< ----------------
+2026-10-28T12:25:05+07:00 B< 	       0
+2026-10-28T12:25:05+07:00 B< 
+2026-10-28T12:25:05+07:00 B< __TXRESEARCH_16__
+2026-10-28T12:25:05+07:00 A> UPDATE product_inventory SET on_hand_quantity = 100, version = 0 WHERE product_id = :p1; | COMMIT;
+2026-10-28T12:25:05+07:00 A< 
+2026-10-28T12:25:05+07:00 A< 1 row updated.
+2026-10-28T12:25:05+07:00 A< 
+2026-10-28T12:25:05+07:00 A< 
+2026-10-28T12:25:05+07:00 A< Commit complete.
+2026-10-28T12:25:05+07:00 A< 
+2026-10-28T12:25:05+07:00 A< __TXRESEARCH_17__
+2026-10-28T12:25:05+07:00 RESULT=COMPLETED; đối chiếu ORA/output và snapshot trước PASS
+2026-10-28T12:25:05+07:00 A> ROLLBACK; EXIT (giải phóng khóa)
+2026-10-28T12:25:05+07:00 B> ROLLBACK; EXIT (giải phóng khóa)
+2026-10-28T12:25:05+07:00 A< 
+2026-10-28T12:25:05+07:00 A< Rollback complete.
+2026-10-28T12:25:05+07:00 A< 
+2026-10-28T12:25:05+07:00 B< 
+2026-10-28T12:25:05+07:00 B< Rollback complete.
+2026-10-28T12:25:05+07:00 B< 

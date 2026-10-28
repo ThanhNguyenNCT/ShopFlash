@@ -1,0 +1,36 @@
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+ORDER_ITEMS=0
+ORDERS=0
+CART_ITEMS=0
+CARTS=0
+INVENTORY=0
+PRODUCTS=0
+CATEGORIES=0
+USERS=0
+VERIFY_ABSENT=PASS
+
+PL/SQL procedure successfully completed.
+

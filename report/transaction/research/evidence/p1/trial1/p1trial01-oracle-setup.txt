@@ -1,0 +1,15 @@
+
+PL/SQL procedure successfully completed.
+
+RESULT=CREATED
+RUN_ID=p1trial01
+USER_ID=10526
+CATEGORY_ID=10528
+CART_ID=10518
+PRODUCT_1_ID=12935
+PRODUCT_2_ID=12936
+PRODUCT_3_ID=12937
+CART_ITEMS=3; PRODUCT_1/2 la hang mua, PRODUCT_3 la hang giu lai
+
+PL/SQL procedure successfully completed.
+

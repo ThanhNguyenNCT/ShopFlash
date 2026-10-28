@@ -1,0 +1,32 @@
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+STATEMENT_ERROR=-2290 ORA-02290: check constraint (SHOP.CK_CART_ITEMS_QUANTITY)
+violated
+AFTER_FAILED_STATEMENT P1=99 P2=98 CART_QTY=1
+AFTER_ROLLBACK_TO P1=99 P2=100
+AFTER_FULL_ROLLBACK P1=100 P2=100
+
+PL/SQL procedure successfully completed.
+

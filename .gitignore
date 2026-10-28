@@ -43,3 +43,6 @@ backups/
 # ===== Claude Code: cấu hình cá nhân =====
 .claude/settings.local.json
 CLAUDE.local.md
+
+# ===== Tài liệu chỉ dùng trên máy local =====
+local_docs/

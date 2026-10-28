@@ -1,0 +1,39 @@
+RUN_ID=native01
+KEY=txresearch:native01:cart TYPE=hash
+12941
+1
+12942
+1
+12943
+1
+KEY=txresearch:native01:inventory:12941 TYPE=hash
+on_hand
+99
+reserved
+0
+version
+0
+KEY=txresearch:native01:inventory:12942 TYPE=hash
+on_hand
+100
+reserved
+0
+version
+0
+KEY=txresearch:native01:inventory:12943 TYPE=hash
+on_hand
+100
+reserved
+0
+version
+0
+KEY=txresearch:native01:quota TYPE=hash
+limit
+2
+remaining
+2
+held
+0
+KEY=txresearch:native01:order TYPE=hash
+status
+PENDING

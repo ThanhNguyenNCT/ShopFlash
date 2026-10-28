@@ -1,0 +1,34 @@
+# P5 — Rà soát benchmark hiện có
+
+Chỉ đọc runner, k6, cấu hình, raw results và phép tổng hợp ngày 27/10/2026; không chạy lại hoặc sửa file benchmark. P5 chỉ rà soát phương pháp và giới hạn của số liệu benchmark đã có.
+
+**Cách đọc số đo:** warm-up là lượt chạy làm nóng, không đưa vào thống kê chính. Mỗi “round” là một lượt 200 thao tác; 5 round giúp thấy dao động giữa các lượt. p50 là thời gian mà khoảng một nửa mẫu thành công không vượt quá, p95 là mốc của khoảng 95% mẫu thành công. TPS là số thao tác thành công chia thời gian thực của lượt; nó phụ thuộc vào việc tính cả những bước nào trong ranh giới đo. RTT (round trip) là một lượt gửi lệnh qua mạng và nhận phản hồi; đếm câu lệnh logic không tự cho biết số RTT. `N` trong bảng dưới là số dòng sản phẩm của giỏ.
+
+## Cấu hình và dữ liệu đã xác minh
+
+- `TransactionDbBenchmarkIT.java` đặt mặc định warm-up **50**, **5 lượt × 200** mỗi tổ hợp, Cart **1/5**, đồng thời **1/10**; đổi số mẫu phải có `tx.bench.override.reason`. File `db-2026-10-27T00-57-08-100088724Z-config.json` ghi đúng các trị này và `override_reason` rỗng.
+- `run-http.sh` đặt cùng các mốc; `k6/cart-checkout-order.js` dùng `shared-iterations` với `vus=1/10`. `http-20261027-stable/config.json` ghi 50 warm-up, 5 × 200, Cart 1/5, đồng thời 1/10; `override_reason` rỗng.
+- [Audit raw chỉ đọc](p5-raw-audit.txt): database có 8.000 mẫu đo = 2 DBMS × 2 cỡ Cart × 2 mức đồng thời × 5 × 200, toàn bộ `success`, 40 round records, 0 vi phạm. HTTP có 24 file raw và 24 hậu kiểm `PASS`; mỗi tổ hợp round 0 có 50 flow, round 1–5 có 200 flow; 4.000 flow đo chính và 36.000 API business points đo chính đều `success`. Bốn file nguồn runner/k6/http-runner/summarizer có SHA-256 khớp `results/environment-20261027.json`.
+- `summarize.py` loại round 0, tính p50/p95 nội suy tuyến tính trên mẫu `success`; thông lượng database lấy success/tổng wall seconds từ `*-runs.jsonl`, HTTP lấy khoảng đầu–cuối của flow metrics theo lượt; mean/SD lấy trên năm thống kê lượt. [Provenance cũ](../../../results/summary-20261027/provenance.json) chỉ đúng raw/config; không có raw nào bị thay.
+
+## Ma trận workload và ranh giới
+
+| Tiêu chí | Oracle database-only | Redis database-only | HTTP/k6 ứng dụng |
+|---|---|---|---|
+| Payload | Row `CARTS/CART_ITEMS`, Product/Inventory, `ORDERS/ORDER_ITEMS`; giá 100, lượng 1, 1/5 dòng | String keys `cart`, `price`, `stock`, `order`, `line`; cùng giá/lượng logic 1/5 | JSON Cart/Checkout/Order thật, JWT, preview, danh sách/chi tiết, hủy đơn |
+| Số thao tác chính mỗi checkout | 1 SELECT Cart, 3 SELECT/dòng, 2 lệnh Order, 2 ghi/dòng, 2 ghi Cart, COMMIT: khoảng `6+5N` SQL statements với N dòng | WATCH, GET Cart, 2 GET/dòng, MULTI, SET Order, 2 ghi/dòng, DEL Cart, EXEC: khoảng `6+4N` Redis commands; không coi số command là số RTT | 7 HTTP calls với N=1, 11 với N=5; login thuộc setup, không tính business metric |
+| Correctness | FK/CHECK/UNIQUE thật, `FOR UPDATE`, UPDATE tồn có điều kiện, `COMMIT`; verify Order/Item count, Cart rỗng, tồn 99 sau success | Java kiểm Cart/giá/tồn, `WATCH` Cart+stock, `MULTI/EXEC`; verify String Order/line/stock/Cart sau success; không có FK/CHECK quan hệ | API/nghiệp vụ Oracle; audit riêng sau từng lượt kiểm Order/Item/CANCELLED/Cart/hoàn tồn |
+| Client/network | JDBC `dataSource.getConnection()` nằm trong khoảng `System.nanoTime`; SQL qua Oracle container, connection pool | Jedis riêng mỗi worker được tạo **trước** điểm bắt đầu từng sample, tái dùng trong worker; nhiều lệnh Redis qua TCP | k6 qua Vite proxy → backend → Oracle, gồm HTTP/JSON/auth trong request; toàn flow dùng `Date.now()` ms |
+| Commit/durability | Chờ `connection.commit()`; Oracle redo/constraint của schema thật | Chờ `EXEC` response; Redis AOF `everysec`, không có phép thử crash | Các transaction do ứng dụng gọi; không đo commit DB riêng |
+| Khóa/isolation | Khóa Cart, Product, Inventory; READ COMMITTED và `FOR UPDATE` | `WATCH` phát hiện thay đổi key được theo dõi, `EXEC` ghi tuần tự | Mỗi VU có fixture riêng; đo luồng ứng dụng, không đo cùng giỏ tranh chấp |
+| Cấu hình mẫu | 50 warm-up, 5 × 200, Cart 1/5, workers 1/10, stock 100 | Cùng mốc và fixture độc lập | 50 warm-up, 5 × 200, Cart 1/5, VU 1/10, 10 fixture |
+
+## Sai lệch cụ thể và cách đọc kết quả
+
+1. **Đơn vị công việc khác nhau.** Oracle khóa hàng, ghi các bảng quan hệ, kiểm tra constraint và tăng `CARTS.version`; Redis ghi String key với payload gọn, không có FK/CHECK. `6+5N` và `6+4N` là số lệnh logic đọc từ source, không phải số RTT đo được. Vì vậy chênh lệch p50/TPS hiện tại mô tả hai cách triển khai benchmark cụ thể; từ số này không thể tách riêng tốc độ của engine khi cùng làm một phép toán vật lý.
+2. **Ranh giới client khác nhau.** Timer của Oracle bắt đầu trước khi `oracleCheckout()` lấy kết nối từ JDBC pool. Redis tạo Jedis trước timer và giữ kết nối đó cho cả worker. Vì vậy mẫu Oracle có thể bao gồm thời gian lấy kết nối từ pool, còn mẫu Redis không bao gồm thời gian mở client tương ứng. Nếu sau này muốn so phần ảnh hưởng của DBMS riêng, cần công bố và căn chỉnh chính sách kết nối trong một phép đo **mới**; baseline hiện tại được giữ nguyên.
+3. **Không đo tranh chấp cùng dữ liệu.** `executeRound()` phân mỗi iteration một fixture, cả `WATCH` và `FOR UPDATE` gần như không có đối thủ trên cùng key/row; raw có 0 từ chối. B2/B3/B4/B5 native chứng minh cơ chế tranh chấp, còn benchmark cũ không ước lượng latency khi nhiều khách mua cùng tồn/quota. Nếu sau này cần đánh giá hiệu năng concurrency, thiết kế workload chung fixture và báo cáo tỷ lệ từ chối/retry riêng.
+4. **Kiểm chứng giá theo Redis chưa theo dõi key `price`.** Runner đọc `price:<line>` nhưng `WATCH` chỉ gồm `cart` và `stock`. Trong baseline giá cố định 100 nên không phát sinh lỗi; với giá thay đổi đồng thời, `EXEC` có thể chấp nhận giá cũ. Nếu dùng runner cho workload có cập nhật giá, phải thêm price vào cơ chế phát hiện thay đổi hoặc tiền kiểm trong script/transaction và có case correctness riêng.
+5. **Độ bền và tầng đo khác nhau.** Redis AOF `everysec` và Oracle COMMIT chưa được thử crash recovery; k6 gồm HTTP/proxy/backend và thêm các bước xem/hủy đơn. Không dùng số HTTP so trực tiếp p50/TPS với JDBC/Jedis, và không dùng p50 database-only để suy ra độ bền/ACID tương đương.
+
+Kết luận P5: mốc mẫu và phép tổng hợp cũ **được xác nhận từ source, config và raw**. Có sai lệch workload/connection/correctness nêu trên, nên chỉ đề xuất một phép đo mới riêng nếu nhóm muốn so hiệu năng cho workload chuẩn hóa; chưa có cơ sở sửa hoặc thay số liệu cũ. File đã đọc: `TransactionDbBenchmarkIT.java`, `k6/cart-checkout-order.js`, `scripts/run-http.sh`, `scripts/summarize.py`, `results/*-config.json`, raw DB CSV/runs JSONL, 24 raw k6 và 24 audit, `summary-20261027/provenance.json`. Lệnh audit raw: Python standard library đọc CSV/JSON/GZIP và `sha256sum`; output ở `p5-raw-audit.txt`. Không có blocker P5.

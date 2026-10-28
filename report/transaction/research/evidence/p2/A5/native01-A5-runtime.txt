@@ -1,0 +1,11 @@
+MODE=runtime RUN_ID=native01
+OK
+QUEUED
+QUEUED
+QUEUED
+QUEUED
+99
+2
+WRONGTYPE Operation against a key holding the wrong kind of value
+
+1

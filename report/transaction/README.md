@@ -2,6 +2,8 @@
 
 Thư mục này chứa thí nghiệm tính đúng đắn, phép đo cơ chế database và phép đo HTTP của F10 → F7 → F8. Oracle là nguồn dữ liệu nghiệp vụ của ShopFlash. Redis trong phép đo database chỉ là mô phỏng cùng thao tác logic; không thay thế giao dịch đặt hàng thật.
 
+Để đọc theo đúng mục đích, bắt đầu từ [runbook nghiên cứu DBMS-native](research/README.md) và [chỉ mục 14 thí nghiệm](research/evidence/INDEX.md). [SECTION_TRANSACTION.md](SECTION_TRANSACTION.md) là phần diễn giải để đưa vào báo cáo. Các mục Java/JUnit/k6 bên dưới là baseline kiểm thử và benchmark cũ, được giữ riêng với bằng chứng SQL/PLSQL và Redis CLI/Lua.
+
 ## 1. Môi trường
 
 - Oracle Database Free và Redis Stack chạy bằng `docker compose` trên `127.0.0.1` theo [`compose.yaml`](../../compose.yaml). Redis bật AOF (`--appendonly yes`). Ghi lại digest image, phiên bản Docker, CPU/RAM và tải nền trong lần chạy báo cáo.
@@ -28,6 +30,8 @@ cd frontend && npm run dev
 Cho backend khởi động thành công ít nhất một lần để Flyway áp dụng V1/V2 trước khi gọi các lớp `*IT` (các lớp này tắt Flyway để không đưa migration vào thời gian đo). Profile `dev` chỉ cần khi xem dữ liệu mẫu trên giao diện; thí nghiệm tạo fixture `txlab` riêng, không phụ thuộc seed dev. Không chạy đồng thời hai lần benchmark trên một schema vì chúng sẽ tranh tài nguyên và làm sai số đo.
 
 ## 2. Kiểm chứng cơ chế trước khi đo tốc độ
+
+Nghiên cứu trực tiếp trên DBMS đã chạy 14 case bằng SQL/PLSQL và Redis CLI/Lua; mỗi case có lệnh, output và lời giải thích trong [chỉ mục](research/evidence/INDEX.md). Phần JUnit dưới đây là bộ kiểm thử hiện có của ứng dụng, giúp đối chiếu hành vi nhưng không thay cho transcript DBMS-native.
 
 JUnit 5 dùng Oracle/Redis thật; không có `@Transactional` bọc toàn test. Oracle được đọc lại từ kết nối độc lập sau `COMMIT`/`ROLLBACK`, Redis từ client riêng. Bảng chứng cứ gồm trạng thái trước, mong đợi, thực tế và lệnh kiểm chứng.
 

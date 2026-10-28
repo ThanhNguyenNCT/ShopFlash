@@ -1,0 +1,37 @@
+RUN_ID=p1trial01
+KEY=txresearch:p1trial01:cart TYPE=hash
+12935
+1
+12936
+1
+12937
+1
+KEY=txresearch:p1trial01:inventory:12935 TYPE=hash
+on_hand
+100
+reserved
+0
+version
+0
+KEY=txresearch:p1trial01:inventory:12936 TYPE=hash
+on_hand
+100
+reserved
+0
+version
+0
+KEY=txresearch:p1trial01:inventory:12937 TYPE=hash
+on_hand
+100
+reserved
+0
+version
+0
+KEY=txresearch:p1trial01:quota TYPE=hash
+limit
+2
+remaining
+2
+held
+0
+KEY=txresearch:p1trial01:order TYPE=none

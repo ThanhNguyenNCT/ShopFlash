@@ -6,6 +6,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -103,7 +104,7 @@ public class CheckoutRepository {
                                     idempotency_key, checkout_request_hash, created_at, updated_at)
                 VALUES (:code, :userId, 'NORMAL', 'PENDING', :total, 0, :total, :name, :phone,
                         :address, :key, :hash, SYSTIMESTAMP, SYSTIMESTAMP)
-                """, new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                """, new MapSqlParameterSource()
                 .addValue("code", orderCode).addValue("userId", command.userId())
                 .addValue("total", total).addValue("name", command.recipientName())
                 .addValue("phone", command.recipientPhone()).addValue("address", command.shippingAddress())
@@ -116,7 +117,7 @@ public class CheckoutRepository {
                 INSERT INTO order_items (order_id, product_id, product_name, product_sku,
                                          unit_price, quantity, line_total)
                 VALUES (:orderId, :productId, :name, :sku, :price, :quantity, :total)
-                """, new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+                """, new MapSqlParameterSource()
                 .addValue("orderId", orderId).addValue("productId", product.productId())
                 .addValue("name", product.name()).addValue("sku", product.sku())
                 .addValue("price", product.price()).addValue("quantity", quantity)

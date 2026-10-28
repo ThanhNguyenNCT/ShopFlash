@@ -9,6 +9,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -63,7 +64,7 @@ final class CheckoutNormalizer {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("JVM thiếu SHA-256", e);
         }
-        return new CheckoutCommand(userId, rawKey.toLowerCase(java.util.Locale.ROOT), hash,
+        return new CheckoutCommand(userId, rawKey.toLowerCase(Locale.ROOT), hash,
                 request.cartVersion(), name, phone, address, lines);
     }
 

@@ -3,6 +3,7 @@ package com.shopflash.modules.transaction.service;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
@@ -113,7 +114,7 @@ public class CheckoutWriter {
         return created.response();
     }
 
-    private void probe(java.util.function.Consumer<CheckoutProbe> action) {
+    private void probe(Consumer<CheckoutProbe> action) {
         probes.ifAvailable(action);
     }
 

@@ -1,0 +1,66 @@
+== Moi truong ==
+
+BANNER_FULL
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free
+Version 23.26.3.0.0
+
+
+SO_DONG_BANG_LAB
+----------------
+	  200000
+
+================= C0: CHI KHOA CHINH =================
+
+INDEX_NAME		   INDEX_TYPE	COT
+-------------------------- ------------ --------------------------------
+PK_IDXLAB_WRITE 	   NORMAL	PRODUCT_ID
+C0_KHOA_CHINH / THEM	  10000 dong = 98.12 +/- 15.84 ms  =>  9.8 us/dong | redo 5.5 MB
+C0_KHOA_CHINH / SUA GIA   10000 dong = 66.06 +/- 4.67 ms  =>  6.6 us/dong | redo 2.7 MB
+
+================= C1: + SKU =================
+
+INDEX_NAME		   INDEX_TYPE	COT
+-------------------------- ------------ --------------------------------
+IX_E4_SKU		   NORMAL	SKU
+PK_IDXLAB_WRITE 	   NORMAL	PRODUCT_ID
+C1_SKU / THEM		  10000 dong = 111.18 +/- 8.91 ms  =>  11.1 us/dong | redo 7.9 MB
+C1_SKU / SUA GIA	  10000 dong = 61.49 +/- 4.26 ms  =>  6.1 us/dong | redo 2.7 MB
+
+================= C2: + (category_id, status, price) + (price) =================
+
+INDEX_NAME		   INDEX_TYPE	COT
+-------------------------- ------------ --------------------------------
+IX_E4_CAT_STATUS_PRICE	   NORMAL	CATEGORY_ID, STATUS, PRICE
+IX_E4_PRICE		   NORMAL	PRICE
+IX_E4_SKU		   NORMAL	SKU
+PK_IDXLAB_WRITE 	   NORMAL	PRODUCT_ID
+C2_3_BTREE / THEM	  10000 dong = 192.62 +/- 25.87 ms  =>	19.3 us/dong | redo 12.7 MB
+C2_3_BTREE / SUA GIA	  10000 dong = 173.10 +/- 16.65 ms  =>	17.3 us/dong | redo 12.0 MB
+
+================= C3: C2 + ORACLE TEXT CTXCAT =================
+
+INDEX_NAME		   INDEX_TYPE	COT
+-------------------------- ------------ --------------------------------
+IX_E4_CAT_STATUS_PRICE	   NORMAL	CATEGORY_ID, STATUS, PRICE
+IX_E4_NAME_CAT		   DOMAIN	NAME
+IX_E4_PRICE		   NORMAL	PRICE
+IX_E4_SKU		   NORMAL	SKU
+PK_IDXLAB_WRITE 	   NORMAL	PRODUCT_ID
+C3_CTXCAT / THEM	  10000 dong = 10147.82 +/- 151.52 ms  =>  1014.8 us/dong | redo 33.1 MB
+C3_CTXCAT / SUA GIA	  10000 dong = 6358.43 +/- 179.65 ms  =>  635.8 us/dong | redo 12.0 MB
+
+================= C4: C2 + ORACLE TEXT CONTEXT, SYNC (ON COMMIT) =================
+
+INDEX_NAME		   INDEX_TYPE	COT
+-------------------------- ------------ --------------------------------
+IX_E4_CAT_STATUS_PRICE	   NORMAL	CATEGORY_ID, STATUS, PRICE
+IX_E4_NAME_TXT		   DOMAIN	NAME
+IX_E4_PRICE		   NORMAL	PRICE
+IX_E4_SKU		   NORMAL	SKU
+PK_IDXLAB_WRITE 	   NORMAL	PRODUCT_ID
+C4_CONTEXT / THEM	  10000 dong = 480.81 +/- 39.35 ms  =>	48.1 us/dong | redo 21.7 MB
+C4_CONTEXT / SUA GIA	  10000 dong = 433.40 +/- 589.41 ms  =>  43.3 us/dong | redo 12.0 MB
+
+Don dep: xoa bang IDXLAB_WRITE.
+Xong E4 (Oracle).

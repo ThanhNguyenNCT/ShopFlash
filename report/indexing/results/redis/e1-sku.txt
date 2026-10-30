@@ -1,0 +1,117 @@
+== Moi truong ==
+redis_version:7.4.7
+  So document idxlab:product:*: 200000
+  Tong so key trong Redis (SCAN phai duyet qua tat ca): 200005
+
+================= CACH 1: KHONG INDEX (SCAN) =================
+Moi lan tim: SCAN moi key idxlab:product:*, doc $.sku cua tung document va so sanh
+Do thoi gian (1 lan khoi dong + 5 lan do, moi lan tim 5 SKU vi rat cham):
+  Lan khoi dong: bo qua
+  Lan 1: 1902.90 ms
+  Lan 2: 2005.86 ms
+  Lan 3: 1962.92 ms
+  Lan 4: 1892.25 ms
+  Lan 5: 1786.72 ms
+KHONG_INDEX_SCAN: 5 lan tim = 1910.13 +/- 83.00 ms  =>  382.0263 ms/lan
+
+================= CACH 2: INDEX TU LAM (bai 6) =================
+Tao key idxlab:sku:{sku} -> id cho 200.000 san pham:
+  Thoi gian tao: 368 ms
+  So key index: 200000
+  Tong MEMORY USAGE: 12.2 MB
+  used_memory tang them: 12.7 MB
+Vi du: GET idxlab:sku:LAB-0123456 -> 123456
+Do thoi gian (1 lan khoi dong + 5 lan do, moi lan tim 200 SKU):
+  Lan khoi dong: bo qua
+  Lan 1: 0.69 ms
+  Lan 2: 0.68 ms
+  Lan 3: 0.74 ms
+  Lan 4: 0.70 ms
+  Lan 5: 0.65 ms
+INDEX_TU_LAM: 200 lan tim = 0.69 +/- 0.03 ms  =>  0.0035 ms/lan
+Xoa index tu lam: 200000 key
+
+================= CACH 3: REDISEARCH, TRUONG TAG =================
+FT.CREATE idx:idxlab-e1 ON JSON PREFIX 1 idxlab:product: SCHEMA $.sku AS sku TAG
+  Thoi gian tao index (den khi index xong 200.000 document): 4289 ms
+  used_memory tang them: 50.5 MB
+Thong tin index (FT.INFO):
+  num_docs                   200000
+  inverted_sz_mb             16.4031982421875
+  offset_vectors_sz_mb       0
+  doc_table_size_mb          20.9493408203125
+  sortable_values_size_mb    0
+  key_table_size_mb          5.993894577026367
+  tag_overhead_sz_mb         6.145922660827637
+  text_overhead_sz_mb        0
+  total_index_memory_sz_mb   49.49235534667969
+  indexing                   0
+  percent_indexed            1
+Cay thuc thi (FT.EXPLAIN) cho @sku:{LAB\-0123456}:
+TAG:@sku {
+  lab-0123456
+}
+
+Ket qua FT.SEARCH:
+1
+idxlab:product:123456
+$
+{"categoryId":43,"name":"Loa Philips Ultra 615","inStock":true,"id":123456,"status":"ACTIVE","sku":"LAB-0123456","price":7142000}
+FT.PROFILE (thoi gian tung buoc ben trong Redis):
+1
+idxlab:product:123456
+$
+{"categoryId":43,"name":"Loa Philips Ultra 615","inStock":true,"id":123456,"status":"ACTIVE","sku":"LAB-0123456","price":7142000}
+Total profile time
+0
+Parsing time
+0
+Pipeline creation time
+0
+Warning
+Iterators profile
+Type
+TAG
+Term
+lab-0123456
+Time
+0
+Counter
+1
+Size
+1
+Result processors profile
+Type
+Index
+Time
+0
+Counter
+1
+Type
+Scorer
+Time
+0
+Counter
+1
+Type
+Sorter
+Time
+0
+Counter
+1
+Type
+Loader
+Time
+0
+Counter
+1
+Do thoi gian (1 lan khoi dong + 5 lan do, moi lan tim 200 SKU):
+  Lan khoi dong: bo qua
+  Lan 1: 2.09 ms
+  Lan 2: 1.78 ms
+  Lan 3: 2.31 ms
+  Lan 4: 1.72 ms
+  Lan 5: 1.85 ms
+REDISEARCH_TAG: 200 lan tim = 1.95 +/- 0.25 ms  =>  0.0097 ms/lan
+
+Xong E1 (Redis). Da xoa idx:idxlab-e1 va idxlab:sku:*; du lieu idxlab:product:* van giu cho cac thi nghiem sau.

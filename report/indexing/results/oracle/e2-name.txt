@@ -1,0 +1,199 @@
+== Moi truong ==
+
+BANNER_FULL
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free
+Version 23.26.3.0.0
+
+
+SO_DONG_BANG_LAB
+----------------
+	  200000
+
+================= CACH 1: LIKE '%tu%' (KHONG CO INDEX PHU HOP) =================
+Vi du "sony pro": 5 san pham dau tien
+
+PRODUCT_ID NAME
+---------- ----------------------------------------
+      1800 Tai nghe Sony Pro 798
+      3600 Tai nghe Sony Pro 599
+      5400 Tai nghe Sony Pro 400
+      7200 Tai nghe Sony Pro 201
+      9000 Tai nghe Sony Pro 2
+Ke hoach thuc thi cau dem (COUNT) - cau dem phai doc het bang:
+
+SO_KET_QUA
+----------
+      1679
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+SQL_ID	drbqk2yj6h9c9, child number 0
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ COUNT(*) AS so_ket_qua FROM
+idxlab_products WHERE UPPER(name) LIKE :p1 AND UPPER(name) LIKE :p2
+
+Plan hash value: 967627973
+
+------------------------------------------------------------------------------------------------
+| Id  | Operation	   | Name	     | Starts | E-Rows | A-Rows |   A-Time   | Buffers |
+------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT   |		     |	    1 |        |      1 |00:00:00.04 |	  1753 |
+|   1 |  SORT AGGREGATE    |		     |	    1 |      1 |      1 |00:00:00.04 |	  1753 |
+|*  2 |   TABLE ACCESS FULL| IDXLAB_PRODUCTS |	    1 |    500 |   1679 |00:00:00.01 |	  1753 |
+------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   2 - filter((UPPER("NAME") LIKE :P1 AND UPPER("NAME") LIKE :P2))
+
+Do thoi gian (moi lan tim = lay 24 san pham dau + dem tong so):
+LIKE / HIEM	     khop    200 san pham, trang dau 24 | 20 lan tim = 740.49 +/- 8.12 ms  =>  37.024 ms/lan
+LIKE / HAI_TU	     khop   1679 san pham, trang dau 24 | 20 lan tim = 673.70 +/- 6.79 ms  =>  33.685 ms/lan
+LIKE / PHO_BIEN      khop  20159 san pham, trang dau 24 | 20 lan tim = 683.71 +/- 5.34 ms  =>  34.186 ms/lan
+
+================= CACH 2: ORACLE TEXT CONTEXT =================
+Elapsed: 00:00:02.56
+Cac segment Oracle Text tao ra (bang phu DR$...$I la tu dien + posting list):
+
+SEGMENT_NAME			 SEGMENT_TYPE	  THUOC_BANG			       MB
+-------------------------------- ---------------- ---------------------------- ----------
+DR$IX_IDXLAB_NAME_TXT$KR	 INDEX		  DR$IX_IDXLAB_NAME_TXT$K		6
+DR$IX_IDXLAB_NAME_TXT$KD	 INDEX		  DR$IX_IDXLAB_NAME_TXT$K		6
+DR$IX_IDXLAB_NAME_TXT$K 	 TABLE		  DR$IX_IDXLAB_NAME_TXT$K		5
+DR$IX_IDXLAB_NAME_TXT$I 	 TABLE		  DR$IX_IDXLAB_NAME_TXT$I		4
+SYS_LOB0000073215C00006$$	 LOBSEGMENT	  DR$IX_IDXLAB_NAME_TXT$I	      .25
+DR$IX_IDXLAB_NAME_TXT$X 	 INDEX		  DR$IX_IDXLAB_NAME_TXT$I	      .13
+SYS_IOT_TOP_73219		 INDEX		  DR$IX_IDXLAB_NAME_TXT$N	      .06
+SYS_IL0000073215C00006$$	 LOBINDEX	  DR$IX_IDXLAB_NAME_TXT$I	      .06
+SYS_IL0000073215C00006$$	 LOBINDEX	  DR$IX_IDXLAB_NAME_TXT$I	      .06
+SYS_C008814			 INDEX		  DR$IX_IDXLAB_NAME_TXT$U	      .06
+DR$IX_IDXLAB_NAME_TXT$U 	 TABLE		  DR$IX_IDXLAB_NAME_TXT$U	      .06
+DR$IX_IDXLAB_NAME_TXT$C 	 TABLE		  DR$IX_IDXLAB_NAME_TXT$C	      .06
+DR$IX_IDXLAB_NAME_TXT$B 	 TABLE		  DR$IX_IDXLAB_NAME_TXT$B	      .06
+DR$IX_IDXLAB_NAME_TXT$Q 	 TABLE		  DR$IX_IDXLAB_NAME_TXT$Q	      .06
+
+   TONG_MB
+----------
+     21.81
+Mot vai tu trong tu dien ($I) va so san pham chua tu do:
+
+TOKEN_TEXT
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+SO_SAN_PHAM
+-----------
+PRO
+      20159
+
+SONY
+      16679
+
+NGHE
+      13333
+
+TAI
+      13333
+
+615
+	200
+
+Vi du "sony pro": 5 san pham lien quan nhat
+
+PRODUCT_ID NAME 					  DIEM
+---------- ---------------------------------------- ----------
+      1800 Tai nghe Sony Pro 798			     6
+      3600 Tai nghe Sony Pro 599			     6
+      5400 Tai nghe Sony Pro 400			     6
+      7200 Tai nghe Sony Pro 201			     6
+      9000 Tai nghe Sony Pro 2				     6
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+SQL_ID	0mp9pzggwxa7v, child number 0
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ product_id, name, SCORE(1) AS diem
+FROM idxlab_products WHERE CONTAINS(name, :q, 1) > 0 ORDER BY SCORE(1)
+DESC FETCH FIRST 5 ROWS ONLY
+
+Plan hash value: 958441582
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+| Id  | Operation		       | Name		    | Starts | E-Rows | A-Rows |   A-Time   | Buffers | Reads  |  OMem |  1Mem | Used-Mem |
+---------------------------------------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT	       |		    |	   1 |	      |      5 |00:00:00.01 |	  907 |     13 |       |       |	  |
+|*  1 |  COUNT STOPKEY		       |		    |	   1 |	      |      5 |00:00:00.01 |	  907 |     13 |       |       |	  |
+|   2 |   VIEW			       |		    |	   1 |	  100 |      5 |00:00:00.01 |	  907 |     13 |       |       |	  |
+|*  3 |    SORT ORDER BY STOPKEY       |		    |	   1 |	  100 |      5 |00:00:00.01 |	  907 |     13 |  2048 |  2048 | 2048  (0)|
+|   4 |     TABLE ACCESS BY INDEX ROWID| IDXLAB_PRODUCTS    |	   1 |	  100 |   1679 |00:00:00.01 |	  907 |     13 |       |       |	  |
+|*  5 |      DOMAIN INDEX	       | IX_IDXLAB_NAME_TXT |	   1 |	      |   1679 |00:00:00.01 |	  892 |     13 |       |       |	  |
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter(ROWNUM<=5)
+   3 - filter(ROWNUM<=5)
+   5 - access("CTXSYS"."CONTAINS"("NAME",:Q,1)>0)
+
+Do thoi gian:
+TEXT / HIEM	     khop    200 san pham, trang dau 24 | 20 lan tim = 20.03 +/- 0.85 ms  =>  1.002 ms/lan
+TEXT / HAI_TU	     khop   1679 san pham, trang dau 24 | 20 lan tim = 24.08 +/- 1.25 ms  =>  1.204 ms/lan
+TEXT / PHO_BIEN      khop  20159 san pham, trang dau 24 | 20 lan tim = 127.20 +/- 2.50 ms  =>  6.360 ms/lan
+
+================= CACH 3: ORACLE TEXT CTXCAT =================
+Elapsed: 00:00:03.41
+Cac segment CTXCAT tao ra:
+
+SEGMENT_NAME			 SEGMENT_TYPE	  THUOC_BANG			       MB
+-------------------------------- ---------------- ---------------------------- ----------
+DR$IX_IDXLAB_NAME_CAT$I 	 TABLE		  DR$IX_IDXLAB_NAME_CAT$I	       26
+DR$IX_IDXLAB_NAME_CAT$R 	 INDEX		  DR$IX_IDXLAB_NAME_CAT$I	       24
+DR$IX_IDXLAB_NAME_CAT$X 	 INDEX		  DR$IX_IDXLAB_NAME_CAT$I	       23
+
+   TONG_MB
+----------
+	73
+Vi du "sony pro": 5 san pham (CATSEARCH khong co diem lien quan)
+
+PRODUCT_ID NAME
+---------- ----------------------------------------
+      1800 Tai nghe Sony Pro 798
+      3600 Tai nghe Sony Pro 599
+      5400 Tai nghe Sony Pro 400
+      7200 Tai nghe Sony Pro 201
+      9000 Tai nghe Sony Pro 2
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+SQL_ID	df79xjja7j1uk, child number 0
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ product_id, name FROM
+idxlab_products WHERE CATSEARCH(name, :q, NULL) > 0 FETCH FIRST 5 ROWS
+ONLY
+
+Plan hash value: 339334156
+
+-------------------------------------------------------------------------------------------------------------
+| Id  | Operation		     | Name		  | Starts | E-Rows | A-Rows |	 A-Time   | Buffers |
+-------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT	     |			  |	 1 |	    |	   5 |00:00:00.01 |	 37 |
+|*  1 |  COUNT STOPKEY		     |			  |	 1 |	    |	   5 |00:00:00.01 |	 37 |
+|   2 |   TABLE ACCESS BY INDEX ROWID| IDXLAB_PRODUCTS	  |	 1 |	  5 |	   5 |00:00:00.01 |	 37 |
+|*  3 |    DOMAIN INDEX 	     | IX_IDXLAB_NAME_CAT |	 1 |	    |	   5 |00:00:00.01 |	 35 |
+-------------------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter(ROWNUM<=5)
+   3 - access("CTXSYS"."CATSEARCH"("NAME",:Q,NULL)>0)
+
+Do thoi gian:
+CAT / HIEM	     khop    200 san pham, trang dau 24 | 20 lan tim = 8.04 +/- 0.42 ms  =>  0.402 ms/lan
+CAT / HAI_TU	     khop   1679 san pham, trang dau 24 | 20 lan tim = 33.27 +/- 1.76 ms  =>  1.663 ms/lan
+CAT / PHO_BIEN	     khop  20159 san pham, trang dau 24 | 20 lan tim = 112.88 +/- 3.18 ms  =>  5.644 ms/lan
+
+Kiem tra: so ket qua cua ca 3 cach phai giong nhau (615 = 200, sony pro = 1679, pro = 20159).
+Don dep: xoa 2 index Oracle Text (bang lab van giu).
+Xong E2 (Oracle).

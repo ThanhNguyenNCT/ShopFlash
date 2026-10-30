@@ -1,0 +1,117 @@
+== Moi truong ==
+redis_version:7.4.7
+  So document idxlab:product:*: 200000
+
+================= CACH 1: KHONG INDEX (SCAN) =================
+Kiem tra so ket qua:  A -> 321   B -> 15218   C -> 4000
+Do thoi gian (2 lan tim moi luot vi rat cham):
+  Lan khoi dong: bo qua
+  Lan 1: 1298.97 ms
+  Lan 2: 1319.91 ms
+  Lan 3: 1298.27 ms
+  Lan 4: 1293.80 ms
+  Lan 5: 1310.18 ms
+SCAN / A: 2 lan tim = 1304.23 +/- 10.65 ms  =>  652.1135 ms/lan
+  Lan khoi dong: bo qua
+  Lan 1: 1397.15 ms
+  Lan 2: 1408.00 ms
+  Lan 3: 1390.20 ms
+  Lan 4: 1435.32 ms
+  Lan 5: 1381.65 ms
+SCAN / B: 2 lan tim = 1402.47 +/- 20.75 ms  =>  701.2330 ms/lan
+  Lan khoi dong: bo qua
+  Lan 1: 1323.79 ms
+  Lan 2: 1352.00 ms
+  Lan 3: 1332.60 ms
+  Lan 4: 1362.17 ms
+  Lan 5: 1355.06 ms
+SCAN / C: 2 lan tim = 1345.12 +/- 16.19 ms  =>  672.5615 ms/lan
+
+================= CACH 2: INDEX TU LAM (SORTED SET) =================
+  Thoi gian tao 51 Sorted Set (50 danh muc + 1 chung): 1439 ms
+  So key index: 51
+  Tong MEMORY USAGE: 31.7 MB
+  used_memory tang them: 31.9 MB
+  ZCARD idxlab:price:cat:5 = 4000, ZCARD idxlab:price:active = 190000
+Vi du A: ZRANGE idxlab:price:cat:5 1000000 5000000 BYSCORE LIMIT 0 5 WITHSCORES
+  84322	1000000
+  104122	1011000
+  123922	1022000
+  143722	1033000
+  163522	1044000
+Kiem tra so ket qua:  A -> 321   B -> 15218   C -> 4000
+Do thoi gian (20 lan tim moi luot):
+  Lan khoi dong: bo qua
+  Lan 1: 0.11 ms
+  Lan 2: 0.12 ms
+  Lan 3: 0.15 ms
+  Lan 4: 1.62 ms
+  Lan 5: 0.12 ms
+TU_LAM / A: 20 lan tim = 0.42 +/- 0.67 ms  =>  0.0212 ms/lan
+  Lan khoi dong: bo qua
+  Lan 1: 0.10 ms
+  Lan 2: 0.09 ms
+  Lan 3: 0.10 ms
+  Lan 4: 0.11 ms
+  Lan 5: 0.13 ms
+TU_LAM / B: 20 lan tim = 0.11 +/- 0.01 ms  =>  0.0053 ms/lan
+  Lan khoi dong: bo qua
+  Lan 1: 0.07 ms
+  Lan 2: 0.07 ms
+  Lan 3: 0.10 ms
+  Lan 4: 0.09 ms
+  Lan 5: 0.08 ms
+TU_LAM / C: 20 lan tim = 0.08 +/- 0.01 ms  =>  0.0041 ms/lan
+Xoa index tu lam: 51 key
+
+================= CACH 3: REDISEARCH =================
+FT.CREATE idx:idxlab-e3 ON JSON PREFIX 1 idxlab:product: SCHEMA $.categoryId AS categoryId NUMERIC $.price AS price NUMERIC SORTABLE $.status AS status TAG
+  Thoi gian tao index (den khi index xong 200.000 document): 4492 ms
+  used_memory tang them: 21.0 MB
+Thong tin index (FT.INFO):
+  num_docs                   200000
+  inverted_sz_mb             2.0812482833862305
+  offset_vectors_sz_mb       0
+  doc_table_size_mb          20.9493408203125
+  sortable_values_size_mb    4.57763671875
+  key_table_size_mb          5.993894577026367
+  tag_overhead_sz_mb         5.53131103515625e-5
+  text_overhead_sz_mb        0
+  total_index_memory_sz_mb   33.60227966308594
+  indexing                   0
+  percent_indexed            1
+Cay thuc thi (FT.EXPLAIN) cho cau A:
+INTERSECT {
+  NUMERIC {5.000000 <= @categoryId <= 5.000000}
+  NUMERIC {1000000.000000 <= @price <= 5000000.000000}
+  TAG:@status {
+    active
+  }
+}
+
+Kiem tra so ket qua:  A -> 321   B -> 15218   C -> 4000
+Do thoi gian (20 lan tim moi luot):
+  Lan khoi dong: bo qua
+  Lan 1: 20.40 ms
+  Lan 2: 22.05 ms
+  Lan 3: 20.67 ms
+  Lan 4: 20.71 ms
+  Lan 5: 20.26 ms
+REDISEARCH / A: 20 lan tim = 20.82 +/- 0.72 ms  =>  1.0410 ms/lan
+  Lan khoi dong: bo qua
+  Lan 1: 55.92 ms
+  Lan 2: 69.66 ms
+  Lan 3: 60.04 ms
+  Lan 4: 55.92 ms
+  Lan 5: 57.48 ms
+REDISEARCH / B: 20 lan tim = 59.81 +/- 5.76 ms  =>  2.9903 ms/lan
+  Lan khoi dong: bo qua
+  Lan 1: 19.76 ms
+  Lan 2: 20.32 ms
+  Lan 3: 18.42 ms
+  Lan 4: 21.70 ms
+  Lan 5: 22.13 ms
+REDISEARCH / C: 20 lan tim = 20.46 +/- 1.50 ms  =>  1.0232 ms/lan
+
+Kiem tra: so ket qua phai bang Oracle (A = 321, B = 15218, C = 4000).
+Xong E3 (Redis). Da xoa idx:idxlab-e3 va idxlab:price:*; du lieu idxlab:product:* van giu.

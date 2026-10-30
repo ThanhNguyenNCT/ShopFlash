@@ -1,0 +1,107 @@
+== Moi truong ==
+redis_version:7.4.7
+  So document idxlab:product:*: 200000
+
+================= CACH 1: KHONG INDEX (SCAN + tim chuoi) =================
+Kiem tra so ket qua:
+  615      -> 200
+  sony pro -> 1679
+  pro      -> 20159
+Do thoi gian (moi lan tim = duyet 200.000 document, lay 24 dau + dem tong; 2 lan tim moi luot vi rat cham):
+  Lan khoi dong: bo qua
+  Lan 1: 868.67 ms
+  Lan 2: 825.53 ms
+  Lan 3: 847.24 ms
+  Lan 4: 846.43 ms
+  Lan 5: 855.40 ms
+SCAN / HIEM    : 2 lan tim = 848.66 +/- 15.71 ms  =>  424.3283 ms/lan
+  Lan khoi dong: bo qua
+  Lan 1: 879.23 ms
+  Lan 2: 892.61 ms
+  Lan 3: 870.76 ms
+  Lan 4: 857.70 ms
+  Lan 5: 854.52 ms
+SCAN / HAI_TU  : 2 lan tim = 870.96 +/- 15.68 ms  =>  435.4822 ms/lan
+  Lan khoi dong: bo qua
+  Lan 1: 850.15 ms
+  Lan 2: 836.53 ms
+  Lan 3: 869.71 ms
+  Lan 4: 853.08 ms
+  Lan 5: 897.23 ms
+SCAN / PHO_BIEN: 2 lan tim = 861.34 +/- 23.27 ms  =>  430.6701 ms/lan
+
+================= CACH 2: REDISEARCH TEXT =================
+FT.CREATE idx:idxlab-e2 ON JSON PREFIX 1 idxlab:product: SCHEMA $.name AS name TEXT
+  Thoi gian tao index (den khi index xong 200.000 document): 4700 ms
+  used_memory tang them: 49.4 MB
+Thong tin index (FT.INFO):
+  num_docs                   200000
+  inverted_sz_mb             6.916994094848633
+  offset_vectors_sz_mb       0.9854507446289063
+  doc_table_size_mb          20.9493408203125
+  sortable_values_size_mb    0
+  key_table_size_mb          5.993894577026367
+  tag_overhead_sz_mb         0
+  text_overhead_sz_mb        0.03501415252685547
+  total_index_memory_sz_mb   34.8836555480957
+  indexing                   0
+  percent_indexed            1
+Cay thuc thi (FT.EXPLAIN) cho @name:(sony pro):
+@name:INTERSECT {
+  @name:UNION {
+    @name:sony
+    @name:+soni(expanded)
+    @name:soni(expanded)
+  }
+  @name:UNION {
+    @name:pro
+    @name:+pro(expanded)
+  }
+}
+
+Vi du: 5 san pham lien quan nhat cho "sony pro" (dong dau la tong so ket qua):
+1679
+idxlab:product:160201
+name
+Dien thoai Sony Pro 272
+idxlab:product:12601
+name
+Dien thoai Sony Pro 638
+idxlab:product:176408
+name
+Dong ho Sony Pro 734
+idxlab:product:93602
+name
+Laptop Sony Pro 693
+idxlab:product:120602
+name
+Laptop Sony Pro 699
+Kiem tra so ket qua:
+  615      -> 200
+  sony pro -> 1679
+  pro      -> 20159
+Do thoi gian (moi lan tim = 1 lenh FT.SEARCH LIMIT 0 24, tra ca tong so; 20 lan tim moi luot):
+  Lan khoi dong: bo qua
+  Lan 1: 1.11 ms
+  Lan 2: 1.10 ms
+  Lan 3: 1.09 ms
+  Lan 4: 1.16 ms
+  Lan 5: 1.13 ms
+TEXT / HIEM    : 20 lan tim = 1.12 +/- 0.03 ms  =>  0.0560 ms/lan
+  Lan khoi dong: bo qua
+  Lan 1: 18.21 ms
+  Lan 2: 17.61 ms
+  Lan 3: 18.90 ms
+  Lan 4: 18.02 ms
+  Lan 5: 18.05 ms
+TEXT / HAI_TU  : 20 lan tim = 18.16 +/- 0.47 ms  =>  0.9079 ms/lan
+  Lan khoi dong: bo qua
+  Lan 1: 14.48 ms
+  Lan 2: 13.36 ms
+  Lan 3: 13.94 ms
+  Lan 4: 14.75 ms
+  Lan 5: 14.40 ms
+TEXT / PHO_BIEN: 20 lan tim = 14.19 +/- 0.55 ms  =>  0.7093 ms/lan
+
+Kiem tra: so ket qua phai bang Oracle (615 = 200, sony pro = 1679, pro = 20159).
+Xong E2 (Redis). Da xoa idx:idxlab-e2; du lieu idxlab:product:* van giu.

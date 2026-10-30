@@ -1,0 +1,41 @@
+== Xoa bang lab cu (neu co) ==
+
+PL/SQL procedure successfully completed.
+
+Elapsed: 00:00:00.02
+== Tao 200.000 san pham ==
+
+Table created.
+
+Elapsed: 00:00:00.63
+== Thu thap thong ke cho optimizer ==
+
+PL/SQL procedure successfully completed.
+
+Elapsed: 00:00:00.31
+== Kiem tra ==
+
+   SO_DONG
+----------
+    200000
+
+1 row selected.
+
+
+PRODUCT_ID SKU				    NAME				     CATEGORY_ID      PRICE STATUS     IN_STOCK
+---------- -------------------------------- ---------------------------------------- ----------- ---------- -------- ----------
+	 1 LAB-0000001			    Dien thoai Sony Pro 37			       8    7969000 ACTIVE	      1
+	 2 LAB-0000002			    Laptop Sony Pro 74				      15   15888000 ACTIVE	      1
+    199999 LAB-0199999			    Ban phim Samsung Mini 229			      44   45725000 ACTIVE	      1
+    123456 LAB-0123456			    Loa Philips Ultra 615			      43    7142000 ACTIVE	      1
+
+4 rows selected.
+
+== Dung luong bang ==
+
+SEGMENT_NAME		       SEGMENT_TYPE		  MB	 BLOCKS
+------------------------------ ------------------ ---------- ----------
+IDXLAB_PRODUCTS 	       TABLE			  14	   1792
+
+1 row selected.
+

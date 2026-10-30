@@ -1,0 +1,21 @@
+== Moi truong ==
+redis_version:7.4.7
+  module RedisCompat 1
+  module timeseries 11206
+  module ReJSON 20809
+  module search 21020
+  module bf 20816
+  module redisgears_2 20020
+== Xoa du lieu thi nghiem cu (neu co) ==
+  idxlab:sku:*     da xoa 0
+  idxlab:product:* da xoa 0
+== Nap 200.000 san pham (10 dot x 20.000) ==
+  Thoi gian nap: 1146 ms
+== Kiem tra ==
+  idxlab:product:1 = {"categoryId":8,"name":"Dien thoai Sony Pro 37","inStock":true,"id":1,"status":"ACTIVE","sku":"LAB-0000001","price":7969000}
+  idxlab:product:2 = {"categoryId":15,"name":"Laptop Sony Pro 74","inStock":true,"id":2,"status":"ACTIVE","sku":"LAB-0000002","price":15888000}
+  idxlab:product:123456 = {"categoryId":43,"name":"Loa Philips Ultra 615","inStock":true,"id":123456,"status":"ACTIVE","sku":"LAB-0123456","price":7142000}
+  idxlab:product:199999 = {"categoryId":44,"name":"Ban phim Samsung Mini 229","inStock":true,"id":199999,"status":"ACTIVE","sku":"LAB-0199999","price":45725000}
+  So key: 200000
+  Tong MEMORY USAGE: 68.3 MB (358 byte/key)
+  used_memory tang them: 85.7 MB

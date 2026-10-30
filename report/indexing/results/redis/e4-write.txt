@@ -1,0 +1,27 @@
+== Moi truong ==
+redis_version:7.4.7
+  appendfsync	everysec
+  So document idxlab:product:*: 200000
+
+================= R0: KHONG INDEX PHU =================
+R0_KHONG_INDEX / THEM  10000 dong = 55.67 +/- 6.46 ms  =>  5.6 us/dong | AOF 1.8 MB
+R0_KHONG_INDEX / SUA GIA 10000 dong = 26.10 +/- 3.61 ms  =>  2.6 us/dong | AOF 0.7 MB
+
+================= R1: INDEX TU LAM idxlab:sku:* =================
+R1_TU_LAM_SKU / THEM   10000 dong = 65.26 +/- 1.10 ms  =>  6.5 us/dong | AOF 2.3 MB
+R1_TU_LAM_SKU / SUA GIA 10000 dong = 24.62 +/- 0.19 ms  =>  2.5 us/dong | AOF 0.7 MB
+
+================= R2: INDEX TU LAM sku + Sorted Set gia =================
+R2_TU_LAM_3 / THEM     10000 dong = 117.00 +/- 20.12 ms  =>  11.7 us/dong | AOF 3.5 MB
+R2_TU_LAM_3 / SUA GIA 10000 dong = 68.29 +/- 3.48 ms  =>  6.8 us/dong | AOF 1.9 MB
+
+================= R3: REDISEARCH sku TAG =================
+R3_REDISEARCH_SKU / THEM 10000 dong = 82.42 +/- 2.99 ms  =>  8.2 us/dong | AOF 1.8 MB
+R3_REDISEARCH_SKU / SUA GIA 10000 dong = 62.94 +/- 1.18 ms  =>  6.3 us/dong | AOF 0.7 MB
+
+================= R4: REDISEARCH DAY DU (nhu idx:products) =================
+R4_REDISEARCH_DAY_DU / THEM 10000 dong = 143.39 +/- 2.47 ms  =>  14.3 us/dong | AOF 1.8 MB
+R4_REDISEARCH_DAY_DU / SUA GIA 10000 dong = 154.30 +/- 64.58 ms  =>  15.4 us/dong | AOF 0.7 MB
+
+Xong E4 (Redis). Da xoa index va du lieu them vao; con lai dung 200.000 document idxlab:product:*.
+  So document: 200000

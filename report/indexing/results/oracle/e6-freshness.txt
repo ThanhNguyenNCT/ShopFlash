@@ -1,0 +1,76 @@
+== Moi truong ==
+
+BANNER_FULL
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free
+Version 23.26.3.0.0
+
+
+================= PHAN 1: B-TREE (ix_idxlab_sku) =================
+
+BUOC							       KET_QUA
+-------------------------------------------------------------- ----------------------------------------
+1a. Vua INSERT, chua COMMIT - phien minh tim SKU	       1 san pham
+
+BUOC							       KET_QUA
+-------------------------------------------------------------- ----------------------------------------
+1b. Vua INSERT, chua COMMIT - phien khac tim SKU	       0 san pham
+
+BUOC							       KET_QUA
+-------------------------------------------------------------- ----------------------------------------
+1c. Sau ROLLBACK - phien minh				       0 san pham
+
+BUOC							       KET_QUA
+-------------------------------------------------------------- ----------------------------------------
+1d. INSERT lai va COMMIT - phien khac			       1 san pham
+Ke hoach cua cau tim SKU (de chac chan dang tim qua index):
+
+PLAN_TABLE_OUTPUT
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Plan hash value: 3629077288
+
+--------------------------------------------
+| Id  | Operation	   | Name	   |
+--------------------------------------------
+|   0 | SELECT STATEMENT   |		   |
+|   1 |  SORT AGGREGATE    |		   |
+|   2 |   INDEX UNIQUE SCAN| IX_IDXLAB_SKU |
+--------------------------------------------
+
+================= PHAN 2: ORACLE TEXT CONTEXT, CAU HINH MAC DINH =================
+Elapsed: 00:00:01.69
+
+BUOC							       KET_QUA
+-------------------------------------------------------------- ----------------------------------------
+2a. Da COMMIT - bang co san pham (LIKE) 		       1 san pham
+
+BUOC							       KET_QUA
+-------------------------------------------------------------- ----------------------------------------
+2b. Da COMMIT - tim bang Oracle Text CONTAINS(omega)	       0 san pham
+2c. Cau hinh dong bo cua index (CTX_USER_INDEXES):
+idx_sync_type = MANUAL, idx_sync_interval = (trong)
+2d. Hang doi cho dong bo (CTX_USER_PENDING):
+2e. Khong goi dong bo tay (user SHOP khong co quyen CTX_DDL). Tim lai moi giay, toi da 120 giay:
+CONTAINS(omega) thay san pham sau khoang 3.0 giay ke tu luc bat dau tim (Oracle tu dong bo o che do nen)
+
+BUOC							       KET_QUA
+-------------------------------------------------------------- ----------------------------------------
+2f. Hang doi sau cung					       0 dong
+
+================= PHAN 3: ORACLE TEXT CONTEXT SYNC (ON COMMIT) =================
+Elapsed: 00:00:00.77
+
+BUOC							       KET_QUA
+-------------------------------------------------------------- ----------------------------------------
+3a. Chua COMMIT - phien minh tim SKU (B-tree)		       1 san pham
+
+BUOC							       KET_QUA
+-------------------------------------------------------------- ----------------------------------------
+3b. Chua COMMIT - phien minh CONTAINS(sigma)		       0 san pham
+
+BUOC							       KET_QUA
+-------------------------------------------------------------- ----------------------------------------
+3c. Sau COMMIT - CONTAINS(sigma)			       1 san pham
+
+Don dep: xoa san pham thu nghiem, index ix_e6_txt va ham idxlab_e6_other_sku.
+Xong E6 (Oracle).

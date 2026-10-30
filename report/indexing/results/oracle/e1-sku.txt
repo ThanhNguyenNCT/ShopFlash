@@ -1,0 +1,99 @@
+== Moi truong ==
+
+BANNER_FULL
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free
+Version 23.26.3.0.0
+
+
+================= BUOC 1: CHUA CO INDEX =================
+Truy van: tim san pham co sku = 'LAB-0123456'
+
+PRODUCT_ID SKU				    NAME					  PRICE
+---------- -------------------------------- ---------------------------------------- ----------
+    123456 LAB-0123456			    Loa Philips Ultra 615			7142000
+Ke hoach thuc thi:
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+SQL_ID	9mrzx3uznr6hm, child number 0
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ product_id, sku, name, price FROM
+idxlab_products WHERE sku = :sku
+
+Plan hash value: 717870639
+
+-----------------------------------------------------------------------------------------------
+| Id  | Operation	  | Name	    | Starts | E-Rows | A-Rows |   A-Time   | Buffers |
+-----------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT  |		    |	   1 |	      |      1 |00:00:00.01 |	 1754 |
+|*  1 |  TABLE ACCESS FULL| IDXLAB_PRODUCTS |	   1 |	    1 |      1 |00:00:00.01 |	 1754 |
+-----------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter("SKU"=:SKU)
+
+Do thoi gian (1 lan khoi dong + 5 lan do, moi lan tim 200 SKU):
+Lan khoi dong: bo qua
+Lan 1: 659.93 ms
+Lan 2: 651.87 ms
+Lan 3: 637.05 ms
+Lan 4: 625.40 ms
+Lan 5: 639.73 ms
+KHONG_INDEX: 200 lan tim = 642.79 +/- 13.43 ms	=>  3.2140 ms/lan
+
+================= BUOC 2: TAO INDEX B-TREE UNIQUE =================
+Elapsed: 00:00:00.20
+Hinh dang cay index (BLEVEL = so tang phia tren la; LEAF_BLOCKS = so block la; CLUSTERING_FACTOR):
+
+INDEX_NAME		 BLEVEL LEAF_BLOCKS DISTINCT_KEYS CLUSTERING_FACTOR
+-------------------- ---------- ----------- ------------- -----------------
+IX_IDXLAB_SKU		      2 	614	   200000	     192848
+Dung luong bang so voi index:
+
+SEGMENT_NAME	     SEGMENT_TYPE		MB     BLOCKS
+-------------------- ------------------ ---------- ----------
+IDXLAB_PRODUCTS      TABLE			14	 1792
+IX_IDXLAB_SKU	     INDEX			 5	  640
+
+================= BUOC 3: DA CO INDEX =================
+
+PRODUCT_ID SKU				    NAME					  PRICE
+---------- -------------------------------- ---------------------------------------- ----------
+    123456 LAB-0123456			    Loa Philips Ultra 615			7142000
+Ke hoach thuc thi:
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+SQL_ID	9mrzx3uznr6hm, child number 0
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ product_id, sku, name, price FROM
+idxlab_products WHERE sku = :sku
+
+Plan hash value: 3019723367
+
+------------------------------------------------------------------------------------------------------------------
+| Id  | Operation		    | Name	      | Starts | E-Rows | A-Rows |   A-Time   | Buffers | Reads  |
+------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT	    |		      |      1 |	|      1 |00:00:00.01 |       4 |      2 |
+|   1 |  TABLE ACCESS BY INDEX ROWID| IDXLAB_PRODUCTS |      1 |      1 |      1 |00:00:00.01 |       4 |      2 |
+|*  2 |   INDEX UNIQUE SCAN	    | IX_IDXLAB_SKU   |      1 |      1 |      1 |00:00:00.01 |       3 |      2 |
+------------------------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   2 - access("SKU"=:SKU)
+
+Do thoi gian (1 lan khoi dong + 5 lan do, moi lan tim 200 SKU):
+Lan khoi dong: bo qua
+Lan 1: 1.57 ms
+Lan 2: 1.28 ms
+Lan 3: 1.08 ms
+Lan 4: 1.04 ms
+Lan 5: 1.06 ms
+CO_INDEX: 200 lan tim = 1.21 +/- 0.23 ms  =>  0.0060 ms/lan
+
+Xong E1 (Oracle). Index ix_idxlab_sku van con; chay lai file nay se xoa va lam lai tu dau.

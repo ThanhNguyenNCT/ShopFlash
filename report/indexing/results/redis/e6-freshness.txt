@@ -1,0 +1,44 @@
+== Moi truong ==
+redis_version:7.4.7
+
+================= PHAN 1: REDISEARCH VUA TAO INDEX (INDEX CHAY NEN) =================
+  1.1 Ngay sau FT.CREATE - tim '*' (tat ca)                  78 / 200000 document (percent_indexed = 7.64980875478113e-4)
+  1.2 Ngay sau FT.CREATE - tim '*' (tat ca)                  9982 / 200000 document (percent_indexed = 0.050258743531411715)
+  1.3 Ngay sau FT.CREATE - tim '*' (tat ca)                  21148 / 200000 document (percent_indexed = 0.10603734906627334)
+  1.4 Ngay sau FT.CREATE - tim '*' (tat ca)                  32736 / 200000 document (percent_indexed = 0.16416089597760056)
+  1.5 Sau khi index xong - tim '*'                           200000 / 200000 document
+
+================= PHAN 2: REDISEARCH - GHI XONG LA TIM THAY =================
+  2a. Truoc khi them - tim @name:zeta                        0 san pham
+  2b. Ngay sau JSON.SET - tim @name:zeta (client khac)       1 san pham
+  2c. Tim theo gia 7.990.000                                 1 san pham
+  2d. Sau khi tang gia len 8.990.000 - tim gia 7.990.000     0 san pham
+  2e. Tim gia 8.990.000                                      1 san pham
+  2f. Sau khi xoa key - tim @name:zeta                       0 san pham
+
+================= PHAN 3: INDEX TU LAM - UNG DUNG SAP GIUA CHUNG =================
+  3a. Ban dau - gia trong du lieu (JSON)                     [7142000]
+  3a. Ban dau - gia trong index (ZSCORE)                     7142000
+  ... ung dung doi gia thanh 9.999.000: chay JSON.SET roi SAP truoc khi kip ZADD ...
+  3b. Gia trong du lieu (JSON)                               [9999000]
+  3b. Gia trong index (ZSCORE)                               7142000
+  3c. Khach loc gia 9,99 - 10,01 trieu: co 123456 khong?     0 (dung ra phai la 1)
+  3d. Khach loc gia 7,1 - 7,2 trieu: co 123456 khong?        1 (dung ra phai la 0, gia that da la 9.999.000)
+  ... sua tay: ZADD lai cho dung ...
+  3e. Sau khi sua tay - gia trong index                      9999000
+
+================= PHAN 4: MULTI/EXEC - LENH LOI GIUA CHUNG, KHONG HOAN TAC =================
+  Gui 1 giao dich: doi gia JSON thanh 5.555.000, roi ZADD voi score sai (khong phai so):
+    OK
+    QUEUED
+    QUEUED
+    OK
+    ERR value is not a valid float
+    
+  4a. Gia trong du lieu (JSON)                               [5555000]
+  4b. Gia trong index (ZSCORE)                               9999000
+  => Lenh JSON.SET da chay va KHONG duoc hoan tac du lenh sau loi: du lieu va index lai lech.
+
+Don dep: tra gia 123456 ve 7.142.000, xoa Sorted Set va index thu nghiem.
+  Gia 123456 sau don dep                                     [7142000]
+Xong E6 (Redis).

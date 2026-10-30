@@ -1,0 +1,30 @@
+/* Module indexing: chỉ dùng biến --sf-* của design system, không viết mã màu. */
+.sf-idx-pre {
+  margin: 0;
+  padding: var(--sf-space-3);
+  max-height: 360px;
+  overflow: auto;
+  white-space: pre;
+  font-family: var(--sf-font-mono);
+  font-size: var(--sf-text-caption-size);
+  line-height: var(--sf-text-caption-line);
+  background: var(--sf-color-surface-sunken);
+  border: 1px solid var(--sf-color-line);
+  border-radius: var(--sf-radius-md);
+}
+
+.sf-idx-thumb {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  color: var(--sf-color-ink-muted);
+  background: var(--sf-color-surface-sunken);
+  border-radius: var(--sf-radius-lg);
+}
+
+.sf-idx-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

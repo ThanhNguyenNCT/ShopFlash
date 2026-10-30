@@ -1,13 +1,29 @@
 # Module indexing (frontend)
 
-Nghiệp vụ, dữ liệu và API của module: xem `backend/src/main/java/com/shopflash/modules/indexing/AGENTS.md`.
+Nghiệp vụ, dữ liệu, API và lý do lựa chọn: `backend/src/main/java/com/shopflash/modules/indexing/AGENTS.md` và `report/indexing/ket-luan.md`.
 
 ## Màn hình
 
-- Trang chủ (danh sách sản phẩm, ô tìm kiếm, bộ lọc), chi tiết sản phẩm. TV2 đã đồng ý để TV4 nối nút "Thêm vào giỏ" từ module `transaction` khi Listing/Detail dùng ID sản phẩm Oracle thật. Trang chủ hiện còn dữ liệu minh họa, không gửi các ID mẫu tới Cart API.
+| Route | File | Nội dung |
+|---|---|---|
+| `/` | `pages/HomePage.jsx` | Banner, danh mục (bấm sang `/search?categoryId=`), 8 sản phẩm còn hàng giá thấp nhất, lối vào Flash sale. Dải flash sale có dữ liệu chờ API của module concurrency (TV5) |
+| `/search` | `pages/SearchPage.jsx` | F3/F4. Mọi điều kiện nằm trên URL (`?q=&categoryId=&minPrice=&maxPrice=&inStock=&sort=&page=`); ô tìm kiếm ở header gửi sẵn `?q=`. Bộ lọc danh mục, khoảng giá, còn hàng, sắp xếp; phân trang 24 sản phẩm, tối đa 10.000 kết quả. `SourceBadge` hiện nguồn (RediSearch/Oracle), thời gian gọi DB, số lượt gọi |
+| `/products/:productId` | `pages/ProductDetailPage.jsx` | Chi tiết đọc Oracle; `AddToCartButton` của module transaction khi còn hàng; 404 khi không có hoặc ngừng bán |
+| `/admin/products/indexing-lab` | `pages/IndexingLabPage.jsx` | Admin, menu Catalog. 5 thẻ: định tuyến, so sánh hai nguồn, có/không index, kế hoạch thực thi, dung lượng index |
 
-Điểm nối F10: `frontend/src/modules/transaction/components/AddToCartButton.jsx` cho trang chi tiết và `addProductToCart(user, productId, quantity)` trong `frontend/src/modules/transaction/api.js` cho `ProductCard` ở danh sách. API này yêu cầu token local và kiểm tra danh tính với backend trước khi gửi lệnh thêm.
+## Thành phần
+
+- `components/ProductGrid.jsx`: lưới `ProductCard` có Skeleton, Empty, lỗi + Thử lại. "Thêm vào giỏ" dùng `addProductToCart(user, productId)` của module transaction, chỉ với sản phẩm còn hàng; chưa đăng nhập thì sang `/login?next=`.
+- `components/SourceBadge.jsx`: nguồn và chi phí của một lần tìm (`meta`).
+- `components/lab/`: `LabQueryForm` (điều kiện dùng chung, có nút mẫu E2/E3), `RunResult` (một lần chạy).
+- `components/indexing.css`: khối `pre` cho câu lệnh và kế hoạch, ô ảnh trang chi tiết; chỉ dùng biến `--sf-*`.
+
+## Quy ước
+
+- Gọi API qua `api.js` (`apiClient`); lỗi đã được chuẩn hóa `{ status, code, message, details }`.
+- Trang Lab chạy các biến thể **lần lượt**, không song song: Redis xử lý từng lệnh một, chạy cùng lúc làm các lần đo chờ nhau.
+- Thời gian hiện trên giao diện đo từ backend (gồm driver, mạng tới Docker), chỉ để minh họa. Số liệu so sánh chính thức đo trong DB: `report/indexing/ket-qua.md`.
 
 ## Giao diện
 
-Dùng design system ở `src/shared/design-system` (không viết mã màu cố định): `ProductCard` (lưới sản phẩm), `PriceTag` (trang chi tiết).
+Dùng design system ở `src/shared/design-system` (không viết mã màu cố định): `ProductCard` (lưới sản phẩm), `PriceTag` (trang chi tiết), `formatVND`.

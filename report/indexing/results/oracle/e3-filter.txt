@@ -1,0 +1,840 @@
+== Moi truong ==
+
+BANNER_FULL
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Oracle AI Database 26ai Free Release 23.26.3.0.0 - Develop, Learn, and Run for Free
+Version 23.26.3.0.0
+
+
+SO_DONG_BANG_LAB
+----------------
+	  200000
+
+================= CAU HINH 1: KHONG INDEX =================
+--- A (trang dau): danh muc 5, gia 1-5 trieu, dang ban, xep gia tang
+
+PRODUCT_ID
+----------
+     84322
+    104122
+    123922
+    143722
+    163522
+    183322
+      3072
+     22872
+     42672
+     62472
+     82272
+    102072
+    121872
+    141672
+    161472
+    181272
+      1022
+     20822
+     40622
+     60422
+     80222
+    100022
+    119822
+    139622
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ product_id FROM idxlab_products
+WHERE category_id = :c AND price BETWEEN :lo AND :hi AND status =
+'ACTIVE' ORDER BY price FETCH FIRST 24 ROWS ONLY
+
+
+-----------------------------------------------------------------------------------------------------
+| Id  | Operation		| Name		  | Starts | E-Rows | A-Rows |	 A-Time   | Buffers |
+-----------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT	|		  |	 1 |	    |	  24 |00:00:00.01 |    1753 |
+|*  1 |  COUNT STOPKEY		|		  |	 1 |	    |	  24 |00:00:00.01 |    1753 |
+|   2 |   VIEW			|		  |	 1 |	160 |	  24 |00:00:00.01 |    1753 |
+|*  3 |    SORT ORDER BY STOPKEY|		  |	 1 |	160 |	  24 |00:00:00.01 |    1753 |
+|*  4 |     FILTER		|		  |	 1 |	    |	 321 |00:00:00.01 |    1753 |
+|*  5 |      TABLE ACCESS FULL	| IDXLAB_PRODUCTS |	 1 |	160 |	 321 |00:00:00.01 |    1753 |
+-----------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter(ROWNUM<=24)
+   3 - filter(ROWNUM<=24)
+   4 - filter(:HI>=:LO)
+   5 - filter(("CATEGORY_ID"=:C AND "PRICE"<=:HI AND "STATUS"='ACTIVE' AND "PRICE">=:LO))
+
+--- A (dem tong so)
+
+  COUNT(*)
+----------
+       321
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ COUNT(*) FROM idxlab_products
+WHERE category_id = :c AND price BETWEEN :lo AND :hi AND status =
+'ACTIVE'
+
+
+-------------------------------------------------------------------------------------------------
+| Id  | Operation	    | Name	      | Starts | E-Rows | A-Rows |   A-Time   | Buffers |
+-------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT    |		      |      1 |	|      1 |00:00:00.01 |    1753 |
+|   1 |  SORT AGGREGATE     |		      |      1 |      1 |      1 |00:00:00.01 |    1753 |
+|*  2 |   FILTER	    |		      |      1 |	|    321 |00:00:00.01 |    1753 |
+|*  3 |    TABLE ACCESS FULL| IDXLAB_PRODUCTS |      1 |    160 |    321 |00:00:00.01 |    1753 |
+-------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   2 - filter(:HI>=:LO)
+   3 - filter(("CATEGORY_ID"=:C AND "PRICE"<=:HI AND "STATUS"='ACTIVE' AND "PRICE">=:LO))
+
+--- B (trang dau): gia 1-5 trieu, dang ban, moi danh muc
+
+PRODUCT_ID
+----------
+     34371
+     84322
+    134273
+    184224
+     54335
+    104286
+    154237
+      4384
+    124250
+    174201
+     24348
+     74299
+    144214
+    194165
+     44312
+     94263
+    164178
+     14325
+     64276
+    114227
+     34289
+    134191
+    184142
+     54253
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ product_id FROM idxlab_products
+WHERE price BETWEEN :lo AND :hi AND status = 'ACTIVE' ORDER BY price
+FETCH FIRST 24 ROWS ONLY
+
+
+-----------------------------------------------------------------------------------------------------
+| Id  | Operation		| Name		  | Starts | E-Rows | A-Rows |	 A-Time   | Buffers |
+-----------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT	|		  |	 1 |	    |	  24 |00:00:00.01 |    1753 |
+|*  1 |  COUNT STOPKEY		|		  |	 1 |	    |	  24 |00:00:00.01 |    1753 |
+|   2 |   VIEW			|		  |	 1 |   8012 |	  24 |00:00:00.01 |    1753 |
+|*  3 |    SORT ORDER BY STOPKEY|		  |	 1 |   8012 |	  24 |00:00:00.01 |    1753 |
+|*  4 |     FILTER		|		  |	 1 |	    |  15218 |00:00:00.01 |    1753 |
+|*  5 |      TABLE ACCESS FULL	| IDXLAB_PRODUCTS |	 1 |   8012 |  15218 |00:00:00.01 |    1753 |
+-----------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter(ROWNUM<=24)
+   3 - filter(ROWNUM<=24)
+   4 - filter(:HI>=:LO)
+   5 - filter(("PRICE"<=:HI AND "STATUS"='ACTIVE' AND "PRICE">=:LO))
+
+--- C (trang dau): danh muc 5, dang ban, moi muc gia
+
+PRODUCT_ID
+----------
+    199722
+     19472
+     39272
+     59072
+     78872
+     98672
+    118472
+    138272
+    158072
+    177872
+    197672
+     17422
+     37222
+     57022
+     76822
+     96622
+    116422
+    136222
+    156022
+    175822
+    195622
+     15372
+     35172
+     54972
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ product_id FROM idxlab_products
+WHERE category_id = :c AND status = 'ACTIVE' ORDER BY price FETCH FIRST
+24 ROWS ONLY
+
+
+-----------------------------------------------------------------------------------------------------
+| Id  | Operation		| Name		  | Starts | E-Rows | A-Rows |	 A-Time   | Buffers |
+-----------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT	|		  |	 1 |	    |	  24 |00:00:00.01 |    1753 |
+|*  1 |  COUNT STOPKEY		|		  |	 1 |	    |	  24 |00:00:00.01 |    1753 |
+|   2 |   VIEW			|		  |	 1 |   2000 |	  24 |00:00:00.01 |    1753 |
+|*  3 |    SORT ORDER BY STOPKEY|		  |	 1 |   2000 |	  24 |00:00:00.01 |    1753 |
+|*  4 |     TABLE ACCESS FULL	| IDXLAB_PRODUCTS |	 1 |   2000 |	4000 |00:00:00.01 |    1753 |
+-----------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter(ROWNUM<=24)
+   3 - filter(ROWNUM<=24)
+   4 - filter(("CATEGORY_ID"=:C AND "STATUS"='ACTIVE'))
+
+Do thoi gian (moi lan tim = trang dau 24 san pham + dem tong):
+KHONG_INDEX / A        khop    321 | 20 lan tim = 98.83 +/- 2.59 ms  =>  4.941 ms/lan
+KHONG_INDEX / B        khop  15218 | 20 lan tim = 134.24 +/- 9.77 ms  =>  6.712 ms/lan
+KHONG_INDEX / C        khop   4000 | 20 lan tim = 91.71 +/- 3.56 ms  =>  4.585 ms/lan
+
+================= CAU HINH 2: HAI INDEX DON (category_id) VA (price) =================
+Elapsed: 00:00:00.14
+Elapsed: 00:00:00.11
+
+INDEX_NAME	       COT				    BLEVEL LEAF_BLOCKS CLUSTERING_FACTOR	 MB
+---------------------- -------------------------------- ---------- ----------- ----------------- ----------
+IX_E3_CAT	       CATEGORY_ID				 1	   391		    3534	  4
+IX_E3_PRICE	       PRICE					 1	   443		  200000	  4
+--- A (trang dau): danh muc 5, gia 1-5 trieu, dang ban, xep gia tang
+
+PRODUCT_ID
+----------
+     84322
+    104122
+    123922
+    143722
+    163522
+    183322
+      3072
+     22872
+     42672
+     62472
+     82272
+    102072
+    121872
+    141672
+    161472
+    181272
+      1022
+     20822
+     40622
+     60422
+     80222
+    100022
+    119822
+    139622
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ product_id FROM idxlab_products
+WHERE category_id = :c AND price BETWEEN :lo AND :hi AND status =
+'ACTIVE' ORDER BY price FETCH FIRST 24 ROWS ONLY
+
+
+------------------------------------------------------------------------------------------------------------------------------
+| Id  | Operation				| Name		  | Starts | E-Rows | A-Rows |	 A-Time   | Buffers | Reads  |
+------------------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT			|		  |	 1 |	    |	  24 |00:00:00.01 |	 82 |	  15 |
+|*  1 |  COUNT STOPKEY				|		  |	 1 |	    |	  24 |00:00:00.01 |	 82 |	  15 |
+|   2 |   VIEW					|		  |	 1 |	160 |	  24 |00:00:00.01 |	 82 |	  15 |
+|*  3 |    SORT ORDER BY STOPKEY		|		  |	 1 |	160 |	  24 |00:00:00.01 |	 82 |	  15 |
+|*  4 |     FILTER				|		  |	 1 |	    |	 321 |00:00:00.01 |	 82 |	  15 |
+|*  5 |      TABLE ACCESS BY INDEX ROWID BATCHED| IDXLAB_PRODUCTS |	 1 |	160 |	 321 |00:00:00.01 |	 82 |	  15 |
+|*  6 |       INDEX RANGE SCAN			| IX_E3_CAT	  |	 1 |   4000 |	4000 |00:00:00.01 |	 10 |	  15 |
+------------------------------------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter(ROWNUM<=24)
+   3 - filter(ROWNUM<=24)
+   4 - filter(:HI>=:LO)
+   5 - filter(("PRICE"<=:HI AND "STATUS"='ACTIVE' AND "PRICE">=:LO))
+   6 - access("CATEGORY_ID"=:C)
+
+--- A (dem tong so)
+
+  COUNT(*)
+----------
+       321
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ COUNT(*) FROM idxlab_products
+WHERE category_id = :c AND price BETWEEN :lo AND :hi AND status =
+'ACTIVE'
+
+
+-------------------------------------------------------------------------------------------------------------------
+| Id  | Operation			      | Name		| Starts | E-Rows | A-Rows |   A-Time	| Buffers |
+-------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT		      | 		|      1 |	  |	 1 |00:00:00.01 |      82 |
+|   1 |  SORT AGGREGATE 		      | 		|      1 |	1 |	 1 |00:00:00.01 |      82 |
+|*  2 |   FILTER			      | 		|      1 |	  |    321 |00:00:00.01 |      82 |
+|*  3 |    TABLE ACCESS BY INDEX ROWID BATCHED| IDXLAB_PRODUCTS |      1 |    160 |    321 |00:00:00.01 |      82 |
+|*  4 |     INDEX RANGE SCAN		      | IX_E3_CAT	|      1 |   4000 |   4000 |00:00:00.01 |      10 |
+-------------------------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   2 - filter(:HI>=:LO)
+   3 - filter(("PRICE"<=:HI AND "STATUS"='ACTIVE' AND "PRICE">=:LO))
+   4 - access("CATEGORY_ID"=:C)
+
+--- B (trang dau): gia 1-5 trieu, dang ban, moi danh muc
+
+PRODUCT_ID
+----------
+     34371
+    184224
+    134273
+     84322
+     54335
+      4384
+    154237
+    104286
+    124250
+     74299
+     24348
+    174201
+    144214
+     94263
+     44312
+    194165
+    164178
+    114227
+     64276
+     14325
+     34289
+    184142
+    134191
+     54253
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ product_id FROM idxlab_products
+WHERE price BETWEEN :lo AND :hi AND status = 'ACTIVE' ORDER BY price
+FETCH FIRST 24 ROWS ONLY
+
+
+---------------------------------------------------------------------------------------------------------------------
+| Id  | Operation		       | Name		 | Starts | E-Rows | A-Rows |	A-Time	 | Buffers | Reads  |
+---------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT	       |		 |	1 |	   |	 24 |00:00:00.01 |	29 |	  8 |
+|*  1 |  COUNT STOPKEY		       |		 |	1 |	   |	 24 |00:00:00.01 |	29 |	  8 |
+|   2 |   VIEW			       |		 |	1 |	25 |	 24 |00:00:00.01 |	29 |	  8 |
+|*  3 |    FILTER		       |		 |	1 |	   |	 24 |00:00:00.01 |	29 |	  8 |
+|*  4 |     TABLE ACCESS BY INDEX ROWID| IDXLAB_PRODUCTS |	1 |	25 |	 24 |00:00:00.01 |	29 |	  8 |
+|*  5 |      INDEX RANGE SCAN	       | IX_E3_PRICE	 |	1 |	   |	 25 |00:00:00.01 |	 4 |	  8 |
+---------------------------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter(ROWNUM<=24)
+   3 - filter(:HI>=:LO)
+   4 - filter("STATUS"='ACTIVE')
+   5 - access("PRICE">=:LO AND "PRICE"<=:HI)
+
+--- C (trang dau): danh muc 5, dang ban, moi muc gia
+
+PRODUCT_ID
+----------
+    199722
+     19472
+     39272
+     59072
+     78872
+     98672
+    118472
+    138272
+    158072
+    177872
+    197672
+     17422
+     37222
+     57022
+     76822
+     96622
+    116422
+    136222
+    156022
+    175822
+    195622
+     15372
+     35172
+     54972
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ product_id FROM idxlab_products
+WHERE category_id = :c AND status = 'ACTIVE' ORDER BY price FETCH FIRST
+24 ROWS ONLY
+
+
+--------------------------------------------------------------------------------------------------------------------
+| Id  | Operation			       | Name		 | Starts | E-Rows | A-Rows |	A-Time	 | Buffers |
+--------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT		       |		 |	1 |	   |	 24 |00:00:00.01 |	82 |
+|*  1 |  COUNT STOPKEY			       |		 |	1 |	   |	 24 |00:00:00.01 |	82 |
+|   2 |   VIEW				       |		 |	1 |   2000 |	 24 |00:00:00.01 |	82 |
+|*  3 |    SORT ORDER BY STOPKEY	       |		 |	1 |   2000 |	 24 |00:00:00.01 |	82 |
+|*  4 |     TABLE ACCESS BY INDEX ROWID BATCHED| IDXLAB_PRODUCTS |	1 |   2000 |   4000 |00:00:00.01 |	82 |
+|*  5 |      INDEX RANGE SCAN		       | IX_E3_CAT	 |	1 |   4000 |   4000 |00:00:00.01 |	10 |
+--------------------------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter(ROWNUM<=24)
+   3 - filter(ROWNUM<=24)
+   4 - filter("STATUS"='ACTIVE')
+   5 - access("CATEGORY_ID"=:C)
+
+Do thoi gian:
+INDEX_DON / A	       khop    321 | 20 lan tim = 11.65 +/- 0.40 ms  =>  0.582 ms/lan
+INDEX_DON / B	       khop  15218 | 20 lan tim = 59.04 +/- 0.88 ms  =>  2.952 ms/lan
+INDEX_DON / C	       khop   4000 | 20 lan tim = 13.58 +/- 0.35 ms  =>  0.679 ms/lan
+
+================= CAU HINH 3: INDEX GHEP DUNG THU TU (category_id, status, price) =================
+Elapsed: 00:00:00.16
+
+INDEX_NAME	       COT				    BLEVEL LEAF_BLOCKS CLUSTERING_FACTOR	 MB
+---------------------- -------------------------------- ---------- ----------- ----------------- ----------
+IX_E3_CAT_STATUS_PRICE CATEGORY_ID, STATUS, PRICE		 2	   725		   37232	  6
+--- A (trang dau): danh muc 5, gia 1-5 trieu, dang ban, xep gia tang
+
+PRODUCT_ID
+----------
+     84322
+    104122
+    123922
+    143722
+    163522
+    183322
+      3072
+     22872
+     42672
+     62472
+     82272
+    102072
+    121872
+    141672
+    161472
+    181272
+      1022
+     20822
+     40622
+     60422
+     80222
+    100022
+    119822
+    139622
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ product_id FROM idxlab_products
+WHERE category_id = :c AND price BETWEEN :lo AND :hi AND status =
+'ACTIVE' ORDER BY price FETCH FIRST 24 ROWS ONLY
+
+
+----------------------------------------------------------------------------------------------------------------------------
+| Id  | Operation		       | Name			| Starts | E-Rows | A-Rows |   A-Time	| Buffers | Reads  |
+----------------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT	       |			|      1 |	  |	24 |00:00:00.01 |      10 |	 8 |
+|*  1 |  COUNT STOPKEY		       |			|      1 |	  |	24 |00:00:00.01 |      10 |	 8 |
+|   2 |   VIEW			       |			|      1 |     25 |	24 |00:00:00.01 |      10 |	 8 |
+|*  3 |    FILTER		       |			|      1 |	  |	24 |00:00:00.01 |      10 |	 8 |
+|   4 |     TABLE ACCESS BY INDEX ROWID| IDXLAB_PRODUCTS	|      1 |     25 |	24 |00:00:00.01 |      10 |	 8 |
+|*  5 |      INDEX RANGE SCAN	       | IX_E3_CAT_STATUS_PRICE |      1 |    160 |	24 |00:00:00.01 |	5 |	 8 |
+----------------------------------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter(ROWNUM<=24)
+   3 - filter(:HI>=:LO)
+   5 - access("CATEGORY_ID"=:C AND "STATUS"='ACTIVE' AND "PRICE">=:LO AND "PRICE"<=:HI)
+
+--- A (dem tong so)
+
+  COUNT(*)
+----------
+       321
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ COUNT(*) FROM idxlab_products
+WHERE category_id = :c AND price BETWEEN :lo AND :hi AND status =
+'ACTIVE'
+
+
+-------------------------------------------------------------------------------------------------------
+| Id  | Operation	   | Name		    | Starts | E-Rows | A-Rows |   A-Time   | Buffers |
+-------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT   |			    |	   1 |	      |      1 |00:00:00.01 |	    4 |
+|   1 |  SORT AGGREGATE    |			    |	   1 |	    1 |      1 |00:00:00.01 |	    4 |
+|*  2 |   FILTER	   |			    |	   1 |	      |    321 |00:00:00.01 |	    4 |
+|*  3 |    INDEX RANGE SCAN| IX_E3_CAT_STATUS_PRICE |	   1 |	  160 |    321 |00:00:00.01 |	    4 |
+-------------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   2 - filter(:HI>=:LO)
+   3 - access("CATEGORY_ID"=:C AND "STATUS"='ACTIVE' AND "PRICE">=:LO AND "PRICE"<=:HI)
+
+--- B (trang dau): gia 1-5 trieu, dang ban, moi danh muc
+
+PRODUCT_ID
+----------
+     34371
+     84322
+    134273
+    184224
+     54335
+    104286
+    154237
+      4384
+    124250
+    174201
+     24348
+     74299
+    144214
+    194165
+     44312
+     94263
+    164178
+     14325
+     64276
+    114227
+     34289
+    134191
+    184142
+     54253
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ product_id FROM idxlab_products
+WHERE price BETWEEN :lo AND :hi AND status = 'ACTIVE' ORDER BY price
+FETCH FIRST 24 ROWS ONLY
+
+
+-----------------------------------------------------------------------------------------------------
+| Id  | Operation		| Name		  | Starts | E-Rows | A-Rows |	 A-Time   | Buffers |
+-----------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT	|		  |	 1 |	    |	  24 |00:00:00.01 |    1753 |
+|*  1 |  COUNT STOPKEY		|		  |	 1 |	    |	  24 |00:00:00.01 |    1753 |
+|   2 |   VIEW			|		  |	 1 |   8012 |	  24 |00:00:00.01 |    1753 |
+|*  3 |    SORT ORDER BY STOPKEY|		  |	 1 |   8012 |	  24 |00:00:00.01 |    1753 |
+|*  4 |     FILTER		|		  |	 1 |	    |  15218 |00:00:00.01 |    1753 |
+|*  5 |      TABLE ACCESS FULL	| IDXLAB_PRODUCTS |	 1 |   8012 |  15218 |00:00:00.01 |    1753 |
+-----------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter(ROWNUM<=24)
+   3 - filter(ROWNUM<=24)
+   4 - filter(:HI>=:LO)
+   5 - filter(("PRICE"<=:HI AND "STATUS"='ACTIVE' AND "PRICE">=:LO))
+
+--- C (trang dau): danh muc 5, dang ban, moi muc gia
+
+PRODUCT_ID
+----------
+    199722
+     19472
+     39272
+     59072
+     78872
+     98672
+    118472
+    138272
+    158072
+    177872
+    197672
+     17422
+     37222
+     57022
+     76822
+     96622
+    116422
+    136222
+    156022
+    175822
+    195622
+     15372
+     35172
+     54972
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ product_id FROM idxlab_products
+WHERE category_id = :c AND status = 'ACTIVE' ORDER BY price FETCH FIRST
+24 ROWS ONLY
+
+
+------------------------------------------------------------------------------------------------------------------
+| Id  | Operation		      | Name		       | Starts | E-Rows | A-Rows |   A-Time   | Buffers |
+------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT	      | 		       |      1 |	 |     24 |00:00:00.01 |      11 |
+|*  1 |  COUNT STOPKEY		      | 		       |      1 |	 |     24 |00:00:00.01 |      11 |
+|   2 |   VIEW			      | 		       |      1 |     24 |     24 |00:00:00.01 |      11 |
+|   3 |    TABLE ACCESS BY INDEX ROWID| IDXLAB_PRODUCTS        |      1 |     24 |     24 |00:00:00.01 |      11 |
+|*  4 |     INDEX RANGE SCAN	      | IX_E3_CAT_STATUS_PRICE |      1 |   2000 |     24 |00:00:00.01 |       5 |
+------------------------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter(ROWNUM<=24)
+   4 - access("CATEGORY_ID"=:C AND "STATUS"='ACTIVE')
+
+Do thoi gian:
+GHEP_DUNG / A	       khop    321 | 20 lan tim = 0.48 +/- 0.01 ms  =>	0.024 ms/lan
+GHEP_DUNG / B	       khop  15218 | 20 lan tim = 137.56 +/- 3.20 ms  =>  6.878 ms/lan
+GHEP_DUNG / C	       khop   4000 | 20 lan tim = 2.02 +/- 0.14 ms  =>	0.101 ms/lan
+
+================= CAU HINH 4: INDEX GHEP SAI THU TU (price, category_id, status) =================
+Elapsed: 00:00:00.17
+
+INDEX_NAME	       COT				    BLEVEL LEAF_BLOCKS CLUSTERING_FACTOR	 MB
+---------------------- -------------------------------- ---------- ----------- ----------------- ----------
+IX_E3_PRICE_CAT_STATUS PRICE, CATEGORY_ID, STATUS		 2	   725		  200000	  6
+--- A (trang dau): danh muc 5, gia 1-5 trieu, dang ban, xep gia tang
+
+PRODUCT_ID
+----------
+     84322
+    104122
+    123922
+    143722
+    163522
+    183322
+      3072
+     22872
+     42672
+     62472
+     82272
+    102072
+    121872
+    141672
+    161472
+    181272
+      1022
+     20822
+     40622
+     60422
+     80222
+    100022
+    119822
+    139622
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ product_id FROM idxlab_products
+WHERE category_id = :c AND price BETWEEN :lo AND :hi AND status =
+'ACTIVE' ORDER BY price FETCH FIRST 24 ROWS ONLY
+
+
+----------------------------------------------------------------------------------------------------------------------------
+| Id  | Operation		       | Name			| Starts | E-Rows | A-Rows |   A-Time	| Buffers | Reads  |
+----------------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT	       |			|      1 |	  |	24 |00:00:00.01 |      14 |	15 |
+|*  1 |  COUNT STOPKEY		       |			|      1 |	  |	24 |00:00:00.01 |      14 |	15 |
+|   2 |   VIEW			       |			|      1 |     25 |	24 |00:00:00.01 |      14 |	15 |
+|*  3 |    FILTER		       |			|      1 |	  |	24 |00:00:00.01 |      14 |	15 |
+|   4 |     TABLE ACCESS BY INDEX ROWID| IDXLAB_PRODUCTS	|      1 |     25 |	24 |00:00:00.01 |      14 |	15 |
+|*  5 |      INDEX RANGE SCAN	       | IX_E3_PRICE_CAT_STATUS |      1 |    160 |	24 |00:00:00.01 |	9 |	15 |
+----------------------------------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter(ROWNUM<=24)
+   3 - filter(:HI>=:LO)
+   5 - access("PRICE">=:LO AND "CATEGORY_ID"=:C AND "STATUS"='ACTIVE' AND "PRICE"<=:HI)
+       filter(("CATEGORY_ID"=:C AND "STATUS"='ACTIVE'))
+
+--- A (dem tong so)
+
+  COUNT(*)
+----------
+       321
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ COUNT(*) FROM idxlab_products
+WHERE category_id = :c AND price BETWEEN :lo AND :hi AND status =
+'ACTIVE'
+
+
+----------------------------------------------------------------------------------------------------------------
+| Id  | Operation	   | Name		    | Starts | E-Rows | A-Rows |   A-Time   | Buffers | Reads  |
+----------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT   |			    |	   1 |	      |      1 |00:00:00.01 |	   61 |     53 |
+|   1 |  SORT AGGREGATE    |			    |	   1 |	    1 |      1 |00:00:00.01 |	   61 |     53 |
+|*  2 |   FILTER	   |			    |	   1 |	      |    321 |00:00:00.01 |	   61 |     53 |
+|*  3 |    INDEX RANGE SCAN| IX_E3_PRICE_CAT_STATUS |	   1 |	  160 |    321 |00:00:00.01 |	   61 |     53 |
+----------------------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   2 - filter(:HI>=:LO)
+   3 - access("PRICE">=:LO AND "CATEGORY_ID"=:C AND "STATUS"='ACTIVE' AND "PRICE"<=:HI)
+       filter(("CATEGORY_ID"=:C AND "STATUS"='ACTIVE'))
+
+--- B (trang dau): gia 1-5 trieu, dang ban, moi danh muc
+
+PRODUCT_ID
+----------
+     84322
+    134273
+    184224
+     34371
+    104286
+    154237
+      4384
+     54335
+    124250
+    174201
+     24348
+     74299
+    194165
+     44312
+     94263
+    144214
+     14325
+     64276
+    114227
+    164178
+     34289
+    134191
+    184142
+      4302
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ product_id FROM idxlab_products
+WHERE price BETWEEN :lo AND :hi AND status = 'ACTIVE' ORDER BY price
+FETCH FIRST 24 ROWS ONLY
+
+
+-------------------------------------------------------------------------------------------------------------------
+| Id  | Operation		       | Name			| Starts | E-Rows | A-Rows |   A-Time	| Buffers |
+-------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT	       |			|      1 |	  |	24 |00:00:00.01 |      29 |
+|*  1 |  COUNT STOPKEY		       |			|      1 |	  |	24 |00:00:00.01 |      29 |
+|   2 |   VIEW			       |			|      1 |     25 |	24 |00:00:00.01 |      29 |
+|*  3 |    FILTER		       |			|      1 |	  |	24 |00:00:00.01 |      29 |
+|   4 |     TABLE ACCESS BY INDEX ROWID| IDXLAB_PRODUCTS	|      1 |     25 |	24 |00:00:00.01 |      29 |
+|*  5 |      INDEX RANGE SCAN	       | IX_E3_PRICE_CAT_STATUS |      1 |	  |	24 |00:00:00.01 |	5 |
+-------------------------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter(ROWNUM<=24)
+   3 - filter(:HI>=:LO)
+   5 - access("PRICE">=:LO AND "STATUS"='ACTIVE' AND "PRICE"<=:HI)
+       filter("STATUS"='ACTIVE')
+
+--- C (trang dau): danh muc 5, dang ban, moi muc gia
+
+PRODUCT_ID
+----------
+    199722
+     19472
+     39272
+     59072
+     78872
+     98672
+    118472
+    138272
+    158072
+    177872
+    197672
+     17422
+     37222
+     57022
+     76822
+     96622
+    116422
+    136222
+    156022
+    175822
+    195622
+     15372
+     35172
+     54972
+
+PLAN_TABLE_OUTPUT
+------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------
+SELECT /*+ gather_plan_statistics */ product_id FROM idxlab_products
+WHERE category_id = :c AND status = 'ACTIVE' ORDER BY price FETCH FIRST
+24 ROWS ONLY
+
+
+---------------------------------------------------------------------------------------------------------------------------
+| Id  | Operation		      | Name		       | Starts | E-Rows | A-Rows |   A-Time   | Buffers | Reads  |
+---------------------------------------------------------------------------------------------------------------------------
+|   0 | SELECT STATEMENT	      | 		       |      1 |	 |     24 |00:00:00.01 |      15 |     12 |
+|*  1 |  COUNT STOPKEY		      | 		       |      1 |	 |     24 |00:00:00.01 |      15 |     12 |
+|   2 |   VIEW			      | 		       |      1 |     24 |     24 |00:00:00.01 |      15 |     12 |
+|   3 |    TABLE ACCESS BY INDEX ROWID| IDXLAB_PRODUCTS        |      1 |   2000 |     24 |00:00:00.01 |      15 |     12 |
+|*  4 |     INDEX FULL SCAN	      | IX_E3_PRICE_CAT_STATUS |      1 |     24 |     24 |00:00:00.01 |       9 |     12 |
+---------------------------------------------------------------------------------------------------------------------------
+
+Predicate Information (identified by operation id):
+---------------------------------------------------
+
+   1 - filter(ROWNUM<=24)
+   4 - access("CATEGORY_ID"=:C AND "STATUS"='ACTIVE')
+       filter(("CATEGORY_ID"=:C AND "STATUS"='ACTIVE'))
+
+Do thoi gian:
+GHEP_SAI / A	       khop    321 | 20 lan tim = 9.68 +/- 0.46 ms  =>	0.484 ms/lan
+GHEP_SAI / B	       khop  15218 | 20 lan tim = 10.15 +/- 0.32 ms  =>  0.508 ms/lan
+GHEP_SAI / C	       khop   4000 | 20 lan tim = 56.74 +/- 1.29 ms  =>  2.837 ms/lan
+
+Kiem tra: so ket qua moi cau hinh phai giong nhau (A = 321, B = 15218, C = 4000).
+Xong E3 (Oracle). Da xoa cac index E3; bang lab van giu.

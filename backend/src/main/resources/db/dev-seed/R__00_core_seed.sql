@@ -9,6 +9,7 @@
 --   Đơn #1 thường, COMPLETED; đơn #2 flash sale, CONFIRMED, tạo lúc 09:30 trong khung giờ sale.
 -- Sửa file này thì Flyway chạy lại nó và đặt lại tồn kho, sold_quantity của sản phẩm 1 về giá trị dưới đây.
 -- Tài khoản: admin@shopflash.local / customer@shopflash.local, mật khẩu ShopFlash123! (chỉ dùng local).
+-- Danh mục 1 và sản phẩm 1 nằm trong R__00_catalog_seed.sql (chạy trước file này theo thứ tự tên).
 
 MERGE INTO users target
 USING (
@@ -26,35 +27,6 @@ WHEN NOT MATCHED THEN INSERT
   (user_id, email, password_hash, full_name, phone, role, status, created_at, updated_at)
 VALUES
   (source.user_id, source.email, source.password_hash, source.full_name, source.phone, source.role, source.status,
-   TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM'),
-   TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM'));
-
-MERGE INTO categories target
-USING (SELECT 1 category_id, 'Core Products' name, 'core-products' slug, 'Minimal foundation category' description, 'ACTIVE' status FROM dual) source
-ON (target.category_id = source.category_id)
-WHEN MATCHED THEN UPDATE SET
-  target.name = source.name, target.slug = source.slug, target.description = source.description,
-  target.status = source.status, target.updated_at = TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM')
-WHEN NOT MATCHED THEN INSERT
-  (category_id, name, slug, description, status, created_at, updated_at)
-VALUES
-  (source.category_id, source.name, source.slug, source.description, source.status,
-   TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM'),
-   TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM'));
-
-MERGE INTO products target
-USING (SELECT 1 product_id, 1 category_id, 'CORE-001' sku, 'Core Product' name, 'core-product' slug, 'Minimal foundation product' description, 100000 base_price, '/images/core-product.jpg' thumbnail_url, 'ACTIVE' status FROM dual) source
-ON (target.product_id = source.product_id)
-WHEN MATCHED THEN UPDATE SET
-  target.category_id = source.category_id, target.sku = source.sku, target.name = source.name,
-  target.slug = source.slug, target.description = source.description, target.base_price = source.base_price,
-  target.thumbnail_url = source.thumbnail_url, target.status = source.status,
-  target.updated_at = TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM')
-WHEN NOT MATCHED THEN INSERT
-  (product_id, category_id, sku, name, slug, description, base_price, thumbnail_url, status, created_at, updated_at)
-VALUES
-  (source.product_id, source.category_id, source.sku, source.name, source.slug, source.description,
-   source.base_price, source.thumbnail_url, source.status,
    TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM'),
    TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM'));
 

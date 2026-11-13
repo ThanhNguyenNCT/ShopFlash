@@ -22,7 +22,26 @@ function clean(params = {}) {
 /** params: { q, categoryId, minPrice, maxPrice, inStock, sort, page, size } → { data: { items, page }, meta } */
 export async function searchProducts(params) {
   const { data } = await apiClient.get('/products/search', { params: clean(params) });
+  logSearchMeta(params, data?.meta);
   return data;
+}
+
+/**
+ * Demo chủ đề Indexing: nguồn (RediSearch/Oracle), tuyến, thời gian gọi DB, câu lệnh in ra console trình duyệt
+ * (F12 > Console) thay vì hiện trên giao diện khách hàng. Trang Lab của admin vẫn hiện đầy đủ trên giao diện.
+ */
+function logSearchMeta(params, meta) {
+  if (!meta) return;
+  const source = meta.source === 'redis' ? 'RediSearch' : 'Oracle';
+  const route = meta.route === 'KEYWORD' ? 'tìm theo từ khóa' : 'duyệt và lọc';
+  console.groupCollapsed(
+    `[ShopFlash search] ${source} · ${route} · ${formatMs(meta.elapsedMs)} · ${meta.roundTrips} lượt gọi DB · ${meta.total} kết quả`,
+  );
+  console.log('Điều kiện:', clean(params));
+  console.log('Câu lệnh:', meta.statement);
+  if (meta.note) console.log('Ghi chú:', meta.note);
+  console.log('meta:', meta);
+  console.groupEnd();
 }
 
 export async function getProduct(productId) {

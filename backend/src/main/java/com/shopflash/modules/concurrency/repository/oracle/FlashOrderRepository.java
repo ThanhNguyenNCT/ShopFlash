@@ -33,13 +33,18 @@ public class FlashOrderRepository {
         this.jdbc = jdbc;
     }
 
-    /** sold += q nếu item còn ACTIVE và không vượt allocated. false: hết suất trong Oracle. */
+    /**
+     * sold += q nếu item còn ACTIVE, không vượt allocated và chương trình còn SCHEDULED/ACTIVE trong Oracle. Điều kiện
+     * cuối là chốt chặn khi chương trình đã hủy lịch hoặc hủy mà key Redis chưa kịp xóa. false: không bán được.
+     */
     public boolean addSold(long itemId, int quantity) {
         return jdbc.update("""
-                UPDATE flash_sale_items
-                SET    sold_quantity = sold_quantity + :q, updated_at = SYSTIMESTAMP
-                WHERE  flash_sale_item_id = :itemId AND status = 'ACTIVE'
-                AND    sold_quantity + :q <= allocated_quantity
+                UPDATE flash_sale_items fi
+                SET    fi.sold_quantity = fi.sold_quantity + :q, fi.updated_at = SYSTIMESTAMP
+                WHERE  fi.flash_sale_item_id = :itemId AND fi.status = 'ACTIVE'
+                AND    fi.sold_quantity + :q <= fi.allocated_quantity
+                AND    EXISTS (SELECT 1 FROM flash_sales fs
+                               WHERE fs.flash_sale_id = fi.flash_sale_id AND fs.status IN ('SCHEDULED', 'ACTIVE'))
                 """, Map.of("q", quantity, "itemId", itemId)) == 1;
     }
 

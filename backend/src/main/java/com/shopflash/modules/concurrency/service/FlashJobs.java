@@ -1,5 +1,7 @@
 package com.shopflash.modules.concurrency.service;
 
+import java.util.List;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -20,10 +22,27 @@ public class FlashJobs {
 
     private final ReservationSweeper sweeper;
     private final FlashRuntimeService runtime;
+    private final FlashLifecycleService lifecycle;
 
-    public FlashJobs(ReservationSweeper sweeper, FlashRuntimeService runtime) {
+    public FlashJobs(ReservationSweeper sweeper, FlashRuntimeService runtime, FlashLifecycleService lifecycle) {
         this.sweeper = sweeper;
         this.runtime = runtime;
+        this.lifecycle = lifecycle;
+    }
+
+    /** SCHEDULED → ACTIVE khi tới giờ; ACTIVE → ENDED sau end_at + thời gian giữ suất + mốc an toàn. */
+    @Scheduled(initialDelayString = "${shopflash.flash.sweep-interval-ms:5000}",
+            fixedDelayString = "${shopflash.flash.sweep-interval-ms:5000}")
+    public void advanceLifecycle() {
+        try {
+            List<Long> activated = lifecycle.activateDue();
+            List<Long> ended = lifecycle.endDue();
+            if (!activated.isEmpty() || !ended.isEmpty()) {
+                log.info("Flash sale: mở bán {}, kết thúc {}", activated, ended);
+            }
+        } catch (RuntimeException e) {
+            log.warn("Job chuyển trạng thái flash sale lỗi, sẽ chạy lại: {}", e.getMessage());
+        }
     }
 
     @Scheduled(initialDelayString = "${shopflash.flash.sweep-interval-ms:5000}",

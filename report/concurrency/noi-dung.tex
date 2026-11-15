@@ -109,7 +109,7 @@ Thí nghiệm hai phiên về lost update, lock timeout và deadlock đã có �
 % -----------------------------------------------------------------------------
 \subsubsection{Thiết kế thí nghiệm}\label{sec:cc-thi-nghiem}
 
-Concurrency Lab là trang quản trị trong ShopFlash, chạy cùng một kịch bản ``N người tranh M suất'' bằng mười chiến lược (Bảng~\ref{tab:cc-chien-luoc}). Backend chạy N lượt mua bằng virtual thread, tối đa C lượt đồng thời, có cổng xuất phát chung để mọi lượt bắt đầu cùng lúc. Lab ghi vào bảng \texttt{cc\_lab\_items} và key \texttt{cclab:item} riêng, không đụng dữ liệu bán hàng.
+Concurrency Lab là trang quản trị trong ShopFlash, chạy cùng một kịch bản ``N người tranh M suất'' bằng mười chiến lược (Bảng~\ref{tab:cc-chien-luoc}). Backend chạy N lượt mua trên đúng C thread (tối đa C lượt đồng thời), có cổng xuất phát chung để mọi lượt bắt đầu cùng lúc. Lab ghi vào bảng \texttt{cc\_lab\_items} và key \texttt{cclab:item} riêng, không đụng dữ liệu bán hàng.
 
 \begin{table}[H]
 \centering

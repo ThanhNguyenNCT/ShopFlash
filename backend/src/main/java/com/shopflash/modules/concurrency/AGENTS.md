@@ -158,7 +158,7 @@ Mở rộng nếu còn thời gian (cần TV4 chuyển việc hủy đơn flash 
 
 ## Concurrency Lab
 
-Kịch bản: một "hot item" có M suất, N người cùng mua, mỗi người 1 suất. Backend chạy N lượt mua bằng virtual thread, giới hạn C lượt đồng thời, có cổng xuất phát chung (`CountDownLatch`) để mọi lượt bắt đầu cùng lúc.
+Kịch bản: một "hot item" có M suất, N người cùng mua, mỗi người 1 suất. Backend chạy N lượt mua trên đúng C platform thread (tối đa C lượt đồng thời), có cổng xuất phát chung (`CountDownLatch`) để mọi lượt bắt đầu cùng lúc.
 
 | `strategy` | Cách làm | Kỳ vọng |
 |---|---|---|
@@ -179,7 +179,8 @@ Cài đặt (code ở `lab/`, `repository/oracle/LabOracleCounter`, `repository/
 - `OPTIMISTIC`, `SERIALIZABLE`, `REDIS_WATCH` thử lại tối đa 5 lần, không chờ giữa các lần. Hết lượt thì lượt đó lỗi `RETRY_EXHAUSTED` (`SERIALIZABLE` ghi `ORA-08177`). `NOWAIT` không thử lại. Vì vậy các chiến lược này có thể bán **ít hơn** M dù còn người mua.
 - `REDIS_LUA` dùng `lab-buy.lua`. `REDIS_WATCH` chạy trên kết nối riêng của transaction (`redis.transaction(false)`).
 - Mỗi lần chạy (kể cả warmup) đặt lại bộ đếm về `allocated = M`, `sold = 0` trước khi chạy.
-- Độ trễ một lượt đo từ lúc lượt được phép chạy (lấy được permit của `Semaphore`) tới lúc xong, nên gồm cả thời gian chờ kết nối từ pool khi C lớn hơn pool; không gồm thời gian chờ permit. Đã kiểm tra bằng `-Djdk.tracePinnedThreads=short` trên JDK 23: JDBC (ojdbc17) và Jedis không ghim virtual thread.
+- Độ trễ một lượt đo từ lúc thread bắt đầu chạy lượt đó tới lúc xong, nên gồm cả thời gian chờ kết nối từ pool khi C lớn hơn pool; không gồm thời gian xếp hàng chờ thread.
+- **Không dùng virtual thread cho tải Redis.** Trên JDK 21–23, commons-pool2 (pool của Jedis) tạo kết nối mới trong `synchronized` + `Object.wait`, ghim virtual thread vào carrier. Khi pool đang tăng kích thước mà hàng trăm virtual thread cùng mượn kết nối, carrier bị chiếm hết và cả lần chạy đứng lại (đã gặp 2026-11-15: `FlashRuntimeIT` treo 6 phút, thread dump dừng ở `GenericObjectPool.create`). `-Djdk.tracePinnedThreads` không báo trường hợp chờ vào `synchronized` nên lần kiểm tra trước không thấy. JDK 24 trở đi (JEP 491) không còn ghim ở `synchronized`.
 - Chỉ một lần chạy (hoặc `reset`) tại một thời điểm trong một backend.
 
 Số đo mỗi lần chạy: `successes`, `soldOut`, `oversold = max(0, successes - M)`, `finalSold`, `lostUpdates = successes - finalSold`, `retries`, `errors` và `errorCodes` (đếm theo mã, ví dụ `ORA-00054`, `ORA-08177`, `RETRY_EXHAUSTED`), `elapsedMs`, `throughput` (lượt/giây), `p50Ms`, `p95Ms`, `p99Ms` (nearest-rank). Mặc định 1 lần warmup không tính và 5 lần đo; `summary` trả trung bình và độ lệch chuẩn mẫu (yêu cầu của `report/AGENTS.md`).
@@ -236,12 +237,17 @@ Base khách hàng: `/api/flash-sales`. Base admin: `/api/admin/flash-sales`, `/a
 | `GET /api/admin/flash-sales/{id}` | Chi tiết: thông tin, policy, sản phẩm, `version` |
 | `POST /api/admin/flash-sales` | Tạo `DRAFT`: `{ name, description, startAt, endAt, config: { maxQuantityPerUser, reservationTimeoutSeconds, allowCancel } }` |
 | `PUT /api/admin/flash-sales/{id}` | Sửa theo quy tắc ở mục "Vòng đời"; body có `version` |
-| `PUT /api/admin/flash-sales/{id}/items` | Chỉ `DRAFT`. Thay toàn bộ danh sách `[{ productId, salePrice, allocatedQuantity }]`. Kiểm tra: `salePrice < basePrice`, `allocatedQuantity > 0` và không vượt `on_hand - reserved`, sản phẩm `ACTIVE`, không trùng |
+| `PUT /api/admin/flash-sales/{id}/items` | Chỉ `DRAFT`. Body `{ version, items: [{ productId, salePrice, allocatedQuantity }] }` (tối đa 50), thay toàn bộ danh sách. Kiểm tra: `salePrice < basePrice`, `allocatedQuantity > 0` và không vượt `on_hand - reserved`, sản phẩm `ACTIVE` (`409 PRODUCT_UNAVAILABLE`), có thật (`404 PRODUCT_NOT_FOUND`), không trùng, không nằm trong chương trình `SCHEDULED`/`ACTIVE` khác trùng giờ (`409 PRODUCT_UNAVAILABLE`). `version` cũ thì `409 FLASH_SALE_CHANGED` |
 | `DELETE /api/admin/flash-sales/{id}` | Chỉ `DRAFT` |
 | `POST /api/admin/flash-sales/{id}/schedule`, `/unschedule`, `/cancel`, `/stop` | Đổi trạng thái |
-| `GET /api/admin/flash-sales/eligible-products?q=&page=&size=` | Sản phẩm `ACTIVE` chưa nằm trong chương trình `SCHEDULED`/`ACTIVE` nào trùng giờ (`NOT EXISTS`) |
-| `GET /api/admin/flash-sales/{id}/runtime` | Đối chiếu từng sản phẩm: `allocated`, `sold` (Oracle), `remaining`, số reservation đang chờ (Redis), và các dòng lệch của `v_inventory_invariant_check` |
-| `POST /api/admin/flash-sales/{id}/runtime/rebuild` | Dựng lại key runtime từ Oracle |
+| `GET /api/admin/flash-sales/eligible-products?saleId=&q=&page=&size=` | Sản phẩm `ACTIVE`, còn hàng (`on_hand - reserved > 0`), chưa nằm trong chương trình `SCHEDULED`/`ACTIVE` nào trùng giờ với chương trình `saleId` (`NOT EXISTS`). `q` tìm theo tên hoặc SKU |
+| `GET /api/admin/flash-sales/{id}/runtime` | `{ flashSaleId, status, runtimeLoaded, serverTime, items: [{ itemId, productId, productName, allocated, sold, remaining, held, pendingReservations, inSync }], invariantViolations: [{ productId, reservedFlash, expectedReserved }] }`. `held = allocated - sold - remaining` là số suất đang được giữ; `inSync = false` khi Redis thiếu key hoặc `held < 0` |
+| `POST /api/admin/flash-sales/{id}/runtime/rebuild` | Dựng lại key runtime từ Oracle, chỉ cho `SCHEDULED`/`ACTIVE`: `{ flashSaleId, items, droppedReservations }` |
+
+- Danh sách trả `{ rows, page, size, total }` (giống module `storage`), `page` từ 1, `size` 1–100 (mặc định 20). Chi tiết và mọi lệnh đổi trạng thái trả `{ flashSaleId, name, description, status, startAt, endAt, version, config: { maxQuantityPerUser, reservationTimeoutSeconds, allowCancel }, items: [...], createdAt, updatedAt }`.
+- Tạo/sửa: `name` 1–200 byte, `description` tối đa 1000 byte, `maxQuantityPerUser` 1–10 (mặc định 1), `reservationTimeoutSeconds` 30–1800 (mặc định 60), `allowCancel = true` chưa hỗ trợ (`400`). Sửa cần `version`.
+- Đổi trạng thái sai thì `409 INVALID_STATUS_TRANSITION`, thông báo nói rõ lý do (sai trạng thái, giờ bắt đầu đã qua, còn dưới 60 s, chưa có sản phẩm). Lên lịch thiếu hàng thì `409 INSUFFICIENT_STOCK` kèm `details.productId`, không giữ hàng cho sản phẩm nào.
+- Cài đặt: `FlashAdminService`, `FlashLifecycleService`. Job kết thúc chờ `end_at + reservation_timeout_seconds + shopflash.flash.end-grace-seconds` (mặc định 120). Câu tăng `sold` khi đặt đơn còn kiểm tra chương trình đang `SCHEDULED`/`ACTIVE` trong Oracle: hủy lịch mà key Redis chưa kịp xóa thì đơn vẫn bị chặn. Nạp runtime kiểm tra lại trạng thái sau khi nạp; chương trình vừa bị hủy lịch thì gỡ runtime vừa nạp.
 
 ### Admin: Concurrency Lab
 

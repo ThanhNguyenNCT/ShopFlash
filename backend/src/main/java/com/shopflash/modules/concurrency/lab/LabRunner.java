@@ -4,21 +4,28 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.Semaphore;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 /**
- * Chạy N lượt mua, mỗi lượt một virtual thread, tối đa C lượt chạy cùng lúc (Semaphore). Mọi lượt chờ ở một
- * cổng xuất phát chung (CountDownLatch) rồi mới bắt đầu, để tranh chấp xảy ra ngay từ đầu.
+ * Chạy N lượt mua trên đúng C thread (tối đa C lượt cùng lúc). Mọi lượt chờ ở một cổng xuất phát chung
+ * (CountDownLatch) rồi mới bắt đầu, để tranh chấp xảy ra ngay từ đầu.
  *
- * Độ trễ một lượt đo từ lúc lấy được permit tới lúc xong, nên gồm cả thời gian chờ kết nối từ pool Oracle
- * hoặc Redis khi C lớn hơn kích thước pool; không gồm thời gian xếp hàng chờ permit.
+ * Dùng platform thread, không dùng virtual thread: trên JDK 21–23, commons-pool2 (pool kết nối của Jedis) tạo kết
+ * nối mới trong khối synchronized và Object.wait, nên ghim virtual thread vào carrier. Khi pool còn đang tăng kích
+ * thước mà hàng trăm virtual thread cùng mượn kết nối, carrier bị chiếm hết và cả lần chạy đứng lại (đã gặp trong
+ * test; thread dump dừng ở GenericObjectPool.create).
  *
- * Mỗi lần gọi run sở hữu executor của nó: trả về thì mọi lượt đã xong. Bị ngắt (interrupt) thì ngắt các lượt
- * đang chạy, đợi chúng dừng rồi ném InterruptedException.
+ * Độ trễ một lượt đo từ lúc thread bắt đầu chạy lượt đó tới lúc xong, nên gồm cả thời gian chờ kết nối từ pool
+ * Oracle hoặc Redis khi C lớn hơn kích thước pool; không gồm thời gian xếp hàng chờ thread.
+ *
+ * Mỗi lần gọi run sở hữu pool thread của nó: trả về thì mọi lượt đã xong và pool đã đóng. Bị ngắt (interrupt) thì
+ * ngắt các lượt đang chạy, đợi chúng dừng rồi ném InterruptedException.
  */
 public final class LabRunner {
 
@@ -38,13 +45,15 @@ public final class LabRunner {
         if (buyers < 1 || concurrency < 1) {
             throw new IllegalArgumentException("buyers và concurrency phải >= 1");
         }
-        Semaphore permits = new Semaphore(concurrency);
         CountDownLatch gate = new CountDownLatch(1);
         List<Future<Sample>> futures = new ArrayList<>(buyers);
-        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(concurrency, concurrency, 0, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(), workers());
+        executor.prestartAllCoreThreads();
+        try (executor) {
             try {
                 for (int i = 0; i < buyers; i++) {
-                    futures.add(executor.submit(() -> buyOnce(gate, permits, attempt)));
+                    futures.add(executor.submit(() -> buyOnce(gate, attempt)));
                 }
                 long started = System.nanoTime();
                 gate.countDown();
@@ -67,21 +76,24 @@ public final class LabRunner {
         }
     }
 
-    private static Sample buyOnce(CountDownLatch gate, Semaphore permits, Supplier<AttemptOutcome> attempt)
-            throws InterruptedException {
+    private static Sample buyOnce(CountDownLatch gate, Supplier<AttemptOutcome> attempt) throws InterruptedException {
         gate.await();
-        permits.acquire();
+        long t0 = System.nanoTime();
+        AttemptOutcome outcome;
         try {
-            long t0 = System.nanoTime();
-            AttemptOutcome outcome;
-            try {
-                outcome = attempt.get();
-            } catch (RuntimeException e) {
-                outcome = AttemptOutcome.error(LabErrorCodes.of(e), 0);
-            }
-            return new Sample(outcome, System.nanoTime() - t0);
-        } finally {
-            permits.release();
+            outcome = attempt.get();
+        } catch (RuntimeException e) {
+            outcome = AttemptOutcome.error(LabErrorCodes.of(e), 0);
         }
+        return new Sample(outcome, System.nanoTime() - t0);
+    }
+
+    private static ThreadFactory workers() {
+        AtomicInteger n = new AtomicInteger();
+        return r -> {
+            Thread t = new Thread(r, "cclab-buyer-" + n.incrementAndGet());
+            t.setDaemon(true);
+            return t;
+        };
     }
 }

@@ -176,7 +176,8 @@ class FlashRuntimeIT {
         Map<String, Integer> outcomes = new ConcurrentHashMap<>();
         CountDownLatch start = new CountDownLatch(1);
         List<Future<?>> tasks = new ArrayList<>();
-        try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
+        // Platform thread: virtual thread bị ghim trong pool của Jedis trên JDK 21–23 (xem LabRunner).
+        try (ExecutorService pool = Executors.newFixedThreadPool(200)) {
             for (int i = 0; i < 200; i++) {
                 long userId = 1000 + i;
                 tasks.add(pool.submit(() -> {
@@ -207,7 +208,7 @@ class FlashRuntimeIT {
         Map<Boolean, Integer> created = new ConcurrentHashMap<>();
         CountDownLatch start = new CountDownLatch(1);
         List<Future<?>> tasks = new ArrayList<>();
-        try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
+        try (ExecutorService pool = Executors.newFixedThreadPool(20)) {
             for (int i = 0; i < 20; i++) {
                 tasks.add(pool.submit(() -> {
                     start.await();

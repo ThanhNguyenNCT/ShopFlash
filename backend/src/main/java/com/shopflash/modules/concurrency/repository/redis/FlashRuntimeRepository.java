@@ -187,9 +187,32 @@ public class FlashRuntimeRepository {
         return dropped;
     }
 
-    /** Đổi trạng thái chương trình trên Redis (ví dụ SCHEDULED -> ACTIVE). */
-    public void setSaleStatus(long saleId, String status) {
-        call(() -> redis.hset(FlashKeys.sale(saleId), "status", status));
+    /** Đổi trạng thái chương trình trên Redis (ví dụ SCHEDULED -> ACTIVE). false nếu runtime chưa nạp. */
+    public boolean setSaleStatus(long saleId, String status) {
+        return asLong(scripts.run(Script.HSET_IF_EXISTS, List.of(FlashKeys.sale(saleId)),
+                List.of("status", status))) == 1;
+    }
+
+    /** Dừng sớm: ghi endAt mới để reserve.lua từ chối ngay. false nếu runtime chưa nạp. */
+    public boolean setSaleEndAt(long saleId, long endAtMs) {
+        return asLong(scripts.run(Script.HSET_IF_EXISTS, List.of(FlashKeys.sale(saleId)),
+                List.of("endAt", String.valueOf(endAtMs)))) == 1;
+    }
+
+    /** Số reservation đang PENDING/CLAIMED của từng item (HLEN pending), một round-trip. */
+    public Map<Long, Long> pendingCounts(Collection<Long> itemIds) {
+        return call(() -> {
+            Map<Long, Response<Long>> responses = new LinkedHashMap<>();
+            try (AbstractPipeline p = redis.pipelined()) {
+                for (Long itemId : itemIds) {
+                    responses.put(itemId, p.hlen(FlashKeys.pending(itemId)));
+                }
+                p.sync();
+            }
+            Map<Long, Long> out = new LinkedHashMap<>();
+            responses.forEach((itemId, r) -> out.put(itemId, r.get()));
+            return out;
+        });
     }
 
     /** Xóa runtime của chương trình (kết thúc, hủy, hủy lịch). Reservation tự hết TTL hoặc do job dọn. */

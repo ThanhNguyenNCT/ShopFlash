@@ -29,7 +29,8 @@ public class LuaScripts {
         CONFIRM("confirm.lua"),
         RELEASE("release.lua"),
         LOAD_ITEM("load-item.lua"),
-        LAB_BUY("lab-buy.lua");
+        LAB_BUY("lab-buy.lua"),
+        HSET_IF_EXISTS("hset-if-exists.lua");
 
         private final String file;
 

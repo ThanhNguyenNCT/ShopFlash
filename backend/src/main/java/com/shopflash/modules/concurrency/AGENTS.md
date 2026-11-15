@@ -2,7 +2,7 @@
 
 Chủ đề: Concurrency control.
 
-> **BẢN NHÁP, chưa chốt** (TV5, 2026-10-24; cập nhật 2026-11-10 sau khi bàn giao F10 và F0 cho TV4). Mục có nhãn **[Cần chốt: …]** phải thống nhất với người được nêu tên trước khi code. Chốt xong thì đổi tiêu đề "Quyết định (đề xuất)" thành "Quyết định đã chốt" và bỏ các nhãn.
+> Thiết kế đã chốt với TV4, TV1 (2026-11-15). Riêng số kết nối tối đa của pool Oracle và Redis còn chờ nhóm (mục Concurrency Lab).
 
 ## Chức năng
 
@@ -13,7 +13,7 @@ Chủ đề: Concurrency control.
 
 F10 Giỏ hàng và F0 Đăng nhập đã bàn giao cho TV4 (`transaction`, `common/security`) ngày 26/10/2026. Module này không đọc, không ghi `CARTS`, `CART_ITEMS`. F9 giữ trách nhiệm trạng thái và suất Flash Sale; với Checkout, hai module thống nhất thứ tự khóa `PRODUCT_INVENTORY` (xem "Thứ tự khóa").
 
-## Quyết định (đề xuất)
+## Quyết định đã chốt
 
 - **Oracle là nguồn gốc** của chương trình, policy, giá, suất (`allocated_quantity`, `sold_quantity`), tồn kho và đơn flash sale. **Redis giữ trạng thái runtime** từ lúc chương trình được lên lịch: suất còn lại, số lượng mỗi người đã giữ, reservation. Reservation chỉ có trên Redis.
 - **Mất dữ liệu Redis vẫn không bán vượt.** Runtime dựng lại từ Oracle: `remaining = allocated - sold`, `user_qty` đếm từ `order_items` của các đơn chưa hủy. Chỉ mất các reservation đang chờ, nghĩa là suất đó được mở bán lại. Lúc khởi động và trong job định kỳ, chương trình `SCHEDULED`/`ACTIVE` nào thiếu key runtime thì được nạp lại.
@@ -21,18 +21,18 @@ F10 Giỏ hàng và F0 Đăng nhập đã bàn giao cho TV4 (`transaction`, `com
 - **Giờ mở/đóng do Lua quyết định bằng đồng hồ Redis** (`redis.call('TIME')`), không phụ thuộc job. Job chỉ đổi trạng thái trong Oracle và có thể trễ vài giây mà không ảnh hưởng người mua.
 - **Giữ suất là một Lua script duy nhất**: kiểm tra và trừ suất trong cùng một lệnh nên không có race. Không dùng khóa phân tán (`SET NX`) cho việc này; khóa phân tán chỉ nhắc trong báo cáo để so sánh.
 - **Hoàn tất mua theo kiểu Try–Confirm–Cancel**, không dùng XA giữa Oracle và Redis. Reservation đi theo `PENDING → CLAIMED → CONFIRMED | RELEASED`, hoặc `PENDING → RELEASED` khi hết hạn hay người dùng hủy. Chi tiết ở mục "Luồng mua flash sale".
-- **Module tự tạo đơn flash sale.** **[Cần chốt: TV4]** Hợp đồng của `transaction` (`backend/docs/transaction/CONTRACT.md`) để F9 ngoài phạm vi Checkout, nên module có endpoint đặt đơn riêng: ghi `ORDERS` (`order_type = 'FLASH_SALE'`) và `ORDER_ITEMS` trong cùng transaction với tăng `sold_quantity` và trừ kho. Hai module không gọi code của nhau. Đơn flash vẫn hiện ở "Đơn hàng của tôi" (F8) vì truy vấn của `transaction` không lọc `order_type`.
+- **Module tự tạo đơn flash sale.** Hợp đồng của `transaction` (`backend/docs/transaction/CONTRACT.md`) để F9 ngoài phạm vi Checkout, nên module có endpoint đặt đơn riêng: ghi `ORDERS` (`order_type = 'FLASH_SALE'`) và `ORDER_ITEMS` trong cùng transaction với tăng `sold_quantity` và trừ kho. Hai module không gọi code của nhau. Đơn flash vẫn hiện ở "Đơn hàng của tôi" (F8) vì truy vấn của `transaction` không lọc `order_type`.
 - **Ghi Oracle bằng điều kiện trong `WHERE`** (compare-and-set). Không đọc giá trị lên Java, tính rồi ghi lại. Đổi trạng thái chương trình dùng `UPDATE flash_sales SET status = :to WHERE flash_sale_id = :id AND status = :from`; nhiều admin hoặc job chạy cùng lúc thì chỉ một bên thắng.
 - **Mọi câu `UPDATE product_inventory` đều `version = version + 1`.** Khớp với code đã có: `storage` kiểm tra `version` khi admin sửa tồn kho (optimistic lock), `transaction` tăng `version` khi trừ và hoàn kho. Nếu bên bán flash sale không tăng version, admin đang mở form với số cũ có thể ghi đè lên số vừa bị trừ (lost update).
-- **Thứ tự khóa để tránh deadlock** **[Cần chốt: TV4]**: ở mọi module, `PRODUCT_INVENTORY` luôn khóa sau cùng, nhiều dòng thì theo `product_id` tăng dần.
+- **Thứ tự khóa để tránh deadlock**: ở mọi module, `PRODUCT_INVENTORY` luôn khóa sau cùng, nhiều dòng thì theo `product_id` tăng dần.
   - `transaction` (đã chốt trong CONTRACT): Checkout `CARTS → PRODUCTS → PRODUCT_INVENTORY`; hủy đơn `ORDERS → PRODUCT_INVENTORY`.
   - `concurrency`: `FLASH_SALES → FLASH_SALE_ITEMS` (nhiều dòng theo `flash_sale_item_id` tăng dần) `→ PRODUCT_INVENTORY`. Đọc `PRODUCTS` không khóa.
   - Module này không khóa `CARTS`, `PRODUCTS`, `ORDERS`; `transaction` không khóa bảng `FLASH_*`. Vì vậy không có chu trình chờ giữa hai module.
 - **Job chạy được nhiều instance**: chọn chương trình cần chuyển trạng thái bằng `FOR UPDATE SKIP LOCKED`; script dọn reservation kiểm tra trạng thái ngay trong Lua nên chạy trùng cũng không sao. `@EnableScheduling` đặt trong config của module.
 - **Người dùng hiện tại** lấy từ JWT mà `common/security` đã kiểm tra (`AuthPrincipal` trong `SecurityContext`), theo mẫu `transaction/security/JwtTransactionIdentity`. Không nhận `userId` từ body, query hay header. Giữ suất, hủy giữ suất, đặt đơn chỉ cho vai trò `CUSTOMER`. Test tải bằng k6 đăng nhập trước qua `POST /api/auth/login` trong `setup()` để có token cho từng khách thử.
-- **Quyền** **[Cần chốt: TV4]**: `SecurityConfig` hiện chặn mọi `/api/**` chưa khai báo (`denyAll`). Cần thêm: `GET /api/flash-sales/active` và `GET /api/flash-sales/*/stock` cho mọi người; phần còn lại của `/api/flash-sales/**` cần `CUSTOMER`. `/api/admin/**` đã yêu cầu `ADMIN`. Token gửi qua header `Authorization` nên không cần CSRF.
+- **Quyền**: `SecurityConfig` hiện chặn mọi `/api/**` chưa khai báo (`denyAll`). Cần thêm: `GET /api/flash-sales/active` và `GET /api/flash-sales/*/stock` cho mọi người; phần còn lại của `/api/flash-sales/**` cần `CUSTOMER`. `/api/admin/**` đã yêu cầu `ADMIN`. Token gửi qua header `Authorization` nên không cần CSRF.
 - **Thời gian:** API dùng ISO-8601 có offset `+07:00`, giống module `query`. Redis lưu epoch mili giây. Response của flash sale có `serverTime` để frontend đếm ngược theo giờ server, không theo đồng hồ máy khách.
-- **Client Redis:** `RedisClient` dùng chung. Script nằm ở `src/main/resources/concurrency/redis/*.lua`, nạp bằng `SCRIPT LOAD` lúc khởi động, gọi bằng `EVALSHA` (gặp `NOSCRIPT` thì nạp lại).
+- **Client Redis:** `RedisClient` dùng chung. Script nằm ở `src/main/resources/concurrency/redis/*.lua` (`reserve`, `claim`, `confirm`, `release`, `load-item`). SHA1 tính sẵn lúc khởi động nên backend không cần Redis để khởi động; gọi bằng `EVALSHA`, gặp `NOSCRIPT` thì `SCRIPT LOAD` rồi gọi lại một lần. `WATCH` (chiến lược `REDIS_WATCH` của Lab) phải chạy trên kết nối riêng của transaction (`redis.transaction(false)`).
 
 ## Dữ liệu
 
@@ -173,7 +173,7 @@ Số đo mỗi lần chạy: `successes`, `oversold = max(0, successes - M)`, `f
 
 Số kết nối tối đa ảnh hưởng trực tiếp throughput: Oracle là Hikari `maximumPoolSize` (mặc định 10, `application.properties` chưa đặt), Redis là pool của `RedisClient` (16). Kết quả luôn ghi hai số này. **[Cần chốt: nhóm]** đặt cùng một con số cho hai bên trong `application.properties`.
 
-Các demo hai phiên chạy tay (lost update theo từng bước, lock timeout, deadlock `ORA-00060`, `MULTI/EXEC` không rollback, `WATCH`) đã có trong báo cáo 3.4 của `transaction` (`report/transaction/REPORT.md`, thí nghiệm A4–A5, B1–B5). Báo cáo 3.5 dẫn lại phần đó, chỉ làm thêm phần 3.4 chưa có (`SERIALIZABLE`, `ORA-08177`) dưới dạng script trong `report/concurrency/`, không đưa vào Lab. **[Cần chốt: TV4]**
+Các demo hai phiên chạy tay (lost update theo từng bước, lock timeout, deadlock `ORA-00060`, `MULTI/EXEC` không rollback, `WATCH`) đã có trong báo cáo 3.4 của `transaction` (`report/transaction/REPORT.md`, thí nghiệm A4–A5, B1–B5). Báo cáo 3.5 dẫn lại phần đó, chỉ làm thêm phần 3.4 chưa có (`SERIALIZABLE`, `ORA-08177`) dưới dạng script trong `report/concurrency/`, không đưa vào Lab.
 
 ## API
 
@@ -260,12 +260,12 @@ Base khách hàng: `/api/flash-sales`. Base admin: `/api/admin/flash-sales`, `/a
 
 ## Phụ thuộc
 
-- **Module `transaction` và `common/security` (TV4)** **[Cần chốt]**:
+- **Module `transaction` và `common/security` (TV4)**:
   - Thêm quy tắc cho `/api/flash-sales/**` vào `SecurityConfig` (mục "Quyền").
   - Đồng ý để module này tự tạo đơn `FLASH_SALE`. F8 hiển thị đơn này và giữ `409 ORDER_NOT_CANCELLABLE` khi khách hủy.
   - Xác nhận thứ tự khóa ở mục "Thứ tự khóa".
   - Chia thí nghiệm giữa báo cáo 3.4 và 3.5 (mục "Concurrency Lab").
-- **Module `storage` (TV1)** **[Cần chốt]**: không cho chuyển sản phẩm sang `INACTIVE` khi sản phẩm đang có trong chương trình `SCHEDULED`/`ACTIVE` (`409`). Storage đã chặn `on_hand_quantity < reserved_flash_quantity`, khớp với module này.
+- **Module `storage` (TV1)**: không cho chuyển sản phẩm sang `INACTIVE` khi sản phẩm đang có trong chương trình `SCHEDULED`/`ACTIVE` (`409`). Storage đã chặn `on_hand_quantity < reserved_flash_quantity`, khớp với module này.
 
 ## Giao diện
 

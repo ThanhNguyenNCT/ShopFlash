@@ -44,7 +44,7 @@ import jakarta.servlet.Filter;
  * Cần dữ liệu seed của profile dev (admin@shopflash.local, cc001@shopflash.local).
  * Chỉ ghi cc_lab_items và key cclab:item; xong thì đặt lại về quota mặc định.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK, properties = "shopflash.flash.jobs.enabled=false")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ConcurrencyLabIT {
 

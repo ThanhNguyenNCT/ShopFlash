@@ -39,7 +39,7 @@ import redis.clients.jedis.RedisClient;
  * Dùng chương trình giả 990001-990004 chỉ có trên Redis; dọn sạch key sau khi chạy.
  */
 // MOCK thay vì NONE: SecurityConfig của common/security cần môi trường web.
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK, properties = "shopflash.flash.jobs.enabled=false")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class FlashRuntimeIT {
 

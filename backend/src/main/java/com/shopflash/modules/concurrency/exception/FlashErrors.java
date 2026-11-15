@@ -35,6 +35,18 @@ public final class FlashErrors {
         return ApiException.notFound("RESERVATION_NOT_FOUND", "Không tìm thấy suất đã giữ");
     }
 
+    public static ApiException soldOut() {
+        return ApiException.conflict("SOLD_OUT", "Đã hết suất");
+    }
+
+    public static ApiException reservationAlreadyUsed() {
+        return ApiException.conflict("RESERVATION_ALREADY_USED", "Suất này đang được đặt đơn hoặc đã đặt đơn");
+    }
+
+    public static ApiException itemNotFound() {
+        return ApiException.notFound("FLASH_SALE_ITEM_NOT_FOUND", "Không tìm thấy sản phẩm trong chương trình");
+    }
+
     public static ApiException saleNotFound() {
         return ApiException.notFound("FLASH_SALE_NOT_FOUND", "Không tìm thấy chương trình flash sale");
     }

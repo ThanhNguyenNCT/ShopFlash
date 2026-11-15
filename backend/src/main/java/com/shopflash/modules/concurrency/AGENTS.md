@@ -63,7 +63,7 @@ Không dùng sản phẩm 1 của seed lõi: seed lõi đặt lại `reserved_fl
 
 | Key | Kiểu | Nội dung |
 |---|---|---|
-| `flash:sale:{saleId}` | HASH | `status`, `startAt`, `endAt` (epoch ms), `maxPerUser`, `reservationTtl` (giây) |
+| `flash:sale:{saleId}` | HASH | `status`, `startAt`, `endAt` (epoch ms), `maxPerUser`, `reservationTtl` (giây), `itemIds` (danh sách `flash_sale_item_id` cách nhau dấu phẩy, để API `stock` chỉ đọc Redis) |
 | `flash:item:{itemId}` | HASH | `saleId`, `productId`, `allocated`, `remaining`, `status` |
 | `flash:item:{itemId}:user_qty` | HASH | `userId` → số lượng đã giữ cộng đã mua |
 | `flash:item:{itemId}:pending` | HASH | `userId` → `reservationId` đang `PENDING`/`CLAIMED`. **Thêm so với DATABASE_DESIGN:** người dùng bấm "Mua ngay" hai lần thì nhận lại đúng reservation cũ |
@@ -136,7 +136,9 @@ COMMIT   → confirm: CONFIRMED, ZREM expiry, HDEL pending
 ROLLBACK → release: remaining += q, user_qty -= q, RELEASED, ZREM expiry, HDEL pending
 ```
 
-- Response giống đơn thường của `transaction`: `{ orderId, orderCode, status, totalAmount }`, `201` khi tạo mới.
+- Response giống đơn thường của `transaction`: `{ orderId, orderCode, status, totalAmount }`, `201` khi tạo mới, `200` khi trả lại đơn đã có.
+- Cài đặt: `FlashCheckoutService`. Bước claim chạy trước transaction; hook `TransactionSynchronization` đăng ký ngay đầu transaction, trước câu ghi đầu tiên. Transaction chưa kịp bắt đầu (ví dụ hết kết nối trong pool) thì trả suất ngay. Không rõ đã commit hay chưa (`STATUS_UNKNOWN`), hoặc Redis lỗi lúc confirm/release, thì để nguyên `CLAIMED` cho job tra Oracle.
+- Gửi lại khi reservation đang `CLAIMED` (lần trước commit xong nhưng confirm chưa chạy): tra `orders` theo `idempotency_key`, có đơn của đúng người thì trả `200`, không có thì `409 RESERVATION_ALREADY_USED`.
 - Mất phản hồi thì gửi lại cùng `reservationId` là an toàn: reservation đã `CONFIRMED` thì trả lại đơn cũ; nếu lọt qua thì `uk_orders_idempotency` vẫn chặn đơn trùng.
 
 ### 3. Job dọn reservation (mỗi 5 s)
@@ -145,6 +147,8 @@ ROLLBACK → release: remaining += q, user_qty -= q, RELEASED, ZREM expiry, HDEL
 
 - `PENDING` đã hết hạn: release (Lua kiểm tra lại trạng thái và giờ trước khi hoàn).
 - `CLAIMED` quá `expiresAt + 30 s` (checkout bị sập giữa chừng): tra `orders.idempotency_key = 'FS-' || reservationId`. Có đơn thì confirm, không có thì release. Mốc 30 s chỉ an toàn khi transaction đặt đơn có timeout ≤ 10 s.
+- Key reservation đã mất, hoặc đã `CONFIRMED`/`RELEASED` mà còn trong ZSET: `ZREM`.
+- Cài đặt: `ReservationSweeper` (logic), `FlashJobs` (lịch: dọn mỗi `shopflash.flash.sweep-interval-ms` = 5000; nạp lại runtime còn thiếu mỗi 30 s). Tắt lịch bằng `shopflash.flash.jobs.enabled=false` (test dùng), mốc 30 s đổi bằng `shopflash.flash.claim-grace-ms`. `@EnableScheduling` ở `config/FlashSchedulingConfig`.
 
 ### 4. Hủy đơn flash sale
 
@@ -212,12 +216,17 @@ Base khách hàng: `/api/flash-sales`. Base admin: `/api/admin/flash-sales`, `/a
 }
 ```
 
-`phase`: `UPCOMING` (chưa tới `startAt`) hoặc `LIVE`. Reservation trả về:
+`phase`: `UPCOMING` (chưa tới `startAt`) hoặc `LIVE`, so theo đồng hồ Redis. `remaining` lấy từ Redis; chương trình chưa nạp runtime thì lấy `allocated - sold` trong Oracle. Reservation trả về:
 
 ```json
-{ "reservationId": "3f1c...", "flashSaleId": 9101, "itemId": 9101, "productId": 9101, "quantity": 1,
-  "salePrice": 499000, "status": "PENDING", "expiresAt": "2026-10-24T20:01:00+07:00", "serverTime": "2026-10-24T20:00:00+07:00" }
+{ "reservationId": "3f1c...", "flashSaleId": 9101, "itemId": 9101, "productId": 9101,
+  "productName": "...", "thumbnailUrl": null, "quantity": 1, "salePrice": 499000, "totalAmount": 499000,
+  "status": "PENDING", "expiresAt": "2026-10-24T20:01:00+07:00", "serverTime": "2026-10-24T20:00:00+07:00" }
 ```
+
+- Giữ suất chỉ chạy Lua trên Redis; chỉ lượt giữ được mới đọc Oracle (tên, giá, ảnh) nên lượt hết suất không tốn truy vấn Oracle.
+- `reservationId` sai định dạng UUID, không có, hoặc của người khác: `404 RESERVATION_NOT_FOUND`.
+- Hủy giữ suất: đã `RELEASED` thì vẫn `204`; đang `CLAIMED` hoặc đã `CONFIRMED` thì `409 RESERVATION_ALREADY_USED`.
 
 ### Admin: flash sale
 

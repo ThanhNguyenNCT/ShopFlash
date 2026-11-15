@@ -136,6 +136,21 @@ public class FlashRuntimeRepository {
         return seconds * 1000 + micros / 1000;
     }
 
+    /** Danh sách item của chương trình đã nạp runtime; empty nếu chương trình chưa nạp. */
+    public Optional<List<Long>> saleItemIds(long saleId) {
+        String csv = hget(FlashKeys.sale(saleId), "itemIds");
+        if (csv == null) {
+            return Optional.empty();
+        }
+        return Optional.of(csv.isEmpty() ? List.of()
+                : java.util.Arrays.stream(csv.split(",")).map(Long::parseLong).toList());
+    }
+
+    /** Bỏ reservation khỏi hàng đợi hết hạn (key reservation đã mất hoặc đã kết thúc). */
+    public void forgetDue(String reservationId) {
+        call(() -> redis.zrem(FlashKeys.EXPIRY, reservationId));
+    }
+
     public boolean saleLoaded(long saleId) {
         return call(() -> redis.exists(FlashKeys.sale(saleId)));
     }
@@ -160,8 +175,11 @@ public class FlashRuntimeRepository {
                     args));
         }
         // Ghi chương trình sau cùng: trong lúc nạp, giữ suất thấy chương trình chưa có và bị từ chối.
+        // itemIds để API suất còn lại chỉ cần đọc Redis.
+        String itemIds = String.join(",", items.stream().map(i -> String.valueOf(i.itemId())).toList());
         call(() -> redis.hset(FlashKeys.sale(sale.saleId()), Map.of(
                 "status", sale.status(),
+                "itemIds", itemIds,
                 "startAt", String.valueOf(sale.startAtMs()),
                 "endAt", String.valueOf(sale.endAtMs()),
                 "maxPerUser", String.valueOf(sale.maxPerUser()),

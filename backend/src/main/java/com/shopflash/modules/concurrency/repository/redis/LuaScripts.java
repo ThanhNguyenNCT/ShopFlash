@@ -28,7 +28,8 @@ public class LuaScripts {
         CLAIM("claim.lua"),
         CONFIRM("confirm.lua"),
         RELEASE("release.lua"),
-        LOAD_ITEM("load-item.lua");
+        LOAD_ITEM("load-item.lua"),
+        LAB_BUY("lab-buy.lua");
 
         private final String file;
 

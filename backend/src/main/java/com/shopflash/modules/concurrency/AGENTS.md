@@ -32,7 +32,7 @@ F10 Giỏ hàng và F0 Đăng nhập đã bàn giao cho TV4 (`transaction`, `com
 - **Người dùng hiện tại** lấy từ JWT mà `common/security` đã kiểm tra (`AuthPrincipal` trong `SecurityContext`), theo mẫu `transaction/security/JwtTransactionIdentity`. Không nhận `userId` từ body, query hay header. Giữ suất, hủy giữ suất, đặt đơn chỉ cho vai trò `CUSTOMER`. Test tải bằng k6 đăng nhập trước qua `POST /api/auth/login` trong `setup()` để có token cho từng khách thử.
 - **Quyền**: `SecurityConfig` hiện chặn mọi `/api/**` chưa khai báo (`denyAll`). Cần thêm: `GET /api/flash-sales/active` và `GET /api/flash-sales/*/stock` cho mọi người; phần còn lại của `/api/flash-sales/**` cần `CUSTOMER`. `/api/admin/**` đã yêu cầu `ADMIN`. Token gửi qua header `Authorization` nên không cần CSRF.
 - **Thời gian:** API dùng ISO-8601 có offset `+07:00`, giống module `query`. Redis lưu epoch mili giây. Response của flash sale có `serverTime` để frontend đếm ngược theo giờ server, không theo đồng hồ máy khách.
-- **Client Redis:** `RedisClient` dùng chung. Script nằm ở `src/main/resources/concurrency/redis/*.lua` (`reserve`, `claim`, `confirm`, `release`, `load-item`). SHA1 tính sẵn lúc khởi động nên backend không cần Redis để khởi động; gọi bằng `EVALSHA`, gặp `NOSCRIPT` thì `SCRIPT LOAD` rồi gọi lại một lần. `WATCH` (chiến lược `REDIS_WATCH` của Lab) phải chạy trên kết nối riêng của transaction (`redis.transaction(false)`).
+- **Client Redis:** `RedisClient` dùng chung. Script nằm ở `src/main/resources/concurrency/redis/*.lua` (`reserve`, `claim`, `confirm`, `release`, `load-item`; `lab-buy` cho Lab). SHA1 tính sẵn lúc khởi động nên backend không cần Redis để khởi động; gọi bằng `EVALSHA`, gặp `NOSCRIPT` thì `SCRIPT LOAD` rồi gọi lại một lần. `WATCH` (chiến lược `REDIS_WATCH` của Lab) phải chạy trên kết nối riêng của transaction (`redis.transaction(false)`).
 
 ## Dữ liệu
 
@@ -169,7 +169,16 @@ Kịch bản: một "hot item" có M suất, N người cùng mua, mỗi ngườ
 | `REDIS_DECR` | `HINCRBY -1`, âm thì `HINCRBY +1` | Đúng về số bán; bộ đếm có lúc âm |
 | `REDIS_LUA` | kiểm tra và trừ trong một script | Đúng; 1 round-trip |
 
-Số đo mỗi lần chạy: `successes`, `oversold = max(0, successes - M)`, `finalSold`, `lostUpdates = successes - finalSold`, `retries`, `errors` (đếm theo mã, ví dụ `ORA-08177`), `elapsedMs`, `throughput` (lượt/giây), `p50Ms`, `p95Ms`, `p99Ms`. Chạy mặc định 5 lần, trả trung bình và độ lệch chuẩn (yêu cầu của `report/AGENTS.md`).
+Cài đặt (code ở `lab/`, `repository/oracle/LabOracleCounter`, `repository/redis/LabRedisCounter`, `service/ConcurrencyLabService`):
+
+- `NAIVE`, `PESSIMISTIC`, `NOWAIT` chạy trong một transaction READ COMMITTED; `SERIALIZABLE` trong transaction SERIALIZABLE. `OPTIMISTIC` và `ATOMIC` dùng auto-commit, mỗi câu lệnh tự commit.
+- `OPTIMISTIC`, `SERIALIZABLE`, `REDIS_WATCH` thử lại tối đa 5 lần, không chờ giữa các lần. Hết lượt thì lượt đó lỗi `RETRY_EXHAUSTED` (`SERIALIZABLE` ghi `ORA-08177`). `NOWAIT` không thử lại. Vì vậy các chiến lược này có thể bán **ít hơn** M dù còn người mua.
+- `REDIS_LUA` dùng `lab-buy.lua`. `REDIS_WATCH` chạy trên kết nối riêng của transaction (`redis.transaction(false)`).
+- Mỗi lần chạy (kể cả warmup) đặt lại bộ đếm về `allocated = M`, `sold = 0` trước khi chạy.
+- Độ trễ một lượt đo từ lúc lượt được phép chạy (lấy được permit của `Semaphore`) tới lúc xong, nên gồm cả thời gian chờ kết nối từ pool khi C lớn hơn pool; không gồm thời gian chờ permit. Đã kiểm tra bằng `-Djdk.tracePinnedThreads=short` trên JDK 23: JDBC (ojdbc17) và Jedis không ghim virtual thread.
+- Chỉ một lần chạy (hoặc `reset`) tại một thời điểm trong một backend.
+
+Số đo mỗi lần chạy: `successes`, `soldOut`, `oversold = max(0, successes - M)`, `finalSold`, `lostUpdates = successes - finalSold`, `retries`, `errors` và `errorCodes` (đếm theo mã, ví dụ `ORA-00054`, `ORA-08177`, `RETRY_EXHAUSTED`), `elapsedMs`, `throughput` (lượt/giây), `p50Ms`, `p95Ms`, `p99Ms` (nearest-rank). Mặc định 1 lần warmup không tính và 5 lần đo; `summary` trả trung bình và độ lệch chuẩn mẫu (yêu cầu của `report/AGENTS.md`).
 
 Số kết nối tối đa ảnh hưởng trực tiếp throughput: Oracle là Hikari `maximumPoolSize` (mặc định 10, `application.properties` chưa đặt), Redis là pool của `RedisClient` (16). Kết quả luôn ghi hai số này. **[Cần chốt: nhóm]** đặt cùng một con số cho hai bên trong `application.properties`.
 
@@ -229,10 +238,10 @@ Base khách hàng: `/api/flash-sales`. Base admin: `/api/admin/flash-sales`, `/a
 
 | Method, path | Mô tả |
 |---|---|
-| `POST /api/admin/concurrency-lab/runs` | `{ strategies: [...], buyers: 1000, quota: 100, concurrency: 64, runs: 5 }`, giới hạn `buyers` 1–10000, `quota` 1–`buyers`, `concurrency` 1–256, `runs` 1–10. Chạy tuần tự từng chiến lược, đồng bộ; đang có lần khác chạy thì `409 LAB_RUN_IN_PROGRESS`. `Accept: text/csv` thì trả mỗi lần chạy một dòng |
-| `POST /api/admin/concurrency-lab/attempt?strategy=` | Một lượt mua, để k6 bắn qua HTTP (token `ADMIN`): `{ success, retries, elapsedMs }` |
+| `POST /api/admin/concurrency-lab/runs` | `{ strategies: [...], buyers: 1000, quota: 100, concurrency: 64, runs: 5, warmup: 1 }`, trường nào bỏ trống thì lấy giá trị này (`strategies` trống là cả 10). Giới hạn `buyers` 1–10000, `quota` 1–`buyers`, `concurrency` 1–256, `runs` 1–10, `warmup` 0–3. Chạy tuần tự từng chiến lược, đồng bộ; đang có lần khác chạy thì `409 LAB_RUN_IN_PROGRESS`. Trả `{ config: { buyers, quota, concurrency, runs, warmup, oraclePoolSize, redisPoolSize, maxRetries }, results: [{ strategy, store, summary: { <số đo>: { mean, sd } }, runs: [<số đo từng lần>] }] }`. (P2, chưa làm) `Accept: text/csv` thì trả mỗi lần chạy một dòng |
+| `POST /api/admin/concurrency-lab/attempt?strategy=` | (P2, chưa làm) Một lượt mua, để k6 bắn qua HTTP (token `ADMIN`): `{ success, retries, elapsedMs }` |
 | `POST /api/admin/concurrency-lab/reset` | `{ quota }`: đặt lại bộ đếm Oracle và Redis |
-| `GET /api/admin/concurrency-lab/state` | `{ oracle: { allocated, sold }, redis: { allocated, remaining } }` |
+| `GET /api/admin/concurrency-lab/state` | `{ oracle: { allocated, sold, version }, redis: { allocated, remaining, version }, running }`; bên nào chưa reset lần nào thì `null` |
 
 ### Lỗi
 
@@ -243,7 +252,7 @@ Base khách hàng: `/api/flash-sales`. Base admin: `/api/admin/flash-sales`, `/a
 | 403 | `ACCESS_DENIED` (do `common/security` trả) |
 | 404 | `FLASH_SALE_NOT_FOUND`, `FLASH_SALE_ITEM_NOT_FOUND`, `RESERVATION_NOT_FOUND`, `PRODUCT_NOT_FOUND` |
 | 409 | `SALE_NOT_STARTED`, `SALE_ENDED`, `ITEM_UNAVAILABLE`, `SOLD_OUT`, `USER_LIMIT_REACHED`, `RESERVATION_EXPIRED`, `RESERVATION_ALREADY_USED`, `INSUFFICIENT_STOCK`, `INVALID_STATUS_TRANSITION`, `FLASH_SALE_CHANGED`, `PRODUCT_UNAVAILABLE`, `LAB_RUN_IN_PROGRESS` |
-| 503 | `REDIS_UNAVAILABLE` |
+| 503 | `REDIS_UNAVAILABLE`, `LAB_INTERRUPTED` (backend dừng giữa lần chạy Lab) |
 
 ## Loại truy vấn module thể hiện
 

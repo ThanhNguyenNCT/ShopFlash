@@ -1,0 +1,44 @@
+% Kiểu chèn code dùng chung, được \input trong main.tex.
+% Dùng: \begin{lstlisting}[language=OracleSQL, caption={...}, label={lst:cc-...}] ... \end{lstlisting}
+% Ngôn ngữ có sẵn: OracleSQL, Redis, Lua, Java, Python, bash. Đoạn chỉ là văn bản thì dùng Verbatim (fvextra).
+\definecolor{codebg}{RGB}{248,248,248}
+\definecolor{codecomment}{RGB}{0,120,0}
+\definecolor{codekeyword}{RGB}{0,0,170}
+\definecolor{codestring}{RGB}{163,21,21}
+\definecolor{codenumber}{RGB}{128,128,128}
+
+\lstdefinestyle{shopflash}{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  commentstyle=\itshape\color{codecomment},
+  keywordstyle=\bfseries\color{codekeyword},
+  stringstyle=\color{codestring},
+  numbers=left, numberstyle=\tiny\color{codenumber}, numbersep=6pt,
+  frame=single, rulecolor=\color{black!25},
+  breaklines=true, columns=fullflexible, keepspaces=true,
+  showstringspaces=false, upquote=true, tabsize=2,
+  captionpos=t, aboveskip=6pt, belowskip=6pt
+}
+\lstset{style=shopflash}
+
+% SQL của Oracle: thêm các từ khóa SQL chuẩn của listings chưa có.
+\lstdefinelanguage{OracleSQL}[]{SQL}{
+  sensitive=false,
+  morekeywords={MERGE,USING,MATCHED,NOWAIT,SKIP,LOCKED,WAIT,SERIALIZABLE,ISOLATION,LEVEL,
+    SAVEPOINT,RETURNING,FETCH,FIRST,ROWS,ONLY,OFFSET,NVL,COALESCE,SYSTIMESTAMP,IDENTITY,
+    GENERATED,PURGE,EXPLAIN,PLAN,OVER,PARTITION,WITH,EXISTS},
+  morecomment=[l]{--}
+}
+
+% Lệnh redis-cli.
+\lstdefinelanguage{Redis}{
+  sensitive=false,
+  alsoletter={.},
+  morekeywords={GET,SET,DEL,UNLINK,EXISTS,EXPIRE,TTL,INCR,DECR,INCRBY,DECRBY,
+    HGET,HSET,HMGET,HGETALL,HDEL,HINCRBY,HEXISTS,ZADD,ZREM,ZRANGE,ZRANGEBYSCORE,
+    MULTI,EXEC,DISCARD,WATCH,UNWATCH,EVAL,EVALSHA,SCRIPT,FCALL,FUNCTION,TIME,
+    JSON.SET,JSON.GET,FT.CREATE,FT.SEARCH,FT.AGGREGATE,FT.PROFILE,FT.INFO,
+    SCAN,INFO,CONFIG,BGSAVE,BGREWRITEAOF,FLUSHDB},
+  morecomment=[l]{\#},
+  morestring=[b]"
+}

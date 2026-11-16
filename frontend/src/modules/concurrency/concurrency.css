@@ -1,0 +1,254 @@
+/* Module concurrency (F9 flash sale, Concurrency Lab). Màu, chữ, khoảng cách lấy từ biến --sf-* của design system. */
+
+.sf-cc-page {
+  display: grid;
+  gap: var(--sf-space-6);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sf-cc-page__heading {
+  display: grid;
+  gap: var(--sf-space-1);
+}
+
+.sf-cc-page__heading h1 {
+  margin: 0;
+  text-wrap: balance;
+}
+
+.sf-cc-muted {
+  margin: 0;
+  color: var(--sf-color-ink-muted);
+  font-size: var(--sf-text-caption-size);
+  line-height: var(--sf-text-caption-line);
+}
+
+/* Chú thích nhỏ dưới ô nhập; màu do Typography (type) quyết định. */
+.sf-cc-hint {
+  display: block;
+  font-size: var(--sf-text-caption-size);
+  line-height: var(--sf-text-caption-line);
+}
+
+/* --- Trang flash sale --- */
+
+.sf-cc-sale {
+  display: grid;
+  gap: var(--sf-space-4);
+  min-width: 0;
+}
+
+.sf-cc-sale__meta {
+  display: grid;
+  gap: var(--sf-space-1);
+}
+
+.sf-cc-sale__meta h2 {
+  margin: 0;
+  font-size: var(--sf-text-heading-size);
+  line-height: var(--sf-text-heading-line);
+  font-weight: var(--sf-text-heading-weight);
+}
+
+/*
+ * Cùng số cột với lưới sản phẩm của indexing: 2 cột trên mobile, 3 cột từ 576 px, 4 cột từ 992 px.
+ * align-items: start: không kéo giãn thẻ theo thẻ cao nhất trong hàng. ProductCard là grid có ô ảnh aspect-ratio 1/1;
+ * bị kéo cao thì ô ảnh cao theo, rồi rộng theo, làm thẻ tràn khỏi cột.
+ */
+.sf-cc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--sf-space-3);
+  min-width: 0;
+}
+
+@media (min-width: 576px) {
+  .sf-cc-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--sf-space-4);
+  }
+}
+
+@media (min-width: 992px) {
+  .sf-cc-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* --- Trang đặt đơn flash sale --- */
+
+.sf-cc-checkout {
+  display: grid;
+  grid-template-columns: minmax(0, calc(var(--sf-space-8) * 11)) minmax(0, 1fr);
+  gap: var(--sf-space-6);
+  align-items: start;
+  min-width: 0;
+}
+
+@media (max-width: 860px) {
+  .sf-cc-checkout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.sf-cc-stack {
+  display: grid;
+  gap: var(--sf-space-4);
+  min-width: 0;
+}
+
+.sf-cc-card__heading {
+  margin: 0;
+  font-size: var(--sf-text-heading-size);
+  line-height: var(--sf-text-heading-line);
+  font-weight: var(--sf-text-heading-weight);
+}
+
+.sf-cc-line {
+  display: grid;
+  grid-template-columns: calc(var(--sf-space-8) * 2.5) minmax(0, 1fr);
+  gap: var(--sf-space-3);
+  align-items: center;
+}
+
+.sf-cc-line__thumb {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: var(--sf-radius-md);
+  background: var(--sf-color-surface-sunken);
+  color: var(--sf-color-ink-muted);
+  font-size: var(--sf-text-label-size);
+  text-align: center;
+}
+
+.sf-cc-line__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sf-cc-line__body {
+  display: grid;
+  gap: var(--sf-space-1);
+  min-width: 0;
+}
+
+.sf-cc-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sf-space-2);
+  padding-top: var(--sf-space-3);
+  border-top: 1px solid var(--sf-color-line);
+}
+
+/* --- Admin --- */
+
+.sf-cc-admin {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sf-space-4);
+  min-width: 0;
+}
+
+.sf-cc-admin__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sf-space-3);
+}
+
+.sf-cc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sf-space-3);
+  margin-bottom: var(--sf-space-4);
+}
+
+.sf-cc-toolbar__select {
+  min-width: calc(var(--sf-space-8) * 5);
+}
+
+.sf-cc-toolbar__grow {
+  flex: 1 1 auto;
+}
+
+.sf-cc-field-full {
+  width: 100%;
+}
+
+.sf-cc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sf-space-2);
+}
+
+.sf-cc-name {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.sf-cc-code {
+  font-family: var(--sf-font-mono);
+  font-size: var(--sf-text-caption-size);
+  color: var(--sf-color-ink-muted);
+}
+
+.sf-cc-narrow-only {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .sf-cc-narrow-only {
+    display: block;
+  }
+}
+
+.sf-cc-stock {
+  min-width: calc(var(--sf-space-8) * 5);
+}
+
+/* Dòng bán vượt / lệch dữ liệu: viền trái màu danger, luôn kèm Tag chữ. */
+.sf-cc-row--bad > td:first-child {
+  box-shadow: inset 3px 0 0 var(--sf-color-danger);
+}
+
+.sf-cc-items-editor .ant-input-number {
+  width: 100%;
+}
+
+/* --- Concurrency Lab --- */
+
+.sf-cc-lab-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(var(--sf-space-8) * 5)), 1fr));
+  gap: 0 var(--sf-space-4);
+}
+
+.sf-cc-strategies {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(var(--sf-space-8) * 8)), 1fr));
+  gap: var(--sf-space-2) var(--sf-space-4);
+}
+
+.sf-cc-strategies .ant-checkbox-wrapper {
+  margin-inline-start: 0;
+}
+
+.sf-cc-pre {
+  margin: 0;
+  padding: var(--sf-space-3);
+  overflow-x: auto;
+  font-family: var(--sf-font-mono);
+  font-size: var(--sf-text-caption-size);
+  background: var(--sf-color-surface-sunken);
+  border-radius: var(--sf-radius-md);
+}

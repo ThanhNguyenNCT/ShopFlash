@@ -28,3 +28,196 @@
   height: 100%;
   object-fit: cover;
 }
+
+/* Lưới sản phẩm (trang chủ, tìm kiếm). Nền trang và ô ảnh mặc định cùng màu surface-sunken nên card bị chìm:
+   ở đây card luôn có viền đậm hơn và bóng, ô ảnh nền trắng có đường kẻ ngăn với phần thông tin,
+   nút "Thêm vào giỏ" hover nền brand. Chỉ áp dụng trong .sf-idx-grid, không đổi ProductCard của design system. */
+.sf-idx-card,
+.sf-idx-filter,
+.sf-idx-toolbar {
+  --sf-idx-card-line: color-mix(in srgb, var(--sf-color-line-strong) 45%, var(--sf-color-line));
+}
+
+.sf-idx-card {
+  position: relative;
+  height: 100%;
+}
+
+.sf-idx-grid .sf-card {
+  height: 100%;
+  grid-template-rows: auto 1fr;
+  border: 1px solid var(--sf-idx-card-line);
+  box-shadow: var(--sf-shadow-card);
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+.sf-idx-grid .sf-card:hover {
+  border-color: var(--sf-color-brand);
+  box-shadow: var(--sf-shadow-popup);
+  transform: translateY(calc(var(--sf-space-1) * -0.5));
+}
+
+.sf-idx-grid .sf-card__thumb {
+  background: var(--sf-color-surface);
+  border-bottom: 1px solid var(--sf-idx-card-line);
+}
+
+.sf-idx-grid .sf-card__thumb img {
+  object-fit: contain;
+  padding: var(--sf-space-3);
+  box-sizing: border-box;
+  transition: transform 0.2s;
+}
+
+.sf-idx-grid .sf-card:hover .sf-card__thumb img { transform: scale(1.04); }
+
+.sf-idx-grid .sf-card__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.sf-idx-grid .sf-card__actions { margin-top: auto; }
+
+.sf-idx-grid .sf-card__actions .ant-btn-default {
+  border-color: var(--sf-color-brand);
+  color: var(--sf-color-brand);
+  font-weight: 600;
+}
+
+.sf-idx-grid .sf-card__actions .ant-btn-default:not(:disabled):hover {
+  border-color: var(--sf-color-brand);
+  background: var(--sf-color-brand);
+  color: var(--sf-color-on-brand);
+}
+
+.sf-idx-grid .sf-card__actions .ant-btn-default:not(:disabled):active {
+  border-color: var(--sf-color-brand-hover);
+  background: var(--sf-color-brand-hover);
+  color: var(--sf-color-on-brand);
+}
+
+.sf-idx-card--soldout .sf-card__thumb img { opacity: 0.45; }
+
+.sf-idx-card__badge {
+  position: absolute;
+  top: var(--sf-space-2);
+  left: var(--sf-space-2);
+  z-index: 1;
+  padding: 0 var(--sf-space-2);
+  font-size: var(--sf-text-label-size);
+  line-height: calc(var(--sf-text-label-line) + var(--sf-space-1));
+  font-weight: var(--sf-text-label-weight);
+  color: var(--sf-color-surface);
+  background: var(--sf-color-ink);
+  border-radius: var(--sf-radius-pill);
+  pointer-events: none;
+}
+
+.sf-idx-card__note {
+  margin: 0;
+  color: var(--sf-color-ink-muted);
+  font-size: var(--sf-text-caption-size);
+  line-height: var(--sf-text-caption-line);
+}
+
+/* Bộ lọc trang tìm kiếm */
+@media (min-width: 992px) {
+  .sf-idx-filter {
+    position: sticky;
+    top: calc(var(--sf-space-8) * 2 + var(--sf-space-4));
+  }
+}
+
+.sf-idx-filter .ant-card {
+  border: 1px solid var(--sf-idx-card-line);
+  box-shadow: var(--sf-shadow-card);
+}
+
+.sf-idx-filter .ant-card-head {
+  border-bottom: 1px solid var(--sf-idx-card-line);
+}
+
+.sf-idx-filter__section + .sf-idx-filter__section {
+  padding-top: var(--sf-space-3);
+  border-top: 1px solid var(--sf-idx-card-line);
+}
+
+.sf-idx-filter__title {
+  margin: 0 0 var(--sf-space-2);
+  font-size: var(--sf-text-label-size);
+  line-height: var(--sf-text-label-line);
+  font-weight: var(--sf-text-label-weight);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sf-color-ink-muted);
+}
+
+.sf-idx-cats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 264px;
+  overflow-y: auto;
+  margin: 0 calc(var(--sf-space-2) * -1);
+  padding: 0;
+  list-style: none;
+}
+
+.sf-idx-cats button {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sf-space-2);
+  width: 100%;
+  padding: var(--sf-space-1) var(--sf-space-2);
+  border-radius: var(--sf-radius-md);
+  cursor: pointer;
+  font-size: var(--sf-text-body-size);
+  line-height: var(--sf-text-body-line);
+}
+
+.sf-idx-cats button:hover { background: var(--sf-color-surface-sunken); }
+.sf-idx-cats button:focus-visible { outline: 2px solid var(--sf-color-focus); outline-offset: -2px; }
+
+.sf-idx-cats button[aria-pressed='true'] {
+  background: var(--sf-color-brand-tint);
+  color: var(--sf-color-brand);
+  font-weight: 600;
+}
+
+.sf-idx-cats__count {
+  color: var(--sf-color-ink-muted);
+  font-size: var(--sf-text-caption-size);
+  font-variant-numeric: tabular-nums;
+}
+
+.sf-idx-toolbar {
+  padding: var(--sf-space-2) var(--sf-space-3);
+  background: var(--sf-color-surface);
+  border: 1px solid var(--sf-idx-card-line);
+  border-radius: var(--sf-radius-lg);
+  box-shadow: var(--sf-shadow-card);
+}
+
+.sf-idx-filter .ant-tag-checkable {
+  margin: 0;
+  padding: var(--sf-space-1) var(--sf-space-2);
+  font-size: var(--sf-text-caption-size);
+  line-height: var(--sf-text-caption-line);
+  border: 1px solid var(--sf-idx-card-line);
+  border-radius: var(--sf-radius-pill);
+  background: var(--sf-color-surface);
+}
+
+.sf-idx-filter .ant-tag-checkable:not(.ant-tag-checkable-checked):hover {
+  border-color: var(--sf-color-brand);
+  color: var(--sf-color-brand);
+}
+
+.sf-idx-filter .ant-tag-checkable-checked {
+  border-color: var(--sf-color-brand);
+  background: var(--sf-color-brand-tint);
+  color: var(--sf-color-brand);
+  font-weight: 600;
+}

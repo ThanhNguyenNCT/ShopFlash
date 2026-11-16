@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Alert, Button, Col, Empty, Flex, Row, Skeleton, Tag } from 'antd';
+import { Alert, Button, Col, Empty, Flex, Row, Skeleton } from 'antd';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ProductCard, tokens } from '@/shared/design-system';
 import { useAuth } from '@/shared/auth';
 import { addProductToCart } from '@/modules/transaction/api';
+import './indexing.css';
 
 /**
  * Lưới sản phẩm thật (productId Oracle). Nút "Thêm vào giỏ" dùng addProductToCart của module transaction (TV4),
@@ -68,10 +69,11 @@ export default function ProductGrid({
   return (
     <Flex vertical gap={tokens.space[3]}>
       {notice && <Alert type={notice.type} showIcon closable title={notice.title} onClose={() => setNotice(null)} />}
-      <Row gutter={gutter}>
+      <Row gutter={gutter} className="sf-idx-grid">
         {items.map((p) => (
           <Col key={p.productId} {...cols}>
-            <Flex vertical gap={tokens.space[1]}>
+            <div className={p.inStock ? 'sf-idx-card' : 'sf-idx-card sf-idx-card--soldout'}>
+              {!p.inStock && <span className="sf-idx-card__badge">Hết hàng</span>}
               <ProductCard
                 name={p.name}
                 imageUrl={p.thumbnailUrl}
@@ -79,8 +81,7 @@ export default function ProductGrid({
                 onOpen={() => navigate(`/products/${p.productId}`)}
                 onAddToCart={p.inStock ? () => addToCart(p) : undefined}
               />
-              {!p.inStock && <Tag style={{ alignSelf: 'flex-start' }}>Hết hàng</Tag>}
-            </Flex>
+            </div>
           </Col>
         ))}
       </Row>

@@ -6,7 +6,7 @@ Database runtime assets are grouped under `backend/src/main/resources/db/`:
 |---|---|---|
 | `oracle-init/` | By the Oracle container on every start, as SYSDBA | Creates tablespace `SHOP_DATA`, user `SHOP` and grants if missing; keeps the `SHOP` password in sync with `.env` |
 | `migration/` | By Flyway as user `SHOP` when the backend starts | Schema: tables, constraints, indexes, views (`V1__schema.sql` is the shared foundation; modules add `V<number>__<module>_<description>.sql`) |
-| `dev-seed/` | By Flyway, only with Spring profile `dev` | Repeatable local fixtures: `R__00_core_seed.sql`, then `R__10_<module>_seed.sql` |
+| `dev-seed/` | By Flyway, only with Spring profile `dev` | Repeatable local fixtures: `R__00_catalog_seed.sql`, `R__00_core_seed.sql`, then `R__10_<module>_seed.sql` |
 | `redis/init.lua` | Manually through `redis-cli --eval` | RediSearch indexes |
 
 This `db/` directory contains the database design documentation (`DATABASE_DESIGN.md`).
@@ -86,6 +86,8 @@ docker compose exec -T redis redis-cli -e --eval /opt/shopflash/redis/init.lua
 
 ## Seed data
 
+`dev-seed/R__00_catalog_seed.sql` holds the shared catalog every module uses: categories and products with image URLs (direct links, no image files in the repo). It keeps the original fixture products (ID 1 and 101-106) and adds 22 categories (ID 201-222) and 184 products (ID 2001-2194) taken from DummyJSON. It runs before the core seed because the core orders, flash sale and cart reference product 1. Product 1 inventory stays in the core seed so it matches those orders. After Flyway loads it, rebuild the Redis projection with `POST /api/admin/catalog/projection/rebuild` (admin).
+
 `dev-seed/R__00_core_seed.sql` uses stable IDs below `10000` and covers all eleven tables with a minimal valid relationship set that respects every constraint and the invariants in `DATABASE_DESIGN.md` §14 (an ended flash sale, so nothing stays reserved). It does not depend on the current date and does not add datasets for individual course topics.
 
 Local mock users (local development only):
@@ -99,7 +101,7 @@ customer@shopflash.local / ShopFlash123!
 
 - Schema changes: `backend/src/main/resources/db/migration/V<number>__<module>_<description>.sql`. Take the next free number when you open your PR.
 - Never edit a version that is on `main`; add the next version for corrections.
-- Module fixtures: `backend/src/main/resources/db/dev-seed/R__10_<module>_seed.sql`, written with `MERGE` so it can rerun. Flyway runs repeatable migrations in alphabetical order, so the `00` core seed always runs first and module seeds can reference its rows.
+- Module fixtures: `backend/src/main/resources/db/dev-seed/R__10_<module>_seed.sql`, written with `MERGE` so it can rerun. Flyway runs repeatable migrations in alphabetical order, so the `00` seeds (`catalog`, then `core`) always run first and module seeds can reference their rows. Put shared products and categories in `R__00_catalog_seed.sql`, not in a module seed.
 - Large benchmark datasets are scripts under `report/<topic>/`, run by hand, never migrations.
 - IDs below `10000` are reserved for fixtures; generated application IDs start at `10000`.
 - Every foreign key column gets an index (check query in `DATABASE_DESIGN.md` §2.2).

@@ -1,4 +1,4 @@
-import { Col, Empty, Row, Table } from 'antd';
+import { Col, Empty, Row, Table, Typography } from 'antd';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { PriceTag, formatVND, tokens } from '@/shared/design-system';
 import ReportCard from './ReportCard';
@@ -9,6 +9,8 @@ import { formatInt, formatVNDCompact } from '../../format';
 const BAR_COLOR = tokens.color.brand;
 const ROW_HEIGHT = tokens.space[8] + tokens.space[1];
 const LABEL_WIDTH = tokens.space[8] * 3;
+// Biểu đồ chỉ vẽ nhóm đầu cho dễ đọc; bảng bên cạnh vẫn đủ mọi danh mục.
+const CHART_TOP = 10;
 
 function CategoryTooltip({ active, payload }) {
   const row = payload?.[0]?.payload;
@@ -40,6 +42,7 @@ const columns = [
 export default function RevenueByCategory({ params }) {
   const state = useReport('revenue-by-category', params);
   const rows = state.data?.rows ?? [];
+  const chartRows = rows.slice(0, CHART_TOP);
 
   return (
     <ReportCard title="Doanh thu theo danh mục" feature="F5" state={state} skeletonRows={8}>
@@ -48,8 +51,13 @@ export default function RevenueByCategory({ params }) {
       ) : (
         <Row gutter={[tokens.space[6], tokens.space[4]]}>
           <Col xs={24} xl={13}>
-            <ResponsiveContainer width="100%" height={rows.length * ROW_HEIGHT + tokens.space[8]}>
-              <BarChart data={rows} layout="vertical" margin={{ top: 0, right: tokens.space[4], left: 0, bottom: 0 }}>
+            {rows.length > CHART_TOP && (
+              <Typography.Text type="secondary" className="sf-chart-caption">
+                {CHART_TOP} danh mục doanh thu cao nhất trên {rows.length}; đủ danh sách ở bảng.
+              </Typography.Text>
+            )}
+            <ResponsiveContainer width="100%" height={chartRows.length * ROW_HEIGHT + tokens.space[8]}>
+              <BarChart data={chartRows} layout="vertical" margin={{ top: 0, right: tokens.space[4], left: 0, bottom: 0 }}>
                 <CartesianGrid {...gridProps} vertical horizontal={false} />
                 <XAxis type="number" tickFormatter={formatVNDCompact} {...axisProps} />
                 <YAxis type="category" dataKey="categoryName" width={LABEL_WIDTH} {...axisProps} axisLine={false} interval={0} />

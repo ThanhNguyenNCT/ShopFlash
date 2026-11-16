@@ -72,7 +72,7 @@ public class ReportQueryFactory {
         try {
             return Source.from(value);
         } catch (IllegalArgumentException e) {
-            throw ApiException.validation("source", "source phải là oracle hoặc redis");
+            throw ApiException.validation("source", "source phải là oracle, redis hoặc cache");
         }
     }
 

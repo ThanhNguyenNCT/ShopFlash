@@ -128,12 +128,16 @@ if (-not $NoBackend) {
   Ok 'Backend UP, Oracle và Redis kết nối được'
 
   # Module query đọc read model Redis; nếu còn trống thì dựng một lần (khoảng 20-35 s với 100k đơn).
+  # API /api/admin/** cần JWT của ADMIN: đăng nhập bằng tài khoản mẫu của profile dev.
   try {
-    $s = Invoke-RestMethod -Uri 'http://127.0.0.1:8080/api/admin/reports/analytics/status' -TimeoutSec 30
+    $login = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8080/api/auth/login' -ContentType 'application/json' `
+      -Body '{"email":"admin@shopflash.local","password":"ShopFlash123!"}' -TimeoutSec 30
+    $auth = @{ Authorization = "Bearer $($login.accessToken)" }
+    $s = Invoke-RestMethod -Uri 'http://127.0.0.1:8080/api/admin/reports/analytics/status' -Headers $auth -TimeoutSec 30
     if (-not $s.inSync) {
       Step "Dựng read model Redis cho báo cáo (Oracle $($s.oracle.countedOrders) đơn, Redis $($s.redis.orderDocs))"
       $r = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8080/api/admin/reports/analytics/rebuild' `
-        -ContentType 'application/json' -Body '{}' -TimeoutSec 600
+        -Headers $auth -ContentType 'application/json' -Body '{}' -TimeoutSec 600
       Ok "Đã dựng $($r.orders) đơn, $($r.lines) dòng hàng trong $([math]::Round($r.elapsedMs / 1000, 1)) s"
     }
   } catch {

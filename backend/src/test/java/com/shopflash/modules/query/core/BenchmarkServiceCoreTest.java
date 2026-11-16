@@ -87,6 +87,24 @@ class BenchmarkServiceCoreTest {
     }
 
     @Test
+    void cacheVariantIsHitAndAlwaysWarmsUpOnce() {
+        FakeReportSource cache = new FakeReportSource(Source.CACHE, q -> SourceResult.of(null, "HIT", 1, "GET"));
+        BenchmarkService withCache = new BenchmarkService(
+                new ReportService(List.of(oracle, redis, cache), ReportServiceCoreTest.CLOCK),
+                new ReportQueryFactory(ReportServiceCoreTest.CLOCK));
+        BenchmarkRequest req = new BenchmarkRequest(null, null, null, 0, 3,
+                List.of(new BenchmarkVariant("cache", null), new BenchmarkVariant("CACHE", "hit")));
+
+        BenchmarkResponse res = withCache.run(Report.TOP_PRODUCTS, req);
+
+        assertThat(res.results()).extracting(r -> r.source() + ":" + r.variant()).containsExactly("cache:HIT");
+        assertThat(cache.runs).hasSize(1 + 3); // warmup 0 vẫn chạy 1 lần để có kết quả trong cache
+        assertThatThrownBy(() -> withCache.run(Report.TOP_PRODUCTS, new BenchmarkRequest(null, null, null, null, null,
+                List.of(new BenchmarkVariant("cache", "MISS")))))
+                .isInstanceOf(ApiException.class).hasMessageContaining("HIT");
+    }
+
+    @Test
     void unsupportedVariantsAreOmitted() {
         BenchmarkResponse res = service.run(Report.UNSOLD_PRODUCTS, null);
         assertThat(res.results()).extracting(BenchmarkResult::source).containsExactly("oracle");

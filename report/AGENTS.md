@@ -17,6 +17,8 @@ Sau đó là Tài liệu tham khảo (trích dẫn theo IEEE) và Phụ lục: A
 
 Lý thuyết → cơ chế trên Oracle (có demo và số đo) → cơ chế trên Redis (có demo và số đo) → bảng so sánh → kết luận trong bối cảnh ShopFlash.
 
+IMPORTANT: Viết phần chủ đề theo `KHUNG_CHU_DE.md`: 5 phần bắt buộc, mỗi demo theo 4 bước, quy ước đo chung, cách để file trong `report/<chủ-đề>/`. Demo và công cụ đo do người phụ trách chủ đề tự chọn.
+
 Số đo phải chạy lại được. Mỗi phép đo chạy 5 lần, báo cáo trung bình và độ lệch, ghi rõ cấu hình máy.
 
 ## Viết bằng LaTeX

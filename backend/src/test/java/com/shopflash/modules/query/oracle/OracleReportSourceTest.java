@@ -31,7 +31,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * Chạy trên Oracle thật (docker compose, .env ở thư mục gốc repo). Dữ liệu có thể chỉ là seed lõi hoặc
  * cả bộ sinh 100k đơn, nên chỉ kiểm tra tính nhất quán, không so số cố định.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest // MOCK: SecurityConfig cần context web (HttpSecurity)
 class OracleReportSourceTest {
 
     private static final LocalDate FROM = LocalDate.of(2000, 1, 1);

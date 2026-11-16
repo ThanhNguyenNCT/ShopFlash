@@ -4,12 +4,17 @@ Chạy từ thư mục gốc repo, khi backend đã chạy ở :8080 và Redis �
     python report/query/tests/contract_test.py            # mọi kiểm tra
     python report/query/tests/contract_test.py --no-d6    # bỏ kịch bản chèn đơn vào Oracle
 
+API /api/admin/** cần JWT của tài khoản ADMIN: script tự đăng nhập bằng admin@shopflash.local
+(tài khoản mẫu của profile dev), đổi bằng biến môi trường SHOPFLASH_ADMIN_EMAIL / SHOPFLASH_ADMIN_PASSWORD.
+
 Chỉ dùng thư viện chuẩn. Kịch bản D6 chèn 1 đơn tạm vào Oracle qua `docker compose exec oracle sqlplus`
 (mật khẩu lấy từ biến môi trường trong container, không in ra), rồi xóa nó và rebuild lại.
 """
 import json
+import os
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -19,6 +24,9 @@ from decimal import Decimal
 sys.stdout.reconfigure(encoding="utf-8")
 
 BASE = "http://localhost:8080/api/admin/reports"
+LOGIN_URL = "http://localhost:8080/api/auth/login"
+ADMIN_EMAIL = os.environ.get("SHOPFLASH_ADMIN_EMAIL", "admin@shopflash.local")
+ADMIN_PASSWORD = os.environ.get("SHOPFLASH_ADMIN_PASSWORD", "ShopFlash123!")
 REPORTS = ["revenue-by-month", "revenue-by-category", "top-products", "vip-customers", "unsold-products"]
 JOIN_REPORTS = ["revenue-by-category", "top-products", "vip-customers"]
 ROW_FIELDS = {
@@ -44,12 +52,31 @@ def check(name, cond, detail=""):
         print(f"  FAIL {name} {detail}")
 
 
+_token = {"value": None, "at": 0.0}
+
+
+def auth_header():
+    """Token sống 30 phút (shopflash.auth.jwt-ttl) nên lấy lại sau 20 phút."""
+    if _token["value"] is None or time.monotonic() - _token["at"] > 20 * 60:
+        body = json.dumps({"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD}).encode()
+        req = urllib.request.Request(LOGIN_URL, data=body, method="POST", headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                _token["value"] = json.loads(resp.read())["accessToken"]
+        except urllib.error.HTTPError as e:
+            sys.exit(f"Không đăng nhập được {ADMIN_EMAIL} (HTTP {e.code}). Backend cần profile dev, "
+                     "hoặc đặt SHOPFLASH_ADMIN_EMAIL / SHOPFLASH_ADMIN_PASSWORD.")
+        _token["at"] = time.monotonic()
+    return {"Authorization": f"Bearer {_token['value']}"}
+
+
 def call(method, path, params=None, body=None, accept="application/json"):
     url = f"{BASE}{path}"
     if params:
         url += "?" + urllib.parse.urlencode(params)
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(url, data=data, method=method, headers={"Accept": accept, "Content-Type": "application/json"})
+    headers = {"Accept": accept, "Content-Type": "application/json", **auth_header()}
+    req = urllib.request.Request(url, data=data, method=method, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=600) as resp:
             raw = resp.read().decode()
@@ -211,6 +238,58 @@ def test_consistency():
     check("inSync sau khi dọn", st["inSync"] is True, st)
 
 
+def clear_report_cache():
+    subprocess.run(["docker", "compose", "exec", "-T", "redis", "sh", "-c",
+                    "redis-cli --scan --pattern 'report:cache:*' | xargs -r redis-cli unlink > /dev/null"],
+                   check=True, capture_output=True, timeout=60)
+
+
+def cleanup_cache_order():
+    sql("delete from order_items where order_id in (select order_id from orders where order_code='CT-CACHE');\n"
+        "delete from orders where order_code='CT-CACHE';\ncommit;")
+
+
+def test_cache():
+    print("Cache-aside (source=cache): MISS rồi HIT, cùng kết quả Oracle; đơn mới không thấy cho tới khi hết TTL")
+    cleanup_cache_order()
+    clear_report_cache()
+    for report in REPORTS:
+        _, miss = call("GET", f"/{report}", {"source": "cache"})
+        _, hit = call("GET", f"/{report}", {"source": "cache"})
+        _, ora = call("GET", f"/{report}", {"source": "oracle"})
+        check(f"{report} cache lần 1 = MISS", miss["meta"]["variant"] == "MISS", miss["meta"])
+        check(f"{report} cache lần 2 = HIT, 1 round-trip",
+              hit["meta"]["variant"] == "HIT" and hit["meta"]["roundTrips"] == 1, hit["meta"])
+        check(f"{report} HIT trả đúng dữ liệu Oracle", hit["data"] == ora["data"], report)
+    _, bad = call("GET", "/top-products", {"source": "memcached"})
+    check("source sai liệt kê cache", "cache" in bad.get("error", {}).get("message", ""), bad)
+
+    _, before = call("GET", "/revenue-by-month", {"source": "cache"})
+    product = sql("select product_id||'|'||base_price from products where sku like 'gen-%' and status='ACTIVE' and rownum=1;")
+    pid, price = product.split("|")
+    sql(
+        "declare v_id number; begin "
+        "insert into orders(order_code,user_id,order_type,status,subtotal,discount_amount,total_amount,recipient_name,"
+        "recipient_phone,shipping_address,idempotency_key,created_at,updated_at) values('CT-CACHE',2,'NORMAL','CONFIRMED',"
+        f"{price},0,{price},'CACHE','0900000000','HCMUT','ct-cache',systimestamp,systimestamp) returning order_id into v_id; "
+        "insert into order_items(order_id,product_id,product_name,product_sku,unit_price,quantity,line_total) "
+        f"select v_id, product_id, name, sku, base_price, 1, base_price from products where product_id={pid}; commit; end;\n/"
+    )
+    try:
+        _, stale = call("GET", "/revenue-by-month", {"source": "cache"})
+        _, ora = call("GET", "/revenue-by-month", {"source": "oracle"})
+        check("sau khi chèn đơn: cache vẫn HIT và trả số cũ",
+              stale["meta"]["variant"] == "HIT" and stale["data"] == before["data"], stale["meta"])
+        check("sau khi chèn đơn: Oracle đã thấy đơn mới", ora["data"] != before["data"])
+        clear_report_cache()  # giống hết TTL
+        _, fresh = call("GET", "/revenue-by-month", {"source": "cache"})
+        check("cache hết hạn: MISS và khớp Oracle mới",
+              fresh["meta"]["variant"] == "MISS" and fresh["data"] == ora["data"], fresh["meta"])
+    finally:
+        cleanup_cache_order()
+        clear_report_cache()
+
+
 if __name__ == "__main__":
     test_shapes()
     test_compare()
@@ -219,6 +298,7 @@ if __name__ == "__main__":
     test_errors()
     if "--no-d6" not in sys.argv:
         test_consistency()
+        test_cache()
     print(f"\n{passed} passed, {len(failed)} failed")
     for name in failed:
         print(f"  - {name}")

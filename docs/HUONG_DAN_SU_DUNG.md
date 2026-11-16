@@ -101,21 +101,21 @@ Hai điều nên biết:
 - **"Sản phẩm chưa từng bán" trên Redis báo "không hỗ trợ":** đây là cố ý, vì Redis không có phép NOT EXISTS.
 - **Thời gian trên trang này không dùng để so sánh:** 5 khối chạy cùng lúc nên bị đội lên. Muốn so sánh hai database, dùng trang dưới đây.
 
-### So sánh Oracle–Redis
+### Query Lab
 
-![So sánh Oracle–Redis](images/07-so-sanh-oracle-redis.png)
+![Query Lab](images/07-so-sanh-oracle-redis.png)
 
-Trang dùng khi thuyết trình. Khoảng ngày ở góc trên áp dụng cho mọi tab. Mỗi tab có một nút đỏ để chạy.
+Menu **Báo cáo → Query Lab** (`/admin/reports/lab`). Khoảng ngày ở góc trên áp dụng cho mọi tab. Mỗi khối có một nút chạy; kết quả chính hiện thành hàng thẻ số (viền đỏ: Oracle, viền xanh: Redis), chi tiết ở dưới.
 
 | Tab | Bấm gì | Thấy gì |
 |---|---|---|
-| 1. Kết quả giống nhau | So sánh hai nguồn | Cùng một báo cáo, Oracle và Redis ra kết quả khớp từng dòng ("Khớp") |
-| 2. Optimizer | Chọn 2 hint, bấm Xem kế hoạch | Oracle tự chọn cách join (HASH JOIN); ép NESTED LOOPS thì kế hoạch đổi. Redis không có optimizer |
-| 3. Thống kê | Xóa thống kê → Xem lại kế hoạch → Thu thập thống kê | Không có thống kê, Oracle ước lượng sai số dòng và đổi kế hoạch; thu thập lại thì kế hoạch trở về như cũ |
-| 4. Round-trip | Chạy 3 cách | Redis CLIENT cần nhiều lượt gọi và chậm hơn hẳn AGGREGATE |
-| 5. Subquery | Chạy trên hai nguồn | Oracle viết subquery trong một câu; Redis phải tách thành nhiều lượt hoặc không làm được |
-| 6. Nhất quán | Làm mới / Dựng lại read model | Thêm đơn mới vào Oracle: Redis chưa thấy cho tới khi dựng lại |
-| Đo hiệu năng | Chọn báo cáo, số lần đo, bấm Chạy đo | Bảng thời gian trung bình ± độ lệch, p50, p95 và biểu đồ; nút "Tải CSV" để đưa vào báo cáo |
+| Kết quả hai nguồn | So sánh hai nguồn | Oracle và Redis ra kết quả khớp từng dòng; câu SQL và lệnh Redis đặt cạnh nhau |
+| Optimizer → Hint join | Chọn 2 hint, bấm Chạy và xem kế hoạch | Thời gian và kiểu join của hai hint, tỉ lệ chậm hơn, bảng kế hoạch (ước lượng/thực tế). FT.PROFILE của Redis ở cuối |
+| Optimizer → Thống kê | Xem kế hoạch → Xóa thống kê → Thu thập thống kê | Mỗi nút chụp lại kế hoạch: không có thống kê thì Oracle ước lượng sai và đổi kế hoạch; thu thập lại thì trở về |
+| Round-trip và subquery → Round-trip | Chạy 3 cách | Redis kéo dữ liệu về backend tự gom cần nhiều lượt gọi và chậm hơn hẳn gom trên server |
+| Round-trip và subquery → Subquery | Chạy trên hai nguồn | Oracle viết subquery trong một câu; Redis phải tách lượt hoặc không làm được |
+| Nhất quán | Làm mới / Dựng lại read model | Đơn mới trong Oracle: Redis chưa thấy cho tới khi dựng lại |
+| Đo hiệu năng | Chọn báo cáo, số lần đo, bấm Chạy đo | Thời gian trung bình ± độ lệch, p50, p95 và biểu đồ; nút "Tải CSV" để đưa vào báo cáo |
 
 Nút "Xóa thống kê" và "Dựng lại read model" đều hỏi xác nhận trước khi chạy. Dựng lại read model mất khoảng 20–35 giây.
 
@@ -124,7 +124,7 @@ Nút "Xóa thống kê" và "Dựng lại read model" đều hỏi xác nhận t
 | Hiện tượng | Làm gì |
 |---|---|
 | Khung đỏ "Mã lỗi: NETWORK_ERROR" | Backend chưa chạy hoặc đã tắt: chạy lại `scripts\dev.ps1` |
-| "REDIS_NOT_BUILT" hoặc tab 6 báo "Lệch" | Vào tab 6, bấm "Dựng lại read model Redis" |
+| "REDIS_NOT_BUILT" hoặc tab Nhất quán báo "Lệch" | Query Lab, tab Nhất quán, bấm "Dựng lại read model Redis" |
 | Trang trắng, máy chậm | Máy thiếu RAM: đóng bớt ứng dụng, rồi chạy lại |
 | Gõ sai địa chỉ | Trang 404, bấm "Về trang chủ" |
 

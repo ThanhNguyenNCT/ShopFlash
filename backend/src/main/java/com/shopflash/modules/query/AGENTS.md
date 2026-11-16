@@ -17,6 +17,7 @@ Chủ đề: Query processing.
 - **FT.AGGREGATE luôn kèm `TIMEOUT 0`:** Redis đang đặt `TIMEOUT 500` với `ON_TIMEOUT return`, nghĩa là quá 500 ms thì trả **một phần** kết quả mà không báo lỗi.
 - **Chế độ `CLIENT`** đọc bằng `FT.AGGREGATE … WITHCURSOR COUNT 10000` + `FT.CURSOR READ`, vì `FT.SEARCH` không phân trang quá 10.000 kết quả (`MAXSEARCHRESULTS`). Gom nhóm, cộng và sắp xếp làm trong Java.
 - **Giới hạn số của RediSearch:** giá trị tính ra (SUM, AVG) được in với 12 chữ số có nghĩa, nên tổng từ 10^12 trở lên có thể mất hàng đơn vị. Dữ liệu hiện tại (VND tròn, tổng mỗi nhóm dưới 10^12) vẫn khớp Oracle tuyệt đối; chế độ `CLIENT` đọc giá trị gốc nên luôn chính xác.
+- **Cache-aside (`source=cache`):** tra `report:cache:*` trên Redis; có thì trả luôn (`variant=HIT`, 1 round-trip), không có thì chạy Oracle (hint theo `joinHint`), `SET … PX` với TTL `shopflash.query.cache-ttl` (mặc định 5 phút) rồi trả (`variant=MISS`). Không xóa cache khi đơn đổi: kết quả có thể cũ tới hết TTL. Redis lỗi thì vẫn trả kết quả Oracle, ghi chú trong `meta.note`. `plan` của nguồn này là plan Oracle.
 - **Truy cập Oracle:** `NamedParameterJdbcTemplate`, luôn bind variable. Hint join được chèn từ enum cố định, không nhận chuỗi từ client.
 - **Quyền:** endpoint thuộc `/api/admin/**`. Khi `common/security` (F0) có rồi thì chỉ cho `ADMIN` gọi; trước đó để mở.
 - **Chống CSRF tạm thời (chưa có F0):** ba POST đổi trạng thái (`/analytics/rebuild`, `/oracle/stats`, `/{report}/benchmark`) chỉ nhận `Content-Type: application/json`. Form HTML không gửi được kiểu này, còn `fetch` khác origin phải qua preflight CORS, mà backend không cấu hình CORS nên bị chặn. Sai hoặc thiếu `Content-Type` thì `415 UNSUPPORTED_MEDIA_TYPE`, không chạy gì.
@@ -35,6 +36,7 @@ Không có bảng riêng. Đọc `orders`, `order_items`, `products`, `categorie
 | `order:line:{orderItemId}` | JSON | Một dòng hàng, phẳng: `orderId`, `userId`, `status`, `createdAt`, `productId`, `productName`, `categoryId`, `categoryName`, `quantity`, `lineTotal` |
 | `idx:order-line-analytics` | RediSearch | `ON JSON PREFIX 1 order:line:`, schema trong DATABASE_DESIGN §28.1, tạo bởi `redis/init.lua`. `productName`, `categoryName` không index, đọc bằng `LOAD` |
 | `analytics:meta` | HASH | `lastRebuildAt`, `orders`, `lines`, `elapsedMs` |
+| `report:cache:{report}:{from}:{to}:{joinHint}:limit={n}:page={n}:size={n}` | STRING (JSON) | Kết quả báo cáo Oracle đã tính: `cachedAt`, `rows`, `page`, `summary`. Hết hạn theo TTL |
 
 Lý do có `order:line:*`: gom nhóm theo trường nhiều giá trị (`$.items[*]`) trong `FT.AGGREGATE` không cho kết quả theo từng dòng hàng, nên báo cáo theo danh mục/sản phẩm dùng bản phẳng.
 
@@ -56,7 +58,7 @@ Base: `/api/admin/reports`. JSON, tiền là số (VND), thời gian đo là `ms
 
 | Tham số | Kiểu | Mặc định | Ghi chú |
 |---|---|---|---|
-| `source` | `oracle` \| `redis` | `oracle` | |
+| `source` | `oracle` \| `redis` \| `cache` | `oracle` | `cache`: kết quả Oracle giữ trong Redis (cache-aside) |
 | `from`, `to` | `YYYY-MM-DD`, năm 2000–2100 | 12 tháng gần nhất đến hôm nay | `unsold-products` bỏ qua |
 | `joinHint` | `AUTO` \| `NL` \| `HASH` \| `MERGE` | `AUTO` | Chỉ Oracle; có tác dụng với `revenue-by-category`, `top-products`, `vip-customers` |
 | `redisMode` | `AGGREGATE` \| `CLIENT` | `AGGREGATE` | Chỉ Redis. `CLIENT` = kéo dữ liệu về Java rồi tự tính, để thấy số round-trip |
@@ -80,7 +82,7 @@ Base: `/api/admin/reports`. JSON, tiền là số (VND), thời gian đo là `ms
 }
 ```
 
-`variant` = `joinHint` với Oracle, `redisMode` với Redis. `statement` = câu SQL (giữ tên bind, không thay giá trị) hoặc các lệnh Redis, mỗi lệnh một dòng. Báo cáo cần 2 câu SQL (`vip-customers`: danh sách + tổng/trung bình; `unsold-products`: danh sách + đếm) thì nối 2 câu bằng `;` và một dòng trống, `roundTrips` = 2. `elapsedMs` chỉ tính thời gian gọi DB và xử lý kết quả, không tính serialize HTTP. Khi `supported=false` thì `data` là `null` và `note` ghi lý do.
+`variant` = `joinHint` với Oracle, `redisMode` với Redis, `HIT`/`MISS` với cache. `statement` = câu SQL (giữ tên bind, không thay giá trị) hoặc các lệnh Redis, mỗi lệnh một dòng. Báo cáo cần 2 câu SQL (`vip-customers`: danh sách + tổng/trung bình; `unsold-products`: danh sách + đếm) thì nối 2 câu bằng `;` và một dòng trống, `roundTrips` = 2. `elapsedMs` chỉ tính thời gian gọi DB và xử lý kết quả, không tính serialize HTTP. Khi `supported=false` thì `data` là `null` và `note` ghi lý do.
 
 ### 1. `GET /api/admin/reports/{report}`
 
@@ -138,7 +140,7 @@ Request (mọi trường đều không bắt buộc; body có thể rỗng nhưn
   "variants": [ { "source": "oracle", "variant": "AUTO" }, { "source": "redis", "variant": "AGGREGATE" } ] }
 ```
 
-Mặc định `warmup=1`, `runs=5` (tối đa 30); `variants` mặc định gồm 4 hint Oracle và 2 chế độ Redis. `variants` tối đa 12 phần tử; cặp `(source, variant)` trùng nhau chỉ chạy một lần, giữ thứ tự gửi lên. `from`/`to` cùng quy tắc năm 2000–2100 như tham số chung. Response `200`:
+Mặc định `warmup=1`, `runs=5` (tối đa 30); `variants` mặc định gồm 4 hint Oracle và 2 chế độ Redis; đo cache thì gửi `{ "source": "cache", "variant": "HIT" }` (luôn chạy ít nhất 1 lần khởi động để có kết quả trong cache). `variants` tối đa 12 phần tử; cặp `(source, variant)` trùng nhau chỉ chạy một lần, giữ thứ tự gửi lên. `from`/`to` cùng quy tắc năm 2000–2100 như tham số chung. Response `200`:
 
 ```json
 {

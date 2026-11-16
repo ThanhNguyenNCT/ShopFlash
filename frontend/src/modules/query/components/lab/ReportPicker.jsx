@@ -15,7 +15,6 @@ export default function ReportPicker({ value, onChange, reports = REPORTS }) {
     <Flex wrap gap={tokens.space[3]} align="center">
       <Select
         aria-label="Báo cáo"
-        className="sf-lab-full"
         style={{ minWidth: tokens.space[8] * 7, maxWidth: tokens.space[8] * 10 }}
         value={value.report}
         onChange={(report) => set({ report, page: 1 })}

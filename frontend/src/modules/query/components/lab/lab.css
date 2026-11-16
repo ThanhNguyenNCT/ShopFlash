@@ -55,3 +55,84 @@
 .sf-lab-swatch--redis { background: var(--sf-color-info); }
 
 .sf-lab-full { width: 100%; }
+
+/* ---------- Query Lab (thiết kế lại theo kịch bản demo) ---------- */
+
+.sf-lab-page__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--sf-space-3) var(--sf-space-6);
+}
+
+.sf-lab-page__head > :first-child { flex: 1 1 calc(var(--sf-space-8) * 12); min-width: 0; }
+
+.sf-lab-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sf-space-4);
+  color: var(--sf-color-ink-muted);
+  font-size: var(--sf-text-caption-size);
+}
+
+/* Dải kết quả */
+.sf-verdict { display: flex; flex-direction: column; gap: var(--sf-space-3); }
+.sf-verdict__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--sf-space-8) * 6), 1fr));
+  gap: var(--sf-space-3);
+}
+.sf-verdict__tile {
+  min-width: 0;
+  padding: var(--sf-space-3) var(--sf-space-4);
+  background: var(--sf-color-surface);
+  border: 1px solid var(--sf-color-line);
+  border-left: 3px solid var(--sf-color-line-strong);
+  border-radius: var(--sf-radius-md);
+}
+.sf-verdict__tile--oracle { border-left-color: var(--sf-color-brand); }
+.sf-verdict__tile--redis { border-left-color: var(--sf-color-info); }
+.sf-verdict__tile--good { border-left-color: var(--sf-color-success); background: var(--sf-color-surface); }
+.sf-verdict__tile--bad { border-left-color: var(--sf-color-warning); }
+.sf-verdict__label {
+  color: var(--sf-color-ink-muted);
+  font-size: var(--sf-text-label-size);
+  line-height: var(--sf-text-label-line);
+  font-weight: var(--sf-text-label-weight);
+}
+.sf-verdict__value {
+  margin-top: var(--sf-space-1);
+  font-size: var(--sf-text-heading-size);
+  line-height: var(--sf-text-heading-line);
+  font-weight: var(--sf-text-heading-weight);
+  overflow-wrap: anywhere;
+}
+.sf-verdict__tile--good .sf-verdict__value { color: var(--sf-color-success); }
+.sf-verdict__tile--bad .sf-verdict__value { color: var(--sf-color-warning); }
+.sf-verdict__caption {
+  margin-top: var(--sf-space-1);
+  color: var(--sf-color-ink-muted);
+  font-size: var(--sf-text-caption-size);
+  line-height: var(--sf-text-caption-line);
+}
+.sf-verdict__headline { color: var(--sf-color-ink-muted); font-size: var(--sf-text-caption-size); }
+
+/* Bảng kế hoạch Oracle */
+.sf-plan { display: flex; flex-direction: column; gap: var(--sf-space-2); min-width: 0; }
+.sf-plan__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sf-space-2); }
+.sf-plan__op { font-family: var(--sf-font-mono); font-size: var(--sf-text-caption-size); white-space: pre; }
+.sf-plan__name { color: var(--sf-color-info); font-weight: 600; }
+.sf-plan__row--join > td { background: var(--sf-color-brand-tint) !important; }
+.sf-plan__row--join .sf-plan__op { color: var(--sf-color-brand); font-weight: 700; }
+
+/* Hai lệnh cạnh nhau: SQL so với Redis */
+.sf-lab-side { min-width: 0; }
+.sf-lab-side__title { display: flex; align-items: center; gap: var(--sf-space-2); margin-bottom: var(--sf-space-2); font-weight: 600; }
+
+@media (max-width: 575px) {
+  .sf-verdict__tiles { grid-template-columns: 1fr; }
+}
+
+.sf-lab-stats-steps { display: flex; flex-wrap: wrap; gap: var(--sf-space-3); }
+@media (max-width: 575px) { .sf-lab-stats-steps > * { width: 100%; } }

@@ -96,8 +96,8 @@ public class ReportService {
         if (target != null) {
             return target;
         }
-        if (source == Source.REDIS) {
-            throw new ApiException(ErrorCode.REDIS_UNAVAILABLE, "Nguồn Redis chưa sẵn sàng");
+        if (source == Source.REDIS || source == Source.CACHE) {
+            throw new ApiException(ErrorCode.REDIS_UNAVAILABLE, "Nguồn " + name(source) + " chưa sẵn sàng");
         }
         throw new ApiException(ErrorCode.ORACLE_ERROR, "Nguồn Oracle chưa sẵn sàng");
     }

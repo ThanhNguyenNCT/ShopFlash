@@ -22,7 +22,7 @@ export default [
   {
     path: '/admin/reports/lab',
     element: <QueryLabPage />,
-    title: 'So sánh Oracle–Redis',
-    menu: { label: 'So sánh Oracle–Redis', icon: <ExperimentOutlined />, group: 'Báo cáo', order: 2, owner: 'TV3', feature: 'F5, F6' },
+    title: 'Query Lab',
+    menu: { label: 'Query Lab', icon: <ExperimentOutlined />, group: 'Báo cáo', order: 2, owner: 'TV3', feature: 'F5, F6' },
   },
 ];

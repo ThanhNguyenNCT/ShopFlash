@@ -21,7 +21,7 @@ import com.shopflash.modules.query.repository.redis.RedisReportSource;
  * Đo thời gian từng báo cáo trên read model hiện có (không rebuild): chạy tuần tự, 1 lần warm-up, median của 5.
  * Chạy: ./mvnw -q test -Dtest=RedisTimingIT
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest // MOCK: SecurityConfig cần context web (HttpSecurity)
 class RedisTimingIT {
 
     @Autowired

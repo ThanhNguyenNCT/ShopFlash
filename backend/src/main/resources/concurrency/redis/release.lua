@@ -28,8 +28,10 @@ if grace >= 0 and now < tonumber(r[4]) + grace then
 end
 
 local q = tonumber(r[3])
--- Runtime của chương trình có thể đã bị xóa (chương trình kết thúc) hoặc dựng lại: khi đó không cộng suất.
-if redis.call('EXISTS', KEYS[2]) == 1 then
+-- Chỉ cộng suất khi reservation còn được ghi trong hash pending của sản phẩm. Runtime đã bị xóa (chương trình kết
+-- thúc), bị mất hoặc đã dựng lại thì suất này đã nằm trong remaining = allocated - sold; cộng nữa là dư suất.
+local registered = redis.call('HGET', KEYS[4], r[2]) == ARGV[1]
+if registered and redis.call('EXISTS', KEYS[2]) == 1 then
   redis.call('HINCRBY', KEYS[2], 'remaining', q)
   if redis.call('HINCRBY', KEYS[3], r[2], -q) <= 0 then
     redis.call('HDEL', KEYS[3], r[2])
@@ -38,7 +40,7 @@ end
 redis.call('HSET', KEYS[1], 'status', 'RELEASED', 'releasedAt', now)
 redis.call('EXPIRE', KEYS[1], 3600)
 redis.call('ZREM', KEYS[5], ARGV[1])
-if redis.call('HGET', KEYS[4], r[2]) == ARGV[1] then
+if registered then
   redis.call('HDEL', KEYS[4], r[2])
 end
 return 1

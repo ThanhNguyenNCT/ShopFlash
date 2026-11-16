@@ -59,7 +59,7 @@ public class FlashRuntimeRepository {
     /** PENDING -> CLAIMED trước khi ghi đơn. */
     public ClaimResult claim(String reservationId, long userId) {
         List<Object> reply = list(scripts.run(Script.CLAIM, List.of(FlashKeys.reservation(reservationId)),
-                List.of(String.valueOf(userId))));
+                List.of(String.valueOf(userId), reservationId)));
         String code = (String) reply.getFirst();
         return switch (code) {
             case "CLAIMED" -> ClaimResult.claimed(new ClaimedReservation(reservationId, asLong(reply.get(1)),

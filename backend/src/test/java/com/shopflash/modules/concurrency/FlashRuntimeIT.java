@@ -241,6 +241,27 @@ class FlashRuntimeIT {
     }
 
     @Test
+    void reservationOrphanedByLostRuntimeKeysCanNeitherBeClaimedNorReturnASlot() {
+        // Redis mất key runtime của sản phẩm (kể cả hash pending) nhưng key reservation còn: dựng lại không còn thấy
+        // suất đang giữ dở, suất đó đã nằm trong remaining = allocated - sold.
+        ReserveOutcome claimLater = reserve(PLENTY, 21, 1);
+        ReserveOutcome expireLater = reserve(PLENTY, 22, 1);
+        redis.unlink(FlashKeys.item(PLENTY), FlashKeys.userQty(PLENTY), FlashKeys.pending(PLENTY));
+        long dropped = runtime.loadSale(new SaleRuntime(SALE, "ACTIVE", now - 60_000, now + 3_600_000, 2, 60),
+                List.of(item(PLENTY, 50)));
+        assertThat(dropped).isZero();
+        assertThat(remaining(PLENTY)).isEqualTo(50);
+
+        // Đặt đơn bằng suất mồ côi: bị từ chối, nếu không Oracle bán thêm một suất mà Redis không trừ.
+        assertThat(errorOf(() -> runtime.claim(claimLater.reservationId(), 21))).isEqualTo("RESERVATION_EXPIRED");
+        assertThat(runtime.find(claimLater.reservationId()).orElseThrow().status()).isEqualTo("RELEASED");
+        // Job dọn hoặc khách hủy suất mồ côi: đánh dấu RELEASED nhưng không cộng suất lần nữa.
+        assertThat(runtime.release(expireLater.reservationId(), ReleaseRule.cancelledBy(22))).isTrue();
+        assertThat(runtime.find(expireLater.reservationId()).orElseThrow().status()).isEqualTo("RELEASED");
+        assertThat(remaining(PLENTY)).isEqualTo(50);
+    }
+
+    @Test
     void seedSaleIsRebuiltFromOracle() {
         runtimeService.load(9101);
         List<Map<String, Object>> rows = jdbc.queryForList("""

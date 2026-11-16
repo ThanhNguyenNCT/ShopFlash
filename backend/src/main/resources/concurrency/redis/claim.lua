@@ -2,7 +2,7 @@
 -- Sau bước này job dọn không trả suất nữa cho tới khi quá expiresAt + 30 s (xem AGENTS.md của module).
 --
 -- KEYS[1] flash:reservation:{id}
--- ARGV[1] userId
+-- ARGV[1] userId  ARGV[2] reservationId
 --
 -- Trả về {'CLAIMED', saleId, itemId, productId, quantity}, {'CONFIRMED'} khi đã đặt đơn xong trước đó,
 -- {'ALREADY_CLAIMED'} khi đang có lần đặt đơn khác, {'EXPIRED'} hoặc {'NOT_FOUND'}.
@@ -20,6 +20,14 @@ if r[1] == 'CLAIMED' then
   return {'ALREADY_CLAIMED'}
 end
 if r[1] ~= 'PENDING' or now >= tonumber(r[3]) then
+  return {'EXPIRED'}
+end
+-- Suất chỉ còn hiệu lực khi vẫn được ghi trong hash pending của sản phẩm. Runtime bị mất hoặc dựng lại thì hash
+-- này không còn mục đó: suất đã được tính lại vào remaining và mở bán cho người khác, không được đặt đơn nữa.
+-- (Key dựng trong script: chỉ đúng với Redis đơn, không phải cluster.)
+if redis.call('HGET', 'flash:item:' .. r[5] .. ':pending', ARGV[1]) ~= ARGV[2] then
+  redis.call('HSET', KEYS[1], 'status', 'RELEASED', 'releasedAt', now, 'releasedBy', 'REBUILD')
+  redis.call('EXPIRE', KEYS[1], 3600)
   return {'EXPIRED'}
 end
 redis.call('HSET', KEYS[1], 'status', 'CLAIMED', 'claimedAt', now)

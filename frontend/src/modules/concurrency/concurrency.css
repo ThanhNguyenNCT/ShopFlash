@@ -252,3 +252,52 @@
   background: var(--sf-color-surface-sunken);
   border-radius: var(--sf-radius-md);
 }
+
+/* Biểu đồ quét theo C của Concurrency Lab */
+
+.sf-cc-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--sf-space-8) * 12)), 1fr));
+  gap: var(--sf-space-4);
+}
+
+.sf-cc-chart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sf-space-2);
+  min-width: 0;
+}
+
+.sf-cc-chart__plot {
+  height: calc(var(--sf-space-8) * 11);
+}
+
+.sf-cc-chart .recharts-wrapper:focus,
+.sf-cc-chart .recharts-surface:focus {
+  outline: none;
+}
+
+.sf-cc-chart-tooltip {
+  min-width: calc(var(--sf-space-8) * 6);
+  padding: var(--sf-space-2) var(--sf-space-3);
+  background: var(--sf-color-surface);
+  border: 1px solid var(--sf-color-line);
+  border-radius: var(--sf-radius-md);
+  box-shadow: var(--sf-shadow-popup);
+  font-size: var(--sf-text-caption-size);
+  line-height: var(--sf-text-caption-line);
+}
+
+.sf-cc-chart-tooltip__row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sf-space-4);
+}
+
+.sf-cc-chart-tooltip__swatch {
+  display: inline-block;
+  width: var(--sf-space-2);
+  height: var(--sf-space-2);
+  margin-inline-end: var(--sf-space-2);
+  border-radius: var(--sf-radius-sm);
+}

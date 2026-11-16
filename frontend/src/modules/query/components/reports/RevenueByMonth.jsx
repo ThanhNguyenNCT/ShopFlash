@@ -36,7 +36,7 @@ export default function RevenueByMonth({ params }) {
   const rows = state.data?.rows ?? [];
 
   return (
-    <ReportCard title="Doanh thu theo tháng" feature="F5" state={state} skeletonRows={8}>
+    <ReportCard title="Doanh thu theo tháng" state={state} skeletonRows={8}>
       {rows.length === 0 ? (
         <Empty description="Không có đơn nào trong khoảng thời gian này" />
       ) : (

@@ -109,7 +109,7 @@ function TopProductsCard() {
   return (
     <Card
       className="sf-report-card"
-      title={<span className="sf-report-card__title">Top {TOP_LIMIT} sản phẩm bán chạy <Tag className="sf-report-card__feature">F6</Tag></span>}
+      title={<span className="sf-report-card__title">Top {TOP_LIMIT} sản phẩm bán chạy</span>}
       extra={<Link to="/admin/reports">Xem báo cáo <RightOutlined /></Link>}
     >
       {body}
@@ -144,7 +144,7 @@ function QuickLinks({ menu }) {
                   <Tag color={todo ? 'warning' : 'success'}>{todo ? 'Đang làm' : 'Đã có'}</Tag>
                 </Flex>
                 <Typography.Text type="secondary">
-                  {r.menu.group}{r.menu.feature ? ` · ${r.menu.feature}` : ''}{r.menu.owner ? ` · ${r.menu.owner}` : ''}
+                  {r.menu.group}{r.menu.owner ? ` · ${r.menu.owner}` : ''}
                 </Typography.Text>
                 <span className="sf-code">{r.path}</span>
               </div>
@@ -156,7 +156,7 @@ function QuickLinks({ menu }) {
   );
 }
 
-/** Trang chủ quản trị: chỉ số chính (F5), top sản phẩm (F6) và lối tắt tới mọi khu quản trị. */
+/** Trang chủ quản trị: chỉ số chính, top sản phẩm và lối tắt tới mọi khu quản trị. */
 export default function AdminDashboardPage() {
   const { adminMenu = [] } = useOutletContext() ?? {};
   return (

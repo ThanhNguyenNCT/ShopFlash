@@ -9,15 +9,14 @@ const moduleDir = (module) => (module.startsWith('shared/') ? `frontend/src/${mo
  * Trang chờ cho màn hình chưa làm: nói rõ ai làm, sửa file nào, màn hình phải làm gì.
  * Người phụ trách thay toàn bộ nội dung file `file` bằng màn hình thật; route và menu đã nối sẵn.
  *
- * props: feature ('F7'), title, owner ('TV4'), module ('transaction'), file (đường dẫn file trang),
+ * props: title, owner ('TV4'), module ('transaction'), file (đường dẫn file trang),
  *        description, todo: string[], api?: string[], compact? (bản gọn để nhúng trong trang khác).
  */
-export default function ComingSoon({ feature, title, owner, module, file, description, todo = [], api = [], compact = false }) {
+export default function ComingSoon({ title, owner, module, file, description, todo = [], api = [], compact = false }) {
   const dir = moduleDir(module);
   const heading = (
     <span className="sf-soon__title">
       {title}
-      {feature && <Tag>{feature}</Tag>}
       <Tag color="warning">Đang làm</Tag>
     </span>
   );

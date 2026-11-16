@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Card, Flex, Typography } from 'antd';
-import { RightOutlined, SearchOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { DownOutlined, RightOutlined, SearchOutlined, ThunderboltOutlined, UpOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { tokens } from '@/shared/design-system';
 import { getCategories, searchProducts } from '../api';
@@ -8,9 +8,13 @@ import ProductGrid from '../components/ProductGrid';
 
 // Trang chủ (TV2): danh mục và sản phẩm thật từ API của module indexing (không có từ khóa nên backend đọc Oracle).
 // Dải flash sale chờ module concurrency (TV5) có API chương trình đang chạy; hiện chỉ để lối vào trang Flash sale.
+// Số danh mục hiện sẵn ở trang chủ (khoảng 2 dòng); phần còn lại mở bằng nút "Xem thêm".
+const CATEGORY_PREVIEW = 12;
+
 export default function HomePage() {
   const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const [products, setProducts] = useState({ loading: true, error: null, items: [] });
 
   const loadProducts = useCallback(() => {
@@ -56,11 +60,24 @@ export default function HomePage() {
         </Flex>
         {categories.length > 0 && (
           <Flex wrap gap={tokens.space[2]} aria-label="Danh mục">
-            {categories.map((c) => (
+            {(showAllCategories ? categories : categories.slice(0, CATEGORY_PREVIEW)).map((c) => (
               <Button key={c.categoryId} size="small" shape="round" onClick={() => navigate(`/search?categoryId=${c.categoryId}`)}>
                 {c.name}
               </Button>
             ))}
+            {categories.length > CATEGORY_PREVIEW && (
+              <Button
+                size="small"
+                shape="round"
+                type="link"
+                aria-expanded={showAllCategories}
+                icon={showAllCategories ? <UpOutlined /> : <DownOutlined />}
+                iconPlacement="end"
+                onClick={() => setShowAllCategories((v) => !v)}
+              >
+                {showAllCategories ? 'Thu gọn' : `Xem thêm ${categories.length - CATEGORY_PREVIEW} danh mục`}
+              </Button>
+            )}
           </Flex>
         )}
       </section>

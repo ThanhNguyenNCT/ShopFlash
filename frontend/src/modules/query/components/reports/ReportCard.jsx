@@ -1,13 +1,13 @@
-import { Alert, Button, Card, Skeleton, Spin, Tag } from 'antd';
+import { Alert, Button, Card, Skeleton, Spin } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import ReportMetaBar from './ReportMetaBar';
 
 /**
- * Khung chung của một khối báo cáo: tiêu đề + mã chức năng, trạng thái loading/lỗi riêng,
+ * Khung chung của một khối báo cáo: tiêu đề, trạng thái loading/lỗi riêng,
  * thân (children) và dòng meta ở chân.
  * `state` là kết quả của useReport. Khi đang tải lại mà đã có dữ liệu cũ thì giữ dữ liệu, chỉ mờ đi.
  */
-export default function ReportCard({ title, feature, extra, state, children, skeletonRows = 4 }) {
+export default function ReportCard({ title, extra, state, children, skeletonRows = 4 }) {
   const { meta, loading, error, reload } = state;
   const hasContent = !!meta;
 
@@ -43,7 +43,6 @@ export default function ReportCard({ title, feature, extra, state, children, ske
       title={
         <span className="sf-report-card__title">
           {title}
-          {feature && <Tag className="sf-report-card__feature">{feature}</Tag>}
         </span>
       }
       extra={extra}

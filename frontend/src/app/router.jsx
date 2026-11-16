@@ -11,7 +11,7 @@ import authRoutes from '@/shared/auth/routes';
 //     path: '/admin/...' | '/...',
 //     element: <Page />,
 //     title?: 'Tiêu đề tab trình duyệt',
-//     menu?: { label, icon, order, group, owner?, feature?, status?: 'todo' },   // chỉ dùng cho route /admin
+//     menu?: { label, icon, order, group, owner?, status?: 'todo' },   // chỉ dùng cho route /admin
 //   }
 // Route bắt đầu bằng /admin: nằm trong AdminLayout, sau RequireAdmin. Path đúng bằng /admin là trang chủ quản trị (index).
 // Route khác (kể cả /login, /register): nằm trong CustomerLayout. Chi tiết: frontend/AGENTS.md.

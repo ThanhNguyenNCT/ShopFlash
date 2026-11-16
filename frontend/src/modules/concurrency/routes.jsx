@@ -14,12 +14,12 @@ export default [
     path: '/admin/flash-sales',
     element: <AdminFlashSalesPage />,
     title: 'Quản lý flash sale',
-    menu: { label: 'Chương trình flash sale', icon: <ThunderboltOutlined />, group: 'Flash sale', order: 1, owner: 'TV5', feature: 'F9' },
+    menu: { label: 'Chương trình flash sale', icon: <ThunderboltOutlined />, group: 'Flash sale', order: 1, owner: 'TV5' },
   },
   {
     path: '/admin/flash-sales/lab',
     element: <ConcurrencyLabPage />,
     title: 'Concurrency Lab',
-    menu: { label: 'Concurrency Lab', icon: <ExperimentOutlined />, group: 'Flash sale', order: 2, owner: 'TV5', feature: 'F9' },
+    menu: { label: 'Concurrency Lab', icon: <ExperimentOutlined />, group: 'Flash sale', order: 2, owner: 'TV5' },
   },
 ];

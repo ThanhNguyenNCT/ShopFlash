@@ -68,7 +68,7 @@ export default function QueryLabPage() {
             Query Lab
           </Typography.Title>
           <Typography.Text type="secondary">
-            So sánh xử lý truy vấn của báo cáo F5/F6 trên Oracle và Redis.
+            So sánh xử lý truy vấn của các báo cáo trên Oracle và Redis.
           </Typography.Text>
           <div className="sf-lab-legend" style={{ marginTop: tokens.space[2] }}>
             <span><span className="sf-lab-swatch sf-lab-swatch--oracle" />Oracle: nguồn gốc, SQL + optimizer</span>

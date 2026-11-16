@@ -26,7 +26,7 @@ export default function VipCustomers({ params }) {
   const { rows = [], page, summary } = state.data ?? {};
 
   return (
-    <ReportCard title="Khách VIP" feature="F6" state={state}>
+    <ReportCard title="Khách VIP" state={state}>
       {summary && (
         <Typography.Paragraph type="secondary" className="sf-report-summary">
           Khách VIP là khách có tổng chi tiêu cao hơn mức trung bình.{' '}

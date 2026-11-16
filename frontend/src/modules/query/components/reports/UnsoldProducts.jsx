@@ -25,7 +25,7 @@ export default function UnsoldProducts({ params }) {
   const { rows = [], page } = state.data ?? {};
 
   return (
-    <ReportCard title="Sản phẩm chưa từng bán" feature="F6" state={state}>
+    <ReportCard title="Sản phẩm chưa từng bán" state={state}>
       {unsupported ? (
         <Alert
           type="info"

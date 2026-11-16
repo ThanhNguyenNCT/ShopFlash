@@ -46,7 +46,7 @@ export default function ReportsPage() {
       <div className="sf-reports-page__head">
         <Typography.Title level={3} style={{ margin: 0 }}>Báo cáo</Typography.Title>
         <Typography.Text type="secondary">
-          Doanh thu (F5), sản phẩm bán chạy và khách VIP (F6). Đơn được tính: trạng thái CONFIRMED hoặc COMPLETED, giờ Việt Nam.
+          Doanh thu, sản phẩm bán chạy và khách VIP. Đơn được tính: trạng thái CONFIRMED hoặc COMPLETED, giờ Việt Nam.
         </Typography.Text>
       </div>
       <ReportsToolbar value={filters} onChange={setFilters} />

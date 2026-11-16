@@ -7,6 +7,7 @@ import java.util.Map;
 
 import org.springframework.stereotype.Service;
 
+import com.shopflash.common.web.ApiException;
 import com.shopflash.modules.concurrency.dto.response.ActiveSalesResponse;
 import com.shopflash.modules.concurrency.dto.response.StockResponse;
 import com.shopflash.modules.concurrency.exception.FlashErrors;
@@ -18,6 +19,8 @@ import com.shopflash.modules.concurrency.repository.redis.FlashRuntimeRepository
 /** Phía khách xem chương trình (ai cũng xem được). Giờ server lấy từ Redis, cùng đồng hồ Lua dùng để mở bán. */
 @Service
 public class FlashSaleService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FlashSaleService.class);
 
     /** Chương trình bắt đầu trong vòng bấy nhiêu ngày tới thì hiện ở mục "sắp diễn ra". */
     static final int UPCOMING_DAYS = 7;
@@ -33,8 +36,21 @@ public class FlashSaleService {
     public ActiveSalesResponse active() {
         List<SaleRow> sales = catalog.visibleSales(UPCOMING_DAYS);
         List<ItemRow> items = catalog.activeItems(sales.stream().map(SaleRow::saleId).toList());
-        Map<Long, Long> remaining = runtime.remaining(items.stream().map(ItemRow::itemId).toList());
-        long now = runtime.serverTimeMs();
+        Map<Long, Long> remaining;
+        long now;
+        try {
+            remaining = runtime.remaining(items.stream().map(ItemRow::itemId).toList());
+            now = runtime.serverTimeMs();
+        } catch (ApiException e) {
+            if (!"REDIS_UNAVAILABLE".equals(e.code())) {
+                throw e;
+            }
+            // Redis sập: trang vẫn hiện được bằng số của Oracle (allocated - sold) và giờ của backend. Giữ suất thì
+            // vẫn cần Redis và sẽ báo REDIS_UNAVAILABLE.
+            log.warn("Redis không sẵn sàng, /active dùng số suất của Oracle: {}", e.getMessage());
+            remaining = Map.of();
+            now = System.currentTimeMillis();
+        }
 
         Map<Long, List<ActiveSalesResponse.Item>> bySale = new LinkedHashMap<>();
         for (ItemRow item : items) {

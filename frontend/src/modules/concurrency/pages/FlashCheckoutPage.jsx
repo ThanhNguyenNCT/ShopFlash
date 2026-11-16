@@ -87,6 +87,10 @@ export default function FlashCheckoutPage() {
           setOutcome({ type: 'error', final: true, title: 'Không đặt được đơn: sản phẩm vừa hết hàng',
             description: 'Đơn chưa được tạo và suất của bạn đã được trả lại.' });
           break;
+        case 'CHECKOUT_BUSY':
+          setOutcome({ type: 'error', final: true, title: 'Hệ thống đang quá tải, chưa đặt được đơn',
+            description: 'Đơn chưa được tạo và suất của bạn đã được trả lại. Quay lại trang flash sale để giữ suất lại.' });
+          break;
         case 'RESERVATION_NOT_FOUND':
           setOutcome({ type: 'error', final: true, title: 'Không tìm thấy suất đã giữ',
             description: 'Suất này không còn, hoặc thuộc tài khoản khác.' });

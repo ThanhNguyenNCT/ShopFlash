@@ -36,6 +36,9 @@ public class BenchmarkService {
     public static final int MAX_VARIANTS = 12;
     public static final String CSV_HEADER = "report,source,variant,run,elapsedMs,roundTrips";
 
+    /** Nguồn cache chỉ có một biến thể: đo lúc đã có kết quả trong Redis (lần khởi động đầu tiên đã lưu vào). */
+    static final String CACHE_VARIANT = "HIT";
+
     private final ReportService reportService;
     private final ReportQueryFactory queryFactory;
 
@@ -47,7 +50,11 @@ public class BenchmarkService {
     private record Variant(Source source, JoinHint joinHint, RedisMode redisMode) {
 
         String name() {
-            return source == Source.ORACLE ? joinHint.name() : redisMode.name();
+            return switch (source) {
+                case ORACLE -> joinHint.name();
+                case REDIS -> redisMode.name();
+                case CACHE -> CACHE_VARIANT;
+            };
         }
     }
 
@@ -84,7 +91,9 @@ public class BenchmarkService {
 
     /** null nếu nguồn không hỗ trợ báo cáo này. */
     private BenchmarkResult runVariant(ReportQuery query, Variant v, int warmup, int runs) {
-        for (int i = 0; i < warmup; i++) {
+        // Cache cần ít nhất một lần chạy không đo để có kết quả trong Redis, nếu không mẫu đầu là lần MISS.
+        int warm = v.source() == Source.CACHE ? Math.max(warmup, 1) : warmup;
+        for (int i = 0; i < warm; i++) {
             if (!reportService.execute(query, v.source()).result().supported()) {
                 return null;
             }
@@ -139,21 +148,28 @@ public class BenchmarkService {
                 source = null;
             }
             if (source == null) {
-                throw ApiException.validation(prefix + ".source", prefix + ".source phải là oracle hoặc redis");
+                throw ApiException.validation(prefix + ".source", prefix + ".source phải là oracle, redis hoặc cache");
             }
             String name = bv.variant() == null ? "" : bv.variant().trim().toUpperCase(Locale.ROOT);
             try {
                 if (source == Source.ORACLE) {
                     list.add(new Variant(source, name.isEmpty() ? JoinHint.AUTO : JoinHint.valueOf(name),
                             RedisMode.AGGREGATE));
+                } else if (source == Source.CACHE) {
+                    if (!name.isEmpty() && !name.equals(CACHE_VARIANT)) {
+                        throw new IllegalArgumentException(name);
+                    }
+                    list.add(new Variant(source, JoinHint.AUTO, RedisMode.AGGREGATE));
                 } else {
                     list.add(new Variant(source, JoinHint.AUTO,
                             name.isEmpty() ? RedisMode.AGGREGATE : RedisMode.valueOf(name)));
                 }
             } catch (IllegalArgumentException e) {
-                throw ApiException.validation(prefix + ".variant", source == Source.ORACLE
-                        ? prefix + ".variant phải là AUTO, NL, HASH hoặc MERGE"
-                        : prefix + ".variant phải là AGGREGATE hoặc CLIENT");
+                throw ApiException.validation(prefix + ".variant", switch (source) {
+                    case ORACLE -> prefix + ".variant phải là AUTO, NL, HASH hoặc MERGE";
+                    case REDIS -> prefix + ".variant phải là AGGREGATE hoặc CLIENT";
+                    case CACHE -> prefix + ".variant phải là HIT";
+                });
             }
         }
         return List.copyOf(list);

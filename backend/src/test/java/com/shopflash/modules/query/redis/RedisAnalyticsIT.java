@@ -41,7 +41,7 @@ import com.shopflash.modules.query.service.AnalyticsProjectionService;
  * Chạy trên stack Docker thật (Oracle SHOP + Redis Stack, đọc ../.env).
  * Chạy: ./mvnw -q test -Dtest='Redis*'
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest // MOCK: SecurityConfig cần context web (HttpSecurity)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class RedisAnalyticsIT {
 

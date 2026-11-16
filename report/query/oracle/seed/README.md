@@ -29,7 +29,8 @@ Dữ liệu lõi (ID < 10000, từ `R__00_core_seed.sql`) không bị đụng t�
 
 ## Cách chạy
 
-Từ thư mục gốc repo, stack Docker Compose đang chạy. Trên Git Bash:
+Từ thư mục gốc repo, stack Docker Compose đang chạy và backend đã chạy ít nhất một lần (Flyway tạo bảng). Trên Git Bash
+(macOS/Linux: bỏ `MSYS_NO_PATHCONV=1` và thay `"$(cygpath -w report/query/oracle/seed)"` bằng `report/query/oracle/seed`):
 
 ```bash
 cid=$(docker compose ps -q oracle)
@@ -39,6 +40,7 @@ docker compose exec -T oracle bash -c 'printf "connect shop/%s@//localhost:1521/
 ```
 
 Mật khẩu lấy từ biến `$SHOP_PASSWORD` bên trong container, không xuất hiện trên dòng lệnh.
+Sinh xong (hoặc xóa xong) phải dựng lại read model Redis, nếu không báo cáo nguồn Redis sẽ lệch Oracle: xem bước 3 trong `report/query/README.md`.
 Chạy lại bao nhiêu lần cũng được: script xóa dữ liệu sinh cũ rồi sinh lại, ra đúng cùng dữ liệu (chỉ khác ID identity).
 Xóa và sinh lại nằm trong **một transaction**, commit một lần ở cuối, nên phiên khác vẫn thấy bộ dữ liệu cũ cho tới khi commit.
 Lỗi giữa chừng thì rollback toàn bộ.

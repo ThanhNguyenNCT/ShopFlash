@@ -155,7 +155,7 @@ class ReportControllerCoreTest {
 
     static Stream<Arguments> invalidParams() {
         return Stream.of(
-                Arguments.of("source", "mongo", "source", "source phải là oracle hoặc redis"),
+                Arguments.of("source", "mongo", "source", "source phải là oracle, redis hoặc cache"),
                 Arguments.of("from", "2026-13-01", "from", "from phải là ngày hợp lệ dạng YYYY-MM-DD"),
                 Arguments.of("to", "18/10/2026", "to", "to phải là ngày hợp lệ dạng YYYY-MM-DD"),
                 Arguments.of("from", "2026-10-19", "from", "from không được sau to"),

@@ -1,14 +1,16 @@
 import { useRef, useState } from 'react';
-import { Button, Flex, Space, Table, Tag, Typography } from 'antd';
+import { Button, Collapse, Space, Typography } from 'antd';
 import { SwapOutlined } from '@ant-design/icons';
 import { tokens } from '@/shared/design-system';
 import { getReport } from '../../api';
 import { formatInt, formatMs, formatRange, formatRatio } from '../../format';
 import ErrorAlert from './ErrorAlert';
 import ReportPicker, { DEFAULT_PICK } from './ReportPicker';
+import Experiment from './Experiment';
 import StaleAlert from './StaleAlert';
+import Verdict from './Verdict';
 import StatementView from './StatementView';
-import { HINT_LABEL, rangeParams, reportLabel, reportParams, runKey, settle, sourceLabel } from './labUtils';
+import { rangeParams, reportLabel, reportParams, runKey, settle } from './labUtils';
 
 const RUNS = [
   { key: 'oracle', source: 'oracle', params: { joinHint: 'AUTO' } },
@@ -16,18 +18,6 @@ const RUNS = [
   { key: 'redis-client', source: 'redis', params: { redisMode: 'CLIENT' } },
 ];
 
-const COLUMNS = [
-  { title: 'Nguồn', dataIndex: 'source', render: (v) => <Tag>{sourceLabel(v)}</Tag> },
-  { title: 'Chế độ', dataIndex: 'variant', render: (v) => HINT_LABEL[v] ?? v },
-  { title: 'Thời gian', dataIndex: 'elapsedMs', align: 'right', render: (v) => <span className="sf-num">{formatMs(v)}</span> },
-  { title: 'Round-trip', dataIndex: 'roundTrips', align: 'right', render: (v) => <span className="sf-num">{formatInt(v)}</span> },
-  { title: 'Số dòng', dataIndex: 'rowCount', align: 'right', render: (v) => <span className="sf-num">{formatInt(v)}</span> },
-  {
-    title: 'Trạng thái',
-    key: 'status',
-    render: (_, r) => (r.error ? <Tag color="error">Lỗi</Tag> : r.supported === false ? <Tag color="warning">Không hỗ trợ</Tag> : <Tag color="success">OK</Tag>),
-  },
-];
 
 // D4: AGGREGATE tính trên server Redis (1 round-trip); CLIENT kéo từng trang về Java tự gom (nhiều round-trip).
 export default function RoundTripSection({ range }) {
@@ -83,60 +73,74 @@ export default function RoundTripSection({ range }) {
   const timed = bothOk && agg.elapsedMs > 0 && client.elapsedMs > 0;
   const clientSlower = timed && client.elapsedMs >= agg.elapsedMs;
 
+  const TILE = {
+    oracle: { tone: 'oracle', label: 'Oracle · một câu SQL' },
+    'redis-agg': { tone: 'redis', label: 'Redis · AGGREGATE (gom ở server)' },
+    'redis-client': { tone: 'bad', label: 'Redis · CLIENT (kéo về app tự gom)' },
+  };
+  const tiles = rows?.map((r) => ({
+    key: r.key,
+    ...TILE[r.key],
+    value: r.error ? 'Lỗi' : r.supported === false ? 'Không hỗ trợ' : formatMs(r.elapsedMs),
+    caption: r.error ? r.error.message : `${formatInt(r.roundTrips)} round-trip · ${formatInt(r.rowCount)} dòng`,
+  }));
+
   return (
-    <Space orientation="vertical" size={tokens.space[4]} className="sf-lab-full">
-      <Typography.Paragraph>
-        Oracle trả kết quả của cả câu SQL trong một lần gọi. Với Redis có hai cách: AGGREGATE đẩy việc gom nhóm cho FT.AGGREGATE trên
-        server (1 round-trip), còn CLIENT đọc dữ liệu thô bằng con trỏ (FT.AGGREGATE … WITHCURSOR, 10.000 dòng mỗi lần) về Java rồi
-        tự gom và cộng — mỗi lần đọc là một round-trip qua mạng. Ba cách được chạy lần lượt để thời gian không ảnh hưởng nhau. Cùng kết quả nhưng số lượt gọi và thời gian khác hẳn.
-      </Typography.Paragraph>
-      <Flex wrap gap={tokens.space[3]} align="center">
-        <ReportPicker value={pick} onChange={setPick} />
-        <Button type="primary" icon={<SwapOutlined />} loading={loading} onClick={execute}>
-          Chạy 3 cách
-        </Button>
-      </Flex>
-      {result && <StaleAlert stale={result.key !== key} action="Chạy 3 cách" />}
-      {result && (
-        <Typography.Text type="secondary">
-          {reportLabel(result.report)} · {formatRange(result.range)}
-        </Typography.Text>
-      )}
-      {(rows || loading) && (
-        <Table
-          size="small"
-          columns={COLUMNS}
-          dataSource={rows ?? []}
+    <Experiment
+      description="Oracle, Redis gom trên server (FT.AGGREGATE) và Redis kéo dữ liệu về backend tự gom; chạy lần lượt."
+      controls={
+        <>
+          <ReportPicker value={pick} onChange={setPick} />
+          <Button type="primary" icon={<SwapOutlined />} loading={loading} onClick={execute}>
+            Chạy 3 cách
+          </Button>
+        </>
+      }
+    >
+      {(loading || result) && (
+        <Verdict
           loading={loading}
-          pagination={false}
-          scroll={{ x: 'max-content' }}
-          expandable={{
-            expandedRowRender: (r) => (
+          items={tiles}
+          headline={
+            result && (
+              <>
+                {reportLabel(result.report)} · {formatRange(result.range)}.{' '}
+                {bothOk && (
+                  <>
+                    CLIENT cần <Typography.Text strong className="sf-num">{formatInt(client.roundTrips)}</Typography.Text> round-trip so với{' '}
+                    <Typography.Text strong className="sf-num">{formatInt(agg.roundTrips)}</Typography.Text> của AGGREGATE
+                    {timed && (
+                      <>
+                        , {clientSlower ? 'chậm hơn' : 'nhanh hơn'}{' '}
+                        <Typography.Text strong className="sf-num">
+                          {formatRatio(clientSlower ? client.elapsedMs / agg.elapsedMs : agg.elapsedMs / client.elapsedMs)}×
+                        </Typography.Text>
+                      </>
+                    )}
+                    .
+                  </>
+                )}
+              </>
+            )
+          }
+        />
+      )}
+      {result && <StaleAlert stale={result.key !== key} action="Chạy 3 cách" />}
+      {rows && (
+        <Collapse
+          items={rows.map((r) => ({
+            key: r.key,
+            label: `Lệnh đã gửi: ${TILE[r.key].label}`,
+            children: (
               <Space orientation="vertical" size={tokens.space[2]} className="sf-lab-full">
                 <ErrorAlert error={r.error} />
                 {r.note && <Typography.Text type="secondary">{r.note}</Typography.Text>}
                 {!r.error && <StatementView statement={r.statement} />}
               </Space>
             ),
-          }}
+          }))}
         />
       )}
-      {bothOk && (
-        <Typography.Text>
-          CLIENT cần <Typography.Text strong className="sf-num">{formatInt(client.roundTrips)}</Typography.Text> round-trip so với{' '}
-          <Typography.Text strong className="sf-num">{formatInt(agg.roundTrips)}</Typography.Text> của AGGREGATE
-          {timed && (
-            <>
-              , {clientSlower ? 'chậm hơn' : 'nhanh hơn'}{' '}
-              <Typography.Text strong className="sf-num">
-                {formatRatio(clientSlower ? client.elapsedMs / agg.elapsedMs : agg.elapsedMs / client.elapsedMs)}
-              </Typography.Text>{' '}
-              lần
-            </>
-          )}
-          . Mở từng dòng để xem lệnh đã gửi.
-        </Typography.Text>
-      )}
-    </Space>
+    </Experiment>
   );
 }

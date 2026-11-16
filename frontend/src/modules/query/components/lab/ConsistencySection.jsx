@@ -59,11 +59,9 @@ export default function ConsistencySection() {
 
   return (
     <Space orientation="vertical" size={tokens.space[4]} className="sf-lab-full">
-      <Typography.Paragraph>
-        Oracle giữ dữ liệu giao dịch và là nguồn gốc. Read model trên Redis được dựng lại toàn bộ từ Oracle theo lô, không cập nhật cùng
-        lúc với đơn hàng, nên giữa hai lần dựng có thể lệch (nhất quán sau). Oracle thì luôn đọc được dữ liệu đã commit mới nhất.
-      </Typography.Paragraph>
-      <Alert type="info" showIcon title="Cách demo: chèn một đơn mới vào Oracle rồi bấm Làm mới để thấy lệch." />
+      <Typography.Text type="secondary">
+        Read model Redis được dựng lại toàn bộ từ Oracle theo lô, không cập nhật cùng lúc với đơn hàng: giữa hai lần dựng có thể lệch.
+      </Typography.Text>
       <Card
         size="small"
         title={

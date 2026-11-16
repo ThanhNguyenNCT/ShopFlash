@@ -8,28 +8,37 @@ Module `query` (F5 báo cáo doanh thu, F6 top bán chạy / khách VIP / sản 
 report/query/
 ├── oracle/seed/          script sinh dữ liệu benchmark (100k đơn), chạy tay, không phải migration
 ├── bench/run_benchmarks.py   đo và lưu số liệu, kế hoạch thực thi
-├── tests/contract_test.py    kiểm tra API theo contract (146 kiểm tra, có kịch bản D6)
-├── results/              số liệu thô .csv, bảng tóm tắt, môi trường đo, kế hoạch thực thi (plans/)
+├── tests/contract_test.py    kiểm tra API theo contract (165 kiểm tra, có kịch bản D6 và cache)
+├── demo/d6-order.sh      chèn/xóa đơn demo cho bước Nhất quán khi thuyết trình
+├── results/              số liệu thô .csv, bảng tóm tắt, môi trường đo, kế hoạch thực thi (plans/), cache-summary.md
 └── images/               ảnh chụp giao diện (3.3-xx-*.png)
 ```
 
 ## Chạy từ đầu
 
 Từ thư mục gốc repo, sau khi làm theo `db/README.md` (pull image, `.env`, `docker compose up -d --wait`, `init.lua`).
+`.env` phải có `JWT_SECRET_BASE64` (ít nhất 32 byte ngẫu nhiên, mã hóa base64), nếu thiếu backend dừng ngay khi khởi động.
 
-1. **Nạp dữ liệu Oracle** (khoảng 1,5 phút): xem `oracle/seed/README.md`.
-2. **Chạy backend** (JDK 21):
+1. **Chạy backend** (JDK 21, profile `dev` để có tài khoản `admin@shopflash.local` / `ShopFlash123!`). Lần chạy đầu Flyway tạo bảng:
 
    ```bash
    cd backend
-   ./mvnw spring-boot:run
+   ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
    ```
 
-3. **Dựng read model Redis** (khoảng 20–35 giây cho 100k đơn):
+   Trên Windows có thể thay bước này và bước 4 bằng `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1`.
 
-   ```bash
-   curl -X POST http://localhost:8080/api/admin/reports/analytics/rebuild
-   ```
+2. **Nạp dữ liệu Oracle** (khoảng 1,5 phút, chạy trong Git Bash): xem `oracle/seed/README.md`.
+3. **Dựng read model Redis** (khoảng 20–35 giây cho 100k đơn). API quản trị cần token của tài khoản ADMIN, nên làm một trong hai cách:
+   - Trên giao diện: đăng nhập admin, vào **Query Lab**, tab **Nhất quán**, bấm **Dựng lại read model Redis**.
+   - Bằng lệnh:
+
+     ```bash
+     TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' \
+       -d '{"email":"admin@shopflash.local","password":"ShopFlash123!"}' | python -c "import sys,json;print(json.load(sys.stdin)['accessToken'])")
+     curl -X POST http://localhost:8080/api/admin/reports/analytics/rebuild \
+       -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}'
+     ```
 
 4. **Chạy giao diện:**
 
@@ -40,7 +49,7 @@ Từ thư mục gốc repo, sau khi làm theo `db/README.md` (pull image, `.env`
    npm run dev:mock     # không cần backend, dùng dữ liệu mẫu
    ```
 
-   Mở http://localhost:5173/admin/reports (trang Báo cáo) và http://localhost:5173/admin/reports/lab (trang So sánh Oracle–Redis).
+   Đăng nhập `admin@shopflash.local` / `ShopFlash123!`, rồi mở http://localhost:5173/admin/reports (trang Báo cáo) và http://localhost:5173/admin/reports/lab (Query Lab).
 
 5. **Kiểm tra API** (khoảng 2 phút, có chèn rồi xóa 1 đơn tạm trong Oracle):
 
@@ -53,6 +62,8 @@ Từ thư mục gốc repo, sau khi làm theo `db/README.md` (pull image, `.env`
    ```bash
    python report/query/bench/run_benchmarks.py --runs 5 --warmup 1
    ```
+
+Hai script ở bước 5 và 6 tự đăng nhập bằng tài khoản admin ở trên; đổi bằng biến môi trường `SHOPFLASH_ADMIN_EMAIL` / `SHOPFLASH_ADMIN_PASSWORD`.
 
 Test của backend:
 - Unit test không cần DB: `./mvnw test -Dtest='*CoreTest'`.
@@ -89,18 +100,44 @@ Test của backend:
 - **`FT.AGGREGATE` phải kèm `TIMEOUT 0`:** Redis đang đặt `TIMEOUT 500` với `ON_TIMEOUT return`, quá 500 ms là trả về một phần kết quả mà không báo lỗi.
 - **Giới hạn số của RediSearch:** SUM/AVG được in ra với 12 chữ số có nghĩa. Dữ liệu hiện tại là VND tròn và mỗi tổng dưới 10^12 nên vẫn khớp Oracle; tổng lớn hơn sẽ mất độ chính xác.
 
-## Kịch bản demo 4 phút
+## Kết hợp: Oracle tính, Redis giữ kết quả (cache-aside)
 
-Chuẩn bị: stack chạy, đã rebuild, mở sẵn trang So sánh, khoảng ngày mặc định.
+Từ các số đo trên, Redis không nhanh hơn Oracle ở truy vấn gom nhóm. Redis nhanh khi đọc theo khóa, nên cách kết hợp là để Oracle tính rồi giữ kết quả trong Redis:
 
-| Thời gian | Màn hình | Nói gì |
-|---|---|---|
-| 0:00–0:30 | Báo cáo (Oracle → Redis) | F5/F6 chạy trên cả hai nguồn; mỗi khối hiện thời gian, round-trip, câu lệnh |
-| 0:30–1:00 | Tab 1 Kết quả giống nhau, top-products | Hai bên khớp từng dòng; Oracle join 4 bảng, Redis đọc read model đã denormalize |
-| 1:00–1:45 | Tab 2 Optimizer, AUTO vs NL | CBO chọn HASH JOIN; ép NESTED LOOPS chậm hơn 5 lần; Redis FT.PROFILE chỉ chạy đúng như lệnh viết |
-| 1:45–2:30 | Tab 3 Thống kê: Xóa → Xem lại kế hoạch → Thu thập | Ước lượng từ 9K thành 285K dòng, kế hoạch đổi sang MERGE JOIN; gather xong quay lại |
-| 2:30–3:00 | Tab 4 Round-trip, doanh thu theo danh mục | AGGREGATE 1 lượt so với CLIENT 22 lượt |
-| 3:00–3:30 | Tab 5 Subquery | VIP: 1 câu SQL so với 2 lượt Redis; "chưa từng bán": Redis không làm được |
-| 3:30–4:00 | Tab 6 Nhất quán | Chèn 1 đơn trong SQL Developer → Làm mới thấy lệch → Dựng lại → khớp |
+- `GET /api/admin/reports/{report}?source=cache`: tra key `report:cache:<báo cáo>:<tham số>`. Có thì trả luôn (`HIT`); không có thì chạy Oracle, `SET … PX <TTL>` rồi trả (`MISS`). TTL mặc định 5 phút (`shopflash.query.cache-ttl`).
+- Cái giá: không xóa cache khi có đơn mới, nên trong thời gian TTL kết quả có thể cũ. `tests/contract_test.py` kiểm điều này: chèn một đơn vào Oracle, cache vẫn trả số cũ; xóa cache (như hết TTL) thì lần sau khớp Oracle mới.
+- Đo lại: `python report/query/bench/run_benchmarks.py --only-cache` (khoảng 1 phút), ghi `results/cache-summary.md` và `results/benchmark-cache.csv`.
 
-Dự phòng: quay video trước; `npm run dev:mock` chạy được mà không cần DB.
+Đo ngày 11/11/2026, cùng máy và dữ liệu như trên, đo 5 lần sau 1 lần khởi động (lúc đo có trình duyệt và Vite đang chạy, nên chỉ so trong cùng bảng):
+
+| Báo cáo | Oracle AUTO | Cache MISS (trống) | Cache HIT | Oracle / HIT |
+|---|---|---|---|---|
+| Doanh thu theo tháng | 53 ± 9 ms | 78 ± 43 ms | 3,0 ± 0,6 ms | 18× |
+| Doanh thu theo danh mục | 138 ± 18 ms | 214 ± 54 ms | 4,2 ± 0,8 ms | 33× |
+| Top sản phẩm | 135 ± 48 ms | 144 ± 12 ms | 2,6 ± 0,6 ms | 52× |
+| Khách VIP | 138 ± 33 ms | 152 ± 31 ms | 2,1 ± 0,3 ms | 65× |
+| Sản phẩm chưa bán | 72 ± 15 ms | 177 ± 220 ms | 4,0 ± 0,2 ms | 18× |
+
+Lần MISS tốn hơn Oracle một chút (thêm `GET` và `SET`, 3–4 round-trip); từ lần thứ hai chỉ còn 1 `GET`. Cách này hợp với báo cáo admin: xem lại cùng khoảng ngày nhiều lần, chậm vài phút vẫn chấp nhận được. Báo cáo cần số mới tuyệt đối thì đọc thẳng Oracle.
+
+## Kịch bản demo 3 phút
+
+Bốn ý, mỗi ý một lần bấm. Số trong ngoặc là số đo ngày 11/11/2026 trên 87.141 đơn, chỉ để biết trước sẽ thấy gì.
+
+**Chuẩn bị** (trước giờ demo):
+- Stack chạy, `analytics/status` báo `inSync: true`, thống kê Oracle đã thu thập (bấm **Thu thập thống kê** một lần nếu lần trước dừng giữa chừng).
+- Mở sẵn http://localhost:5173/admin/reports/lab, khoảng ngày mặc định 12 tháng.
+- Mở sẵn một cửa sổ Git Bash ở thư mục gốc repo cho bước 4.
+
+| # | Thời gian | Bấm | Chỉ vào | Nói |
+|---|---|---|---|---|
+| 1 | 0:00–0:30 | Tab **Kết quả hai nguồn**, top sản phẩm → **So sánh hai nguồn** | Thẻ "Khớp"; SQL 15 dòng cạnh 1 lệnh FT.AGGREGATE | Cùng báo cáo, cùng kết quả. Oracle join 4 bảng lúc chạy; Redis đọc read model đã denormalize sẵn, nên 1 lệnh trên 1 index |
+| 2 | 0:30–1:30 | Tab **Optimizer** → **Hint join** (AUTO, NL) → **Chạy và xem kế hoạch**; rồi **Thống kê** → **Xem kế hoạch** → **Xóa thống kê** → **Thu thập thống kê** | Thẻ "Chênh lệch" (NL chậm ~6×); ba thẻ thống kê: HASH JOIN, ước lượng 9.004 → MERGE JOIN, ước lượng 285.000 (lệch ~32×), plan hash đổi → HASH JOIN trở lại | Oracle có optimizer theo chi phí: tự chọn HASH JOIN, ép NESTED LOOPS thì trả giá. Optimizer dựa vào thống kê: mất thống kê là đoán sai số dòng và đổi kế hoạch |
+| 3 | 1:30–2:20 | Tab **Round-trip và subquery** → **Round-trip**, doanh thu theo danh mục → **Chạy 3 cách**; rồi **Subquery** → **Chạy trên hai nguồn** (cả hai khối) | CLIENT 20 round-trip, chậm ~14× so với AGGREGATE; VIP: 1 câu SQL so với 2 lượt Redis; "chưa từng bán": Redis không hỗ trợ | Redis không có optimizer: người viết lệnh tự quyết tính ở đâu. Không có subquery hay NOT EXISTS: phải tách lượt hoặc không làm được trên read model này |
+| 4 | 2:20–3:00 | Terminal: `bash report/query/demo/d6-order.sh insert` → tab **Nhất quán** → **Làm mới** → **Dựng lại read model Redis** | Oracle 87.142 / Redis 87.141, tag "Lệch" → "Đồng bộ" sau khoảng 25 giây | Oracle là nguồn gốc, đọc luôn thấy dữ liệu mới. Redis là bản sao dựng theo lô: nhất quán sau, phải dựng lại. Vì vậy báo cáo cần đúng tuyệt đối đọc Oracle, dashboard nhanh đọc Redis |
+
+Sau demo: `bash report/query/demo/d6-order.sh delete`, rồi **Dựng lại read model Redis** để hai bên khớp lại.
+
+Nói khi hỏi về tốc độ: thời gian trên màn hình là một lần chạy. Số dùng trong báo cáo là 5 lần đo ở bảng "Kết quả chính" phía trên (tab **Đo hiệu năng** hoặc `bench/run_benchmarks.py`).
+
+Dự phòng: quay video trước; `npm run dev:mock` chạy được giao diện mà không cần DB.

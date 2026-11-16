@@ -11,6 +11,12 @@ Ghi vào report/query/results/:
     benchmark-summary.md        bảng trung bình ± độ lệch chuẩn, p50, p95, round-trip
     plans/<report>-oracle-<hint>.txt, plans/<report>-redis-<mode>.txt   kế hoạch thực thi
     plans/stats-{before-delete,after-delete,after-gather}-top-products.txt  demo thống kê (D3)
+    cache-summary.md, benchmark-cache.csv     cache-aside: Oracle, cache MISS (trống), cache HIT (đã có)
+
+Chỉ đo cache (nhanh, khoảng 1 phút): python report/query/bench/run_benchmarks.py --only-cache
+
+API /api/admin/** cần JWT của tài khoản ADMIN: script tự đăng nhập bằng admin@shopflash.local
+(tài khoản mẫu của profile dev), đổi bằng biến môi trường SHOPFLASH_ADMIN_EMAIL / SHOPFLASH_ADMIN_PASSWORD.
 
 Không đo khi đang chạy việc khác trên máy (trình duyệt, build) để số liệu ổn định.
 """
@@ -20,6 +26,8 @@ import os
 import platform
 import subprocess
 import sys
+import time
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -27,6 +35,9 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
 
 BASE = "http://localhost:8080/api/admin/reports"
+LOGIN_URL = "http://localhost:8080/api/auth/login"
+ADMIN_EMAIL = os.environ.get("SHOPFLASH_ADMIN_EMAIL", "admin@shopflash.local")
+ADMIN_PASSWORD = os.environ.get("SHOPFLASH_ADMIN_PASSWORD", "ShopFlash123!")
 OUT = Path(__file__).resolve().parent.parent / "results"
 PLANS = OUT / "plans"
 REPORTS = ["revenue-by-month", "revenue-by-category", "top-products", "vip-customers", "unsold-products"]
@@ -34,10 +45,29 @@ JOIN_REPORTS = ["revenue-by-category", "top-products", "vip-customers"]
 ICT = timezone(timedelta(hours=7))
 
 
+_token = {"value": None, "at": 0.0}
+
+
+def auth_header():
+    """Token sống 30 phút (shopflash.auth.jwt-ttl) nên lấy lại sau 20 phút."""
+    if _token["value"] is None or time.monotonic() - _token["at"] > 20 * 60:
+        body = json.dumps({"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD}).encode()
+        req = urllib.request.Request(LOGIN_URL, data=body, method="POST", headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                _token["value"] = json.loads(resp.read())["accessToken"]
+        except urllib.error.HTTPError as e:
+            sys.exit(f"Không đăng nhập được {ADMIN_EMAIL} (HTTP {e.code}). Backend cần profile dev, "
+                     "hoặc đặt SHOPFLASH_ADMIN_EMAIL / SHOPFLASH_ADMIN_PASSWORD.")
+        _token["at"] = time.monotonic()
+    return {"Authorization": f"Bearer {_token['value']}"}
+
+
 def call(method, path, params=None, body=None, accept="application/json"):
     url = BASE + path + ("?" + "&".join(f"{k}={v}" for k, v in params.items()) if params else "")
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(url, data=data, method=method, headers={"Accept": accept, "Content-Type": "application/json"})
+    headers = {"Accept": accept, "Content-Type": "application/json", **auth_header()}
+    req = urllib.request.Request(url, data=data, method=method, headers=headers)
     with urllib.request.urlopen(req, timeout=1800) as resp:
         raw = resp.read().decode()
         return raw if accept == "text/csv" else json.loads(raw)
@@ -107,6 +137,60 @@ def benchmarks(runs, warmup):
     print("\n".join(rows))
 
 
+def clear_cache():
+    """Xóa mọi key report:cache:* trong Redis (mật khẩu lấy từ REDISCLI_AUTH trong container)."""
+    subprocess.run(["docker", "compose", "exec", "-T", "redis", "sh", "-c",
+                    "redis-cli --scan --pattern 'report:cache:*' | xargs -r redis-cli unlink > /dev/null"],
+                   check=True, capture_output=True, timeout=60)
+
+
+def stat(ms):
+    ms = sorted(ms)
+    n = len(ms)
+    mean = sum(ms) / n
+    sd = (sum((x - mean) ** 2 for x in ms) / (n - 1)) ** 0.5 if n > 1 else 0.0
+    return mean, sd
+
+
+def cache_benchmarks(runs, warmup):
+    """Cache-aside (source=cache): MISS = cache trống, phải chạy Oracle rồi SET; HIT = chỉ GET từ Redis.
+    MISS đo bằng cách xóa cache trước mỗi lần gọi; HIT và Oracle AUTO đo bằng endpoint benchmark (chạy lần lượt)."""
+    rows = ["| Báo cáo | Oracle AUTO (ms) | Cache MISS (ms) | Cache HIT (ms) | Round-trip MISS / HIT | Oracle / HIT |",
+            "|---|---|---|---|---|---|"]
+    csv = ["report,variant,run,elapsedMs,roundTrips"]
+    for report in REPORTS:
+        print(f"cache {report} ...", flush=True)
+        miss, miss_rt = [], None
+        for i in range(warmup + runs):
+            clear_cache()
+            meta = call("GET", f"/{report}", {"source": "cache"})["meta"]
+            assert meta["variant"] == "MISS", meta
+            if i >= warmup:
+                miss.append(meta["elapsedMs"])
+                miss_rt = meta["roundTrips"]
+                csv.append(f"{report},MISS,{i - warmup + 1},{meta['elapsedMs']},{meta['roundTrips']}")
+        res = call("POST", f"/{report}/benchmark", body={
+            "runs": runs, "warmup": warmup,
+            "variants": [{"source": "oracle", "variant": "AUTO"}, {"source": "cache", "variant": "HIT"}]})["results"]
+        by = {r["source"]: r for r in res}
+        for r in res:
+            for i, ms in enumerate(r["samplesMs"], 1):
+                csv.append(f"{report},{'ORACLE_AUTO' if r['source'] == 'oracle' else 'HIT'},{i},{ms},{r['roundTrips']}")
+        o, h = by["oracle"], by["cache"]
+        m_mean, m_sd = stat(miss)
+        rows.append(f"| {report} | {o['meanMs']:,.1f} ± {o['stdDevMs']:,.1f} | {m_mean:,.1f} ± {m_sd:,.1f} | "
+                    f"{h['meanMs']:,.2f} ± {h['stdDevMs']:,.2f} | {miss_rt} / {h['roundTrips']} | "
+                    f"{o['meanMs'] / h['meanMs']:,.0f}× |")
+    clear_cache()
+    header = [f"# Cache-aside: Oracle tính, Redis giữ kết quả (khởi động {warmup} lần không tính, đo {runs} lần)", "",
+              "MISS: cache trống, backend GET (không có) → chạy Oracle → SET kèm TTL. HIT: chỉ GET một key rồi đọc JSON.",
+              "Thời gian đo trong backend như các bảng khác. Số liệu thô: `benchmark-cache.csv`.",
+              "Cái giá: trong thời gian TTL, kết quả không thấy đơn mới (kiểm ở `tests/contract_test.py`, phần cache).", ""]
+    (OUT / "cache-summary.md").write_text("\n".join(header + rows) + "\n", encoding="utf-8")
+    (OUT / "benchmark-cache.csv").write_text("\n".join(csv) + "\n", encoding="utf-8")
+    print("\n".join(rows))
+
+
 def save_plan(name, params, report="top-products"):
     plan = call("GET", f"/{report}/plan", params)
     text = f"# {report} {params}\n# statement:\n{plan['statement']}\n\n" + "\n".join(plan["lines"]) + "\n"
@@ -141,9 +225,12 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs", type=int, default=5)
     ap.add_argument("--warmup", type=int, default=1)
+    ap.add_argument("--only-cache", action="store_true", help="chỉ đo cache-aside")
     args = ap.parse_args()
     PLANS.mkdir(parents=True, exist_ok=True)
-    environment()
-    plans()
-    stats_demo()
-    benchmarks(args.runs, args.warmup)
+    if not args.only_cache:
+        environment()
+        plans()
+        stats_demo()
+        benchmarks(args.runs, args.warmup)
+    cache_benchmarks(args.runs, args.warmup)

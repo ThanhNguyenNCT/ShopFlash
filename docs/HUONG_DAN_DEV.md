@@ -74,7 +74,7 @@ Backend và database mặc định chỉ mở trên máy mình (`127.0.0.1`). F0
 |---|---|
 | Dữ liệu mẫu nhỏ: 2 user, 1 sản phẩm, 2 đơn | Tự nạp khi chạy profile `dev` (`dev-seed/R__00_core_seed.sql`) |
 | Dữ liệu lớn: 100k đơn, 10k sản phẩm, 20k khách | Chạy tay, khoảng 1,5 phút: [`report/query/oracle/seed/README.md`](../report/query/oracle/seed/README.md) |
-| Read model Redis cho báo cáo | Script tự dựng khi đang trống; hoặc trang "So sánh Oracle–Redis", tab 6, nút "Dựng lại" |
+| Read model Redis cho báo cáo | Script tự dựng khi đang trống; hoặc trang Query Lab, tab Nhất quán, nút "Dựng lại" |
 
 ## 3. Cấu trúc repo
 
@@ -190,4 +190,4 @@ Ví dụ test hợp đồng API chạy trên stack thật: `report/query/tests/c
 | `release version 21 not supported` | Đang dùng JDK 17. Dùng `scripts/dev.ps1` (tự tìm JDK 21) hoặc đặt `JAVA_HOME` |
 | `Cổng 8080/5173 đang bị chiếm` | Còn backend hoặc Vite cũ đang chạy (cửa sổ cũ, IntelliJ). Đóng nó, hoặc chạy lệnh `Stop-Process -Id <PID>` mà script in ra. Muốn dùng backend đang chạy trong IDE thì thêm `-NoBackend` |
 | Git Bash: `mvnw` lỗi `ClassNotFoundException ... Launcher` | Đừng `export MSYS_NO_PATHCONV=1` khi chạy `mvnw` |
-| Trang báo cáo Redis báo `REDIS_NOT_BUILT` hay số lệch | Dựng lại read model: trang So sánh, tab 6, hoặc `POST /api/admin/reports/analytics/rebuild` với body `{}` |
+| Trang báo cáo Redis báo `REDIS_NOT_BUILT` hay số lệch | Dựng lại read model: Query Lab, tab Nhất quán, hoặc `POST /api/admin/reports/analytics/rebuild` với body `{}` |

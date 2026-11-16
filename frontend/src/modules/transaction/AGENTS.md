@@ -2,9 +2,7 @@
 
 Nghiệp vụ, dữ liệu và API của module: xem `backend/src/main/java/com/shopflash/modules/transaction/AGENTS.md`.
 
-Hợp đồng F10/F7/F8 giữa hai phía: xem `backend/src/main/java/com/shopflash/modules/transaction/CONTRACT.md`. Route `/cart` đã được bàn giao từ module `concurrency` cho TV4; CartPage dùng API Oracle thật. Trong giai đoạn kiểm thử Transaction, nhập ID sản phẩm ngay tại `/cart`, không phụ thuộc trang Listing/Detail của TV2.
-
-F10 dùng `api.js` gọi năm Cart API; `shared/api/client.js` tự gắn JWT của tài khoản đã đăng nhập. CartPage có ô nhập `productId` và số lượng, gửi `POST` với phiên bản giỏ đã đọc. Chọn nhanh ID mẫu trên `/cart` chỉ hiện khi Vite chạy dev và trỏ tới dữ liệu Oracle của `R__10_transaction_seed.sql`. `components/AddToCartButton.jsx` và `addProductToCart` vẫn là điểm nối có thể dùng về sau; không gắn vào `SAMPLE_PRODUCTS` của TV2 vì ID minh họa không ánh xạ tới Oracle. Không dùng giỏ mock chỉ nằm trong trình duyệt cho bài kiểm tra giao dịch.
+Hợp đồng F10/F7/F8 giữa hai phía: xem `backend/docs/transaction/CONTRACT.md`. Route `/cart` dùng API Oracle thật. Khách thêm sản phẩm từ trang chủ, `/search` hoặc trang chi tiết bằng `addProductToCart`; không còn form nhập ID hay danh sách ID mẫu trong CartPage. Giỏ mới trống, seed không tự thêm sản phẩm. `components/AddToCartButton.jsx` và `addProductToCart` là điểm tích hợp với module indexing. API giỏ vẫn hỗ trợ cập nhật số lượng, xóa dòng/xóa giỏ và kiểm tra phiên bản.
 
 F7 dùng `GET /api/checkout/preview` và `POST /api/orders`. `CheckoutPage` giữ `{principalUserId, idempotencyKey, body}` trong `sessionStorage` trước khi gửi đơn; khi kết quả chưa rõ, chỉ gửi lại đúng khóa và body cũ. Đổi tài khoản không xóa yêu cầu đang chờ hoặc cho gửi bằng tài khoản khác. Hợp đồng backend và cách kiểm thử: xem `backend/src/main/java/com/shopflash/modules/transaction/CHECKOUT.md` và [CHECKOUT_UI_CHECKLIST.md](CHECKOUT_UI_CHECKLIST.md).
 

@@ -1,27 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Card, Checkbox, Empty, InputNumber, Popconfirm, Select, Spin, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Empty, InputNumber, Popconfirm, Spin, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/shared/auth';
 import { PriceTag, formatVND, tokens } from '@/shared/design-system';
-import { addCartItem, clearCart, getCart, removeCartItem, setCartItemQuantity } from '../api';
+import { clearCart, getCart, removeCartItem, setCartItemQuantity } from '../api';
 import { readCheckoutSelection, saveCheckoutSelection } from '../checkoutSelection';
-
-const DEV_PRODUCTS = [
-  { value: 1, label: 'ID 1 · Core Product' },
-  { value: 101, label: 'ID 101 · Tai nghe Bluetooth' },
-  { value: 102, label: 'ID 102 · Bàn phím cơ' },
-  { value: 103, label: 'ID 103 · Chuột không dây' },
-  { value: 104, label: 'ID 104 · Màn hình 24 inch' },
-  { value: 105, label: 'ID 105 · Sạc dự phòng (hết hàng)' },
-  { value: 106, label: 'ID 106 · Loa Bluetooth (ngừng bán)' },
-];
 
 export default function CartPage() {
   const { user, loading: authLoading } = useAuth();
   const [cart, setCart] = useState(null);
   const [draft, setDraft] = useState({});
-  const [newProductId, setNewProductId] = useState(null);
-  const [newQuantity, setNewQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -259,34 +247,7 @@ export default function CartPage() {
                 </Card>;
               })}
             </section>}
-          <Card className="sf-tx-card" title={<h2 className="sf-tx-card__heading">Thêm sản phẩm</h2>}>
-            <div className="sf-tx-add-product">
-              <span className="sf-tx-muted">Nhập ID sản phẩm hiện có để thêm vào giỏ. Thêm hàng không giữ tồn kho.</span>
-              {import.meta.env.DEV && <div className="sf-tx-add-product__field">
-                <span className="sf-tx-muted">Chọn nhanh sản phẩm mẫu</span>
-                <Select aria-label="Chọn sản phẩm mẫu" placeholder="Chọn sản phẩm mẫu" showSearch optionFilterProp="label"
-                  options={DEV_PRODUCTS} value={newProductId ?? undefined} disabled={busy || saving}
-                  onChange={setNewProductId} />
-              </div>}
-              <div className="sf-tx-add-product__controls">
-                <div className="sf-tx-add-product__field">
-                  <label className="sf-tx-muted" htmlFor="tx-add-product-id">ID sản phẩm</label>
-                  <InputNumber id="tx-add-product-id" aria-label="ID sản phẩm cần thêm" placeholder="ID sản phẩm" min={1} precision={0}
-                    value={newProductId} disabled={busy || saving} onChange={setNewProductId} />
-                </div>
-                <div className="sf-tx-add-product__field">
-                  <label className="sf-tx-muted" htmlFor="tx-add-quantity">Số lượng</label>
-                  <InputNumber id="tx-add-quantity" aria-label="Số lượng cần thêm" min={1} max={999} precision={0}
-                    value={newQuantity} disabled={busy || saving} onChange={setNewQuantity} />
-                </div>
-                <Button loading={busy}
-                  disabled={saving || !Number.isSafeInteger(newProductId) || newProductId <= 0 || !Number.isInteger(newQuantity) || newQuantity < 1 || newQuantity > 999}
-                  onClick={() => mutate(() => addCartItem(user, cart.version, newProductId, newQuantity), 'Đã thêm sản phẩm vào giỏ.')}>
-                  Thêm vào giỏ
-                </Button>
-              </div>
-            </div>
-          </Card>
+          <Link to="/search">Tiếp tục mua sắm</Link>
         </div>
         <aside className="sf-tx-grid__aside" aria-label="Tóm tắt giỏ hàng">
           <Card className="sf-tx-card" title={<h2 className="sf-tx-card__heading">Tóm tắt giỏ hàng</h2>}>
@@ -308,7 +269,6 @@ export default function CartPage() {
               <span className="sf-tx-muted" role="status" aria-live="polite">
                 {saving ? 'Đang lưu số lượng…' : selectedIds.length === 0 ? 'Chọn ít nhất một sản phẩm để đặt hàng.' : 'Giá cuối cùng được xác nhận ở bước tiếp theo.'}
               </span>
-              {import.meta.env.DEV && <span className="sf-tx-muted">Phiên bản giỏ: {cart.version}</span>}
             </div>
           </Card>
         </aside>

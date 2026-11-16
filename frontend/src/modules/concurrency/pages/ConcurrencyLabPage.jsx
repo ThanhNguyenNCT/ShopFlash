@@ -5,6 +5,7 @@ import {
 import { ReloadOutlined } from '@ant-design/icons';
 import { tokens } from '@/shared/design-system';
 import { getLabState, resetLab, runLab } from '../api';
+import LabSweepCharts from '../components/LabSweepCharts';
 import { formatNumber } from '../format';
 import '../concurrency.css';
 
@@ -29,6 +30,8 @@ const ALL = STRATEGIES.map((s) => s.value);
 
 const DEFAULTS = { strategies: ALL, buyers: 1000, quota: 100, concurrency: 64, runs: 5, warmup: 1 };
 const STATE_POLL_MS = 1000;
+// Các mức C của thí nghiệm E2 (báo cáo mục 3.5).
+const SWEEP_CONCURRENCY = [1, 8, 32, 64, 128];
 
 /** "12,3 ± 1,2": trung bình và độ lệch chuẩn mẫu qua các lần đo. */
 function meanSd(stat, digits = 1) {
@@ -161,6 +164,8 @@ export default function ConcurrencyLabPage() {
   const [elapsed, setElapsed] = useState(0);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [sweep, setSweep] = useState([]);
+  const [sweepStep, setSweepStep] = useState(null); // mức C đang chạy khi quét
   const startedRef = useRef(0);
 
   const loadState = useCallback(async () => {
@@ -195,6 +200,36 @@ export default function ConcurrencyLabPage() {
         ? { ...problem, message: 'Đang có một lần chạy khác (có thể từ tab khác). Đợi xong rồi chạy lại.' }
         : problem);
     } finally {
+      setRunning(false);
+      loadState();
+    }
+  };
+
+  // Quét theo C: chạy lần lượt cùng thông số với từng mức C, mỗi mức xong thì vẽ thêm một điểm.
+  const runSweep = async () => {
+    let values;
+    try {
+      values = await form.validateFields();
+    } catch {
+      return;
+    }
+    setRunning(true);
+    setError(null);
+    setElapsed(0);
+    setSweep([]);
+    startedRef.current = Date.now();
+    try {
+      for (const concurrency of SWEEP_CONCURRENCY) {
+        setSweepStep(concurrency);
+        const stepResult = await runLab({ ...values, concurrency });
+        setSweep((current) => [...current, { concurrency, result: stepResult }]);
+      }
+    } catch (problem) {
+      setError(problem.code === 'LAB_RUN_IN_PROGRESS'
+        ? { ...problem, message: 'Đang có một lần chạy khác (có thể từ tab khác). Đợi xong rồi quét lại.' }
+        : problem);
+    } finally {
+      setSweepStep(null);
       setRunning(false);
       loadState();
     }
@@ -271,10 +306,21 @@ export default function ConcurrencyLabPage() {
             </Form.Item>
           </div>
           <Flex wrap gap={tokens.space[3]} align="center">
-            <Button type="primary" htmlType="submit" loading={running}>Chạy thí nghiệm</Button>
-            {running && <Typography.Text type="secondary" className="sf-num">Đã chạy {elapsed} giây…</Typography.Text>}
+            <Button type="primary" htmlType="submit" loading={running && sweepStep === null}>Chạy thí nghiệm</Button>
+            <Button onClick={runSweep} loading={sweepStep !== null}>
+              Quét theo C ({SWEEP_CONCURRENCY.join(', ')})
+            </Button>
+            {running && (
+              <Typography.Text type="secondary" className="sf-num">
+                {sweepStep !== null && `Đang chạy C = ${sweepStep} · `}Đã chạy {elapsed} giây…
+              </Typography.Text>
+            )}
             {!running && state?.running && <Typography.Text type="secondary">Một lần chạy khác đang diễn ra.</Typography.Text>}
           </Flex>
+          <p className="sf-cc-muted sf-cc-hint">
+            "Quét theo C" bỏ qua ô Thread C và chạy lại cùng thông số với {SWEEP_CONCURRENCY.length} mức C, rồi vẽ biểu đồ
+            throughput và p95. Thời gian gấp khoảng {SWEEP_CONCURRENCY.length} lần một lần chạy; nên chọn ít chiến lược.
+          </p>
         </Form>
       </Card>
 
@@ -290,6 +336,12 @@ export default function ConcurrencyLabPage() {
             Bấm mũi tên ở đầu dòng để xem từng lần đo và mã lỗi.
           </Typography.Paragraph>
           <ResultTable result={result} />
+        </Card>
+      )}
+
+      {sweep.length > 0 && (
+        <Card size="small" title="Throughput và độ trễ theo số lượt đồng thời C">
+          <LabSweepCharts sweep={sweep} />
         </Card>
       )}
     </Flex>

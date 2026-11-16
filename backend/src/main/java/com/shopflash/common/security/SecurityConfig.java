@@ -29,6 +29,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin", "/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/cart", "/api/cart/**", "/api/checkout", "/api/checkout/**",
                                 "/api/orders", "/api/orders/**").hasRole("CUSTOMER")
+                        // F9 (module concurrency): ai cũng xem được chương trình và suất còn lại; giữ suất, đặt đơn cần CUSTOMER.
+                        .requestMatchers(HttpMethod.GET, "/api/flash-sales/active", "/api/flash-sales/*/stock").permitAll()
+                        .requestMatchers("/api/flash-sales", "/api/flash-sales/**").hasRole("CUSTOMER")
                         .requestMatchers("/api/**").denyAll()
                         .anyRequest().permitAll())
                 .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(accounts)))

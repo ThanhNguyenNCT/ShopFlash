@@ -2,6 +2,8 @@
 
 Đây là nơi bắt đầu đọc kết quả của 14 thí nghiệm. Mỗi thí nghiệm có một thư mục riêng: `README.md` giải thích mục tiêu, cách làm và kết luận; các file `.txt` bên cạnh là output nguyên gốc từ Oracle hoặc Redis. Các thí nghiệm dùng fixture riêng trên ShopFlash local và đã được dọn sau khi hoàn tất.
 
+B2/B4/C2 hiện hành: [revision-20261109](revision-20261109/README.md), run `rev1109b`, năm lượt. Transcript cũ của ba case giữ nguyên với nhãn superseded trong hồ sơ.
+
 ## Cấu trúc
 
 ```text
@@ -33,16 +35,16 @@ Nên đọc theo thứ tự [P0](p0/README.md) → [P1](p1/README.md) → các c
 | A4 | Redis EXEC và DISCARD làm gì? | [A4](p2/A4/README.md) | [EXEC](p2/A4/native01-A4-exec.txt), [DISCARD](p2/A4/native01-A4-discard.txt) |
 | A5 | Lỗi trong EXEC/Lua có hoàn tác ghi trước đó không? | [A5](p2/A5/README.md) | [Lỗi runtime](p2/A5/native01-A5-runtime.txt), [lỗi queue](p2/A5/native01-A5-queue.txt), [lỗi Lua](p2/A5/native01-A5-lua.txt) |
 | C1 | Constraint Oracle bảo vệ được đến đâu? | [C1](p2/C1/README.md) | [Metadata 29 constraint](p2/C1/native01-C1-metadata.txt) |
-| C2 | Redis có FK/CHECK quan hệ không? | [C2](p2/C2/README.md) | [Trạng thái sau CLI](p2/C2/native01-C2-after-cli.txt), [Lua từ chối](p2/C2/native01-C2-reference.txt) |
+| C2 | Guarded Checkout ngăn dữ liệu sai trước ghi ra sao? | [C2](p2/C2/README.md) | [Input/output và snapshot từng case](revision-20261109/1-C2.txt) |
 
 ## P3 — Concurrency và giao dịch nhiều bước
 
 | Case | Câu hỏi chính | Hồ sơ | Output cần xem |
 |---|---|---|---|
 | B1 | `READ COMMITTED` có đọc bẩn không? | [B1](p3/B1/README.md) | [Timeline hai session](p3/B1/native01-B1-timeline.txt) |
-| B2 | Khi hai session cùng mua hàng, khóa/điều kiện cập nhật giúp gì? | [B2](p3/B2/README.md) | [Timeline mất cập nhật và nhánh bảo vệ](p3/B2/b2redo01-B2-timeline.txt) |
+| B2 | Khóa trước đọc thay đổi quyết định ưu đãi thế nào? | [B2](p3/B2/README.md) | [Hai nhánh SELECT/FOR UPDATE](revision-20261109/1-B2.txt) |
 | B3 | Timeout và deadlock xuất hiện theo thứ tự nào? | [B3](p3/B3/README.md) | [Timeline và mã lỗi](p3/B3/native01-B3-timeline.txt) |
-| B4 | WATCH xử lý key bị client khác đổi ra sao? | [B4](p3/B4/README.md) | [Timeline WATCH/retry](p3/B4/native01-B4-timeline.txt) |
+| B4 | Atomic command khác WATCH như thế nào? | [B4](p3/B4/README.md) | [HINCRBY, WATCH/HSET/retry](revision-20261109/1-B4.txt) |
 | B5 | Lua giữ quota khi bốn client tranh hai suất ra sao? | [B5](p3/B5/README.md) | [Kết quả từng client](p3/B5/native01-B5-clients.txt), [quota cuối](p3/B5/native01-B5-after.txt) |
 | D1 | Checkout Oracle lỗi sau nhiều ghi thì phục hồi thế nào? | [D1](p3/D1/README.md) | [Ba mốc trạng thái](p3/D1/native01-D1-output.txt) |
 | D2 | Lua tiền kiểm trước khi ghi nhiều key ra sao? | [D2](p3/D2/README.md) | [Nhánh lỗi](p3/D2/native01-D2-invalid.txt), [nhánh đúng](p3/D2/native01-D2-after-valid.txt) |

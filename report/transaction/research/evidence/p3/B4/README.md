@@ -1,3 +1,18 @@
+# B4 — Atomic HINCRBY và WATCH/HSET conflict–retry
+
+- Bản hiện hành: revision-20261109, run `rev1109b`, năm lượt correctness. [Tổng hợp và cleanup](../../revision-20261109/README.md).
+- [Timeline/snapshot lượt 1](../../revision-20261109/1-B4.txt); các lượt 2–5 tương ứng.
+- B4.1: hai worker barrier mở hai redis-cli connection độc lập, mỗi client HINCRBY on_hand -1, không WATCH. Assertion so tập phản hồi {99,98} và stock 98, không cố định thứ tự client.
+- Reset stock=100 trước B4.2. A WATCH/HGET=100, tính 99; B HINCRBY thành 99. A MULTI/HSET giá trị đã tính/EXEC trả nil (`''` trong raw), HGET và snapshot từ connection độc lập vẫn 99. A WATCH lại/HGET=99/tính 98/MULTI/HSET/EXEC thành công. HSET trả 0 vì field cũ, stock 98.
+- A giữ nguyên connection qua cả conflict và retry; cuối cùng UNWATCH/QUIT. Snapshot mỗi mốc ở timeline; snapshot đầy đủ sau nhánh và sau reset có file riêng.
+- Một command HINCRBY nguyên tử; MULTI/EXEC thực thi nguyên tử hàng đợi; WATCH phát hiện key đổi trong cửa sổ đọc–EXEC, không tự retry. Không có nhánh GET/SET không WATCH.
+
+---
+
+## Hồ sơ cũ — SUPERSEDED
+
+Các kết quả dưới đây chỉ mô tả phiên bản cũ; không dùng để nghiệm thu code hiện hành. Mọi transcript cũ giữ nguyên để truy vết.
+
 # B4 — WATCH cạnh tranh trên Redis
 
 - Trạng thái: **PASS**, run `native01`, 2026-10-28 07:56:20 +07.

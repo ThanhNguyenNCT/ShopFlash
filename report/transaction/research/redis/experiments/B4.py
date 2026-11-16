@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """B4: điều phối redis-cli A liên tục từ WATCH đến EXEC; B là kết nối khác."""
+import concurrent.futures
 import datetime
 import queue
 import re
@@ -16,6 +17,31 @@ def main():
     if len(sys.argv) != 3 or not re.fullmatch(r"[a-z0-9]{1,12}", sys.argv[1]) or not sys.argv[2].isdigit():
         raise SystemExit("B4.py <run_id> <product_1_id>")
     key = f"txresearch:{sys.argv[1]}:inventory:{sys.argv[2]}"
+    def independent(*args):
+        result = subprocess.run(["docker", "compose", "exec", "-T", "redis", "redis-cli", "--raw", *args],
+                                capture_output=True, text=True, timeout=10, check=True).stdout.strip()
+        print(f"{stamp()} independent> {args} < {result!r}", flush=True)
+        return result
+
+    def snapshot(phase):
+        print(f"{stamp()} SNAPSHOT {phase}", flush=True)
+        independent("HGETALL", key)
+
+    assert independent("HGET", key, "on_hand") == "100"
+    snapshot("B4.1_before")
+    gate = threading.Barrier(2)
+    def atomic(label):
+        gate.wait(timeout=5)
+        return independent("HINCRBY", key, "on_hand", "-1")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as workers:
+        futures = [workers.submit(atomic, label) for label in ("A", "B")]
+        results = [future.result(timeout=15) for future in futures]
+    assert sorted(results) == ["98", "99"], results
+    assert independent("HGET", key, "on_hand") == "98"
+    snapshot("B4.1_after")
+    print(f"{stamp()} ASSERT B4.1 expected=[98,99]/98 actual={results}/98 PASS", flush=True)
+    independent("HSET", key, "on_hand", "100")
+    snapshot("B4.2_before")
     a = subprocess.Popen(
         ["docker", "compose", "exec", "-T", "redis", "redis-cli", "--raw"],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -45,9 +71,9 @@ def main():
     try:
         print(f"{stamp()} RUN_ID={sys.argv[1]} KEY={key}", flush=True)
         cmd(f"WATCH {key}", "OK")
-        cmd(f"HGET {key} on_hand", "100")
-        cmd("MULTI", "OK")
-        cmd(f"HINCRBY {key} on_hand -1", "QUEUED")
+        observed = int(cmd(f"HGET {key} on_hand", "100"))
+        calculated = observed - 1
+        print(f"{stamp()} A CALCULATED={calculated}", flush=True)
         print(f"{stamp()} B> HINCRBY {key} on_hand -1 (kết nối khác)", flush=True)
         b = subprocess.run(
             ["docker", "compose", "exec", "-T", "redis", "redis-cli", "--raw", "HINCRBY", key, "on_hand", "-1"],
@@ -56,16 +82,22 @@ def main():
         print(f"{stamp()} B< {b.stdout.strip()!r}", flush=True)
         if b.stdout.strip() != "99":
             raise AssertionError("B không đổi tồn 100→99")
-        cmd("EXEC", "")  # nil trong --raw: WATCH abort, không chạy HINCRBY của A.
+        cmd("MULTI", "OK")
+        cmd(f"HSET {key} on_hand {calculated}", "QUEUED")
+        cmd("EXEC", "")  # nil trong --raw: WATCH abort, không chạy HSET của A.
         cmd(f"HGET {key} on_hand", "99")
+        snapshot("B4.2_conflict")
         print(f"{stamp()} RETRY=1/1", flush=True)
         cmd(f"WATCH {key}", "OK")
-        cmd(f"HGET {key} on_hand", "99")
+        observed = int(cmd(f"HGET {key} on_hand", "99"))
+        calculated = observed - 1
+        print(f"{stamp()} A RETRY_CALCULATED={calculated}", flush=True)
         cmd("MULTI", "OK")
-        cmd(f"HINCRBY {key} on_hand -1", "QUEUED")
-        cmd("EXEC", "98")
+        cmd(f"HSET {key} on_hand {calculated}", "QUEUED")
+        cmd("EXEC", "0")
         cmd(f"HGET {key} on_hand", "98")
-        print(f"{stamp()} RESULT=COMPLETED", flush=True)
+        snapshot("B4.2_after")
+        print(f"{stamp()} ASSERT B4.2 conflict=nil/99 retry=0/98 PASS", flush=True)
     finally:
         try:
             a.stdin.write("UNWATCH\nQUIT\n")

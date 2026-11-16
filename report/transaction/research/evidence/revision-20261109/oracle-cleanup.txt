@@ -1,0 +1,29 @@
+$ bash report/transaction/research/oracle/run-sql.sh rev1109b report/transaction/research/oracle/cleanup.sql 10631 10633 10626 13379 13380 13381 []
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+CLEANUP_COMMITTED RUN_ID=rev1109b ORDERS=0 ORDER_ITEMS=0 CART_ITEMS=3 PRODUCTS=3
+
+PL/SQL procedure successfully completed.
+

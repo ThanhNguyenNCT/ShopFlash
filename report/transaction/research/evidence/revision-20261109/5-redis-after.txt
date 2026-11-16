@@ -1,0 +1,39 @@
+$ bash report/transaction/research/redis/snapshot.sh rev1109b 13379 13380 13381
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart TYPE=hash
+13379
+1
+13380
+1
+13381
+1
+KEY=txresearch:rev1109b:inventory:13379 TYPE=hash
+on_hand
+100
+reserved
+0
+version
+0
+KEY=txresearch:rev1109b:inventory:13380 TYPE=hash
+on_hand
+100
+reserved
+0
+version
+0
+KEY=txresearch:rev1109b:inventory:13381 TYPE=hash
+on_hand
+100
+reserved
+0
+version
+0
+KEY=txresearch:rev1109b:quota TYPE=hash
+limit
+2
+remaining
+2
+held
+0
+KEY=txresearch:rev1109b:order TYPE=none
+

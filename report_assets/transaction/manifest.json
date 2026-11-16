@@ -1,0 +1,99 @@
+{
+  "figures": [
+    {
+      "stem": "hinh-3-1-database-p95",
+      "title": "Hình 3.1 · p95 latency của hai implementation",
+      "sources": [
+        "report/transaction/results/summary-20261027/database-summary.csv"
+      ]
+    },
+    {
+      "stem": "hinh-3-2-database-tps",
+      "title": "Hình 3.2 · Thông lượng của hai implementation",
+      "sources": [
+        "report/transaction/results/summary-20261027/database-summary.csv"
+      ]
+    },
+    {
+      "stem": "hinh-3-3-http-p95",
+      "title": "Hình 3.3 · p95 của Checkout API và toàn luồng HTTP",
+      "sources": [
+        "report/transaction/results/summary-20261027/http-summary.csv"
+      ]
+    }
+  ],
+  "generator": "Matplotlib; PNG 300 dpi + SVG vector; DejaVu Sans hỗ trợ tiếng Việt",
+  "figure_numbers": [
+    1,
+    2,
+    3
+  ],
+  "source_sha256": {
+    "report/transaction/results/db-2026-10-27T00-57-08-100088724Z-config.json": "8c12c0b964eb48d5f01fe638a64066662161cd0a0225791bb0fc97148b49f0a7",
+    "report/transaction/results/db-2026-10-27T00-57-08-100088724Z-runs.jsonl": "e3d28695d6e91f85cd16ac1264133cdf8bab094e10c6586232f1b474fb341b1f",
+    "report/transaction/results/db-2026-10-27T00-57-08-100088724Z.csv": "6bdfbcae19c673e4d97578171da5e441e92e5f61f84bbf07d08763b8e2f77924",
+    "report/transaction/results/db-2026-10-27T00-57-08-100088724Z.jsonl": "096a31c38af29839502dad7075d0d91b83e9a6c2d6ac1026f3f4be697b7a7c70",
+    "report/transaction/results/environment-20261027.json": "d5605bcfc72331c0c239a9424d143e069d9f63fd30e21f67a157aa18b52c8f76",
+    "report/transaction/results/evidence/oracle.csv": "9973cf0b3354089bd258b1303d6010b94aa7b12d26cdedfd6acab0708e803dca",
+    "report/transaction/results/evidence/redis.csv": "4e78aca9899fff7b5992a4a3eef1890d0fd172f1257877c4c121bd1781d0f2eb",
+    "report/transaction/results/http-20261027-stable/cart1-c1-r0-audit.json": "be3ab67b0836ca4b7e1b3c3db3264991e4213df3a3850ecb7856175d9b50cb4d",
+    "report/transaction/results/http-20261027-stable/cart1-c1-r0.json.gz": "d8b1877b8ac1a5a45e1822869c217b30c0de52e42ed35c76e42cd2862a34b1e8",
+    "report/transaction/results/http-20261027-stable/cart1-c1-r1-audit.json": "2f2622e91ca0d7864dd0b66e19b566222ed0f11820d694ae94dc25517e83c27c",
+    "report/transaction/results/http-20261027-stable/cart1-c1-r1.json.gz": "3d05f902e2a5e77eab45b557652156f2534a3f27ba8f8e32b23295fbcbcc4a45",
+    "report/transaction/results/http-20261027-stable/cart1-c1-r2-audit.json": "2f2622e91ca0d7864dd0b66e19b566222ed0f11820d694ae94dc25517e83c27c",
+    "report/transaction/results/http-20261027-stable/cart1-c1-r2.json.gz": "eded68c0845d31cd09471e50b93799f00c9033e2a3b871d5e7f5ccc541dafbb4",
+    "report/transaction/results/http-20261027-stable/cart1-c1-r3-audit.json": "2f2622e91ca0d7864dd0b66e19b566222ed0f11820d694ae94dc25517e83c27c",
+    "report/transaction/results/http-20261027-stable/cart1-c1-r3.json.gz": "5155cf245c6d4aaab5f2a468b8c3b73519196cf31c9f124b544d4715516082d2",
+    "report/transaction/results/http-20261027-stable/cart1-c1-r4-audit.json": "2f2622e91ca0d7864dd0b66e19b566222ed0f11820d694ae94dc25517e83c27c",
+    "report/transaction/results/http-20261027-stable/cart1-c1-r4.json.gz": "47bd62109eb499816415d7645cf396efe4a49b5096e66b21e3026a9348cd57cc",
+    "report/transaction/results/http-20261027-stable/cart1-c1-r5-audit.json": "2f2622e91ca0d7864dd0b66e19b566222ed0f11820d694ae94dc25517e83c27c",
+    "report/transaction/results/http-20261027-stable/cart1-c1-r5.json.gz": "16e2318f5225ad63151f367afda32f290251c83d50757f7f86be27a918978d7a",
+    "report/transaction/results/http-20261027-stable/cart1-c10-r0-audit.json": "be3ab67b0836ca4b7e1b3c3db3264991e4213df3a3850ecb7856175d9b50cb4d",
+    "report/transaction/results/http-20261027-stable/cart1-c10-r0.json.gz": "9536f3e16e60bb631fd2c53d81c5716f384a7e03d93723beedd04de5cf712e0a",
+    "report/transaction/results/http-20261027-stable/cart1-c10-r1-audit.json": "2f2622e91ca0d7864dd0b66e19b566222ed0f11820d694ae94dc25517e83c27c",
+    "report/transaction/results/http-20261027-stable/cart1-c10-r1.json.gz": "4dbb641c1bc6b1777339074a844450a660c2cbcf9b2ef9ef3f0eff61aaa27b17",
+    "report/transaction/results/http-20261027-stable/cart1-c10-r2-audit.json": "2f2622e91ca0d7864dd0b66e19b566222ed0f11820d694ae94dc25517e83c27c",
+    "report/transaction/results/http-20261027-stable/cart1-c10-r2.json.gz": "6d7689e80035ff17771a59fb35793a9297caa53774d0907fa5ff48aee1604102",
+    "report/transaction/results/http-20261027-stable/cart1-c10-r3-audit.json": "2f2622e91ca0d7864dd0b66e19b566222ed0f11820d694ae94dc25517e83c27c",
+    "report/transaction/results/http-20261027-stable/cart1-c10-r3.json.gz": "5b023b37b0da4538ea27b8418dc83e0b000f3bc7f5bafa7cdcacf10e039495ca",
+    "report/transaction/results/http-20261027-stable/cart1-c10-r4-audit.json": "2f2622e91ca0d7864dd0b66e19b566222ed0f11820d694ae94dc25517e83c27c",
+    "report/transaction/results/http-20261027-stable/cart1-c10-r4.json.gz": "2786c0d2cb5277465c9b7ca8ac5021ed9279947f9d2e355193e4a246346b2c98",
+    "report/transaction/results/http-20261027-stable/cart1-c10-r5-audit.json": "2f2622e91ca0d7864dd0b66e19b566222ed0f11820d694ae94dc25517e83c27c",
+    "report/transaction/results/http-20261027-stable/cart1-c10-r5.json.gz": "ef3bc1ce80dd2d5e8f8ae8e24cfc875db4f90fbfdfb08965e5c1b69afcc16ade",
+    "report/transaction/results/http-20261027-stable/cart5-c1-r0-audit.json": "3d5dc4fe192390d16f57528b88f8cc8ee851bc117150c40a325d65ca94941500",
+    "report/transaction/results/http-20261027-stable/cart5-c1-r0.json.gz": "d47f4d6b96cdb5faa6a3ddc3b6a7b854295ed78dcde36d48b9d0e3bac97e6a99",
+    "report/transaction/results/http-20261027-stable/cart5-c1-r1-audit.json": "34ae6997a8f35d94ac8a0fe4821fa98454a90dd77c2ed0451a693313d25daf1a",
+    "report/transaction/results/http-20261027-stable/cart5-c1-r1.json.gz": "963365a1d6e1ba482b14b936b725612153dc37af0bbdca9b88351103b7e14e2a",
+    "report/transaction/results/http-20261027-stable/cart5-c1-r2-audit.json": "34ae6997a8f35d94ac8a0fe4821fa98454a90dd77c2ed0451a693313d25daf1a",
+    "report/transaction/results/http-20261027-stable/cart5-c1-r2.json.gz": "888643724745421a6bc0d1d449a5b102c047252add9547de70cfb72de73dc979",
+    "report/transaction/results/http-20261027-stable/cart5-c1-r3-audit.json": "34ae6997a8f35d94ac8a0fe4821fa98454a90dd77c2ed0451a693313d25daf1a",
+    "report/transaction/results/http-20261027-stable/cart5-c1-r3.json.gz": "245b950ba324a9f092aabaad9a84005795a485ca3fdc8cf4e9637818bc60bc8b",
+    "report/transaction/results/http-20261027-stable/cart5-c1-r4-audit.json": "34ae6997a8f35d94ac8a0fe4821fa98454a90dd77c2ed0451a693313d25daf1a",
+    "report/transaction/results/http-20261027-stable/cart5-c1-r4.json.gz": "3c43f30ac3bb728d2fd2bc9af8495eb24d2c78d8aaa1367481c4b3c95baf13db",
+    "report/transaction/results/http-20261027-stable/cart5-c1-r5-audit.json": "34ae6997a8f35d94ac8a0fe4821fa98454a90dd77c2ed0451a693313d25daf1a",
+    "report/transaction/results/http-20261027-stable/cart5-c1-r5.json.gz": "21bf7cb67bb7cdce151eb5c206c81905b352bff433b6faaa1ddd9b484fcef382",
+    "report/transaction/results/http-20261027-stable/cart5-c10-r0-audit.json": "3d5dc4fe192390d16f57528b88f8cc8ee851bc117150c40a325d65ca94941500",
+    "report/transaction/results/http-20261027-stable/cart5-c10-r0.json.gz": "91ce36bee0a1cb312345727ce80b0cc17f2ccdf5b22f0f61974f4013080cbfb5",
+    "report/transaction/results/http-20261027-stable/cart5-c10-r1-audit.json": "34ae6997a8f35d94ac8a0fe4821fa98454a90dd77c2ed0451a693313d25daf1a",
+    "report/transaction/results/http-20261027-stable/cart5-c10-r1.json.gz": "f78703d56ffbb020a8872bf3fcccb9fc5239bc775cf91691bbc3201af5c83502",
+    "report/transaction/results/http-20261027-stable/cart5-c10-r2-audit.json": "34ae6997a8f35d94ac8a0fe4821fa98454a90dd77c2ed0451a693313d25daf1a",
+    "report/transaction/results/http-20261027-stable/cart5-c10-r2.json.gz": "c815bff9afde69fc3ea4e7fba21b1b1143a4fe96ec21d5cf47f33c9b1a60b4aa",
+    "report/transaction/results/http-20261027-stable/cart5-c10-r3-audit.json": "34ae6997a8f35d94ac8a0fe4821fa98454a90dd77c2ed0451a693313d25daf1a",
+    "report/transaction/results/http-20261027-stable/cart5-c10-r3.json.gz": "a8127547a080ec042637cbae58d4f538ff3ad2d1691fded1642d09c9aee80236",
+    "report/transaction/results/http-20261027-stable/cart5-c10-r4-audit.json": "34ae6997a8f35d94ac8a0fe4821fa98454a90dd77c2ed0451a693313d25daf1a",
+    "report/transaction/results/http-20261027-stable/cart5-c10-r4.json.gz": "7bc0163a08864b167ba5b97f4e523a9d87eaedf053eb950541d189ec0bfe7ecd",
+    "report/transaction/results/http-20261027-stable/cart5-c10-r5-audit.json": "34ae6997a8f35d94ac8a0fe4821fa98454a90dd77c2ed0451a693313d25daf1a",
+    "report/transaction/results/http-20261027-stable/cart5-c10-r5.json.gz": "b7d659e83d7fbb67e3724816885789bb164856aa1939f734fc084a0c10620cff",
+    "report/transaction/results/http-20261027-stable/config.json": "142fbcbce689160a0a92b41074cec4c6fd04a30803b3f070d8b2acc5e303ec9d",
+    "report/transaction/results/summary-20261027/comparison.md": "afbca056d3b72f3929dbf07c80014577721200bc77ee9016628f89ae7175cc5b",
+    "report/transaction/results/summary-20261027/database-samples.csv": "0d4a7c87a2d803ddf509f3136c5dbe6f7813ea451de32002261d35e6a4ab989a",
+    "report/transaction/results/summary-20261027/database-samples.jsonl": "a53f65d0ea2dd6bde61e21e10dc53c7be4d28aa49c4247f6170ca5dadf4b727e",
+    "report/transaction/results/summary-20261027/database-summary.csv": "1ea98670fb1d5a3d0a3840a003e591a67489b68389316bc2443c790656aa7c29",
+    "report/transaction/results/summary-20261027/database-summary.json": "4fdefa282ea21ac40325c590d1bceeac520ce84b95ee1ce2d589e16b9fd8c9fb",
+    "report/transaction/results/summary-20261027/http-samples.csv": "edd9ee38dec59d1fa945775cd386f0c25f682dbaf15b07fdd6db2badc1e0d2ad",
+    "report/transaction/results/summary-20261027/http-samples.jsonl": "06c289023067768aa078e513b23ef80ae9d83411472eca361d79e1f587374f1f",
+    "report/transaction/results/summary-20261027/http-summary.csv": "39f38ecd81a6331c3637c493e0350503034a1442a58ad2c62fba2aea810ff773",
+    "report/transaction/results/summary-20261027/http-summary.json": "4a4c41bb4900d622e07d23564c4cfd6029c78bc15bd0764d2a679f7eb188bc9b",
+    "report/transaction/results/summary-20261027/provenance.json": "e93f7d00b68833526a6d61b7e0421d727fd4933af7cb99af85126ce1f1c77b5f"
+  }
+}

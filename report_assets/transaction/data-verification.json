@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "database_scenarios": 8,
+  "http_metric_groups": 32,
+  "method": "Recompute from raw CSV/runs JSONL and compressed k6 JSON; compare CSV + JSON summaries",
+  "fields": [
+    "p50_ms",
+    "p95_ms",
+    "throughput_success_per_second",
+    "success",
+    "rounds",
+    "samples"
+  ]
+}

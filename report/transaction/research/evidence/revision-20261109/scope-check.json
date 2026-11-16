@@ -1,0 +1,30 @@
+{
+  "Harness": {
+    "unchanged": true,
+    "sha256": "ec25bde1ca52ae6a8f90e89004876767677013ce1523bf923b95d5f9b08d4a51"
+  },
+  "b1": {
+    "unchanged": true,
+    "sha256": "ef3c3456a9f714053c362f9e793e33112bbb76a15c7d1addbd1409d110ad930e"
+  },
+  "b3": {
+    "unchanged": true,
+    "sha256": "e8aeae3042c343949a1578fc8ecb893b5549c0d97f682e66083ba66ec1609c07"
+  },
+  "redis/experiments/B5.py": {
+    "unchanged": true,
+    "sha256": "d8d7ae576e942fa81dbe80a5ad5e56b7a25ab700b182743437185115bff41f62"
+  },
+  "redis/experiments/D2.sh": {
+    "unchanged": true,
+    "sha256": "b67d650c2b4185c33b6a3402b7bce6161967cf5c65685e1a537b19b2918d87ce"
+  },
+  "redis/lua/D2-checkout.lua": {
+    "unchanged": true,
+    "sha256": "cd67c3dff1ec456fce1110b70217d1c88e5be8cdf96b784c5e33270b26e70ae1"
+  },
+  "oracle/experiments/D1.sql": {
+    "unchanged": true,
+    "sha256": "69fcc751ca1d2b2569d0423ca99bcfec8a4fe82352cc013da4280b6b3f169d58"
+  }
+}

@@ -107,7 +107,7 @@ Sau khi xác nhận ID và số dòng/key ở preview, reset Oracle bằng `orac
 
 ## P2–P3 — Chạy 14 case
 
-Đọc [chỉ mục bằng chứng](evidence/INDEX.md) để xem mục tiêu, tiền điều kiện, lệnh, output gốc, expected/actual, cleanup và kết luận từng case. Mỗi lần chạy mới: làm P0, setup P1 với run ID mới, lưu sáu ID Oracle và danh sách key, chụp snapshot đầu kỳ. Từng case giả định Cart có ba dòng, tồn P1/P2/P3=100, quota=2 và chưa có Order. Reset theo manifest sau case có ghi; trước reset phải preview, không dùng ID/key từ run khác. Run `native01` trong evidence đã được cleanup cuối P4.
+Đọc [chỉ mục bằng chứng](evidence/INDEX.md) để xem mục tiêu, tiền điều kiện, lệnh, output gốc, expected/actual, cleanup và kết luận từng case. Mỗi lần chạy mới: làm P0, setup P1 với run ID mới, lưu sáu ID Oracle và danh sách key, chụp snapshot đầu kỳ. Từng case giả định Cart có ba dòng, tồn P1/P2/P3=100, quota=2 và chưa có Order. Reset theo manifest sau case có ghi; trước reset phải preview, không dùng ID/key từ run khác. Run `native01` trong evidence đã được cleanup cuối P4. B2/B4/C2 hiện dùng [evidence revision-20261109](evidence/revision-20261109/README.md); transcript cũ của ba case chỉ giữ lịch sử superseded.
 
 | Case | Script native từ root repo | Quan sát chính |
 |---|---|
@@ -116,11 +116,11 @@ Sau khi xác nhận ID và số dòng/key ở preview, reset Oracle bằng `orac
 | A3 | `oracle/run-sql.sh <run> oracle/experiments/A3.sql <6 ID> '[]'` | statement lỗi, savepoint, full rollback trong một session |
 | A4 | `redis/experiments/A4.sh exec <run> <user_id> <p1>`; snapshot/reset; `A4.sh discard ...` | `QUEUED`, `EXEC` theo thứ tự, `DISCARD` không ghi |
 | A5 | `redis/experiments/A5.sh runtime/queue/lua <run> <p1>`; snapshot/reset giữa nhánh ghi | lỗi runtime giữ ghi trước đó; queue-time `EXECABORT` |
-| B1–B3 | `python3 oracle/experiments/two-session.py B1/B2/B3 <p1> <p2>` | timeline hai SQL*Plus session cố định, timeout và rollback |
-| B4 | `python3 redis/experiments/B4.py <run> <p1>` | A giữ một redis-cli từ WATCH tới EXEC; B dùng kết nối khác; retry tối đa một lần |
+| B1–B3 | `python3 oracle/experiments/two-session.py B1/B2/B3 <p1> <p2>` | session cố định; B2 có hai nhánh đọc/quyết định; timeout/deadlock chỉ thuộc B3 |
+| B4 | `python3 redis/experiments/B4.py <run> <p1>` | hai HINCRBY độc lập; WATCH/HGET/tính HSET trên connection A, conflict rồi đọc lại/retry |
 | B5 | `python3 redis/experiments/B5.py <run>` | bốn redis-cli clients gọi cùng Lua quota |
 | C1 | `oracle/run-sql.sh <run> oracle/experiments/C1.sql` | metadata 29 constraint, không ghi |
-| C2 | `redis/experiments/C2.sh invalid/reference/negative <run> <p1>` | CLI nhận dữ liệu sai, Lua từ chối |
+| C2 | `bash redis/experiments/C2.sh <run> <p1> <p2> <p3>` | 14 case lỗi snapshot không đổi, một Checkout guarded EVAL hợp lệ; reset giữa case |
 | D1 | `oracle/run-sql.sh <run> oracle/experiments/D1.sql <6 ID> '[]'` | ba mốc Order/Items/Cart/Inventory; lỗi CHECK rồi full rollback |
 | D2 | `redis/experiments/D2.sh invalid/valid <run> <user_id> <p1> <p2>` | Lua tiền kiểm năm key, nhánh lỗi không ghi |
 
@@ -131,7 +131,7 @@ Trong bảng, mọi đường dẫn script nằm dưới `report/transaction/res
 Mở hai cửa sổ A/B riêng trên `SHOP/FREEPDB1`, tắt autocommit; mỗi cửa sổ khai báo `VARIABLE p1 NUMBER`, `VARIABLE p2 NUMBER` và gán ID từ manifest bằng `EXEC :p1 := <id>;`, `EXEC :p2 := <id>;`. Giữ nguyên kết nối cho đến `COMMIT`/`ROLLBACK`. Chỉ thao tác trên hai Inventory fixture; mọi `WHERE product_id` dùng bind.
 
 - **B1:** A/B chạy `SET TRANSACTION ISOLATION LEVEL READ COMMITTED;`. B `SELECT on_hand_quantity FROM product_inventory WHERE product_id=:p1;` thấy 100. A `UPDATE product_inventory SET on_hand_quantity=99 WHERE product_id=:p1;` chưa commit. B SELECT lại thấy 100. A `COMMIT;`; B SELECT lại thấy 99. B `ROLLBACK;`; A khôi phục 100 rồi `COMMIT;`.
-- **B2:** Trong mỗi cửa sổ A/B, khai báo `VARIABLE old_stock NUMBER`, rồi chạy `BEGIN SELECT on_hand_quantity INTO :old_stock FROM product_inventory WHERE product_id=:p1; END;` và `/`, `PRINT old_stock`; cả hai phải lưu 100 trong biến riêng của session mình. A chạy `UPDATE product_inventory SET on_hand_quantity=:old_stock-1 WHERE product_id=:p1;` nhưng chưa commit. B gửi cùng câu UPDATE trên P1 và chờ khóa; kiểm tra B chưa trả kết quả sau 1,5 giây. A `COMMIT;`, B mới hoàn tất UPDATE rồi `COMMIT;`. SELECT sau hai lệnh COMMIT phải thấy tồn cuối 99: hai lần trừ từ giá trị cũ 100 làm mất một lượt giảm tồn. A đặt P1=1 rồi COMMIT. A `SELECT ... WHERE product_id=:p1 FOR UPDATE WAIT 3;` giữ khóa; B cùng SELECT `WAIT 2`, ghi lỗi và `ROLLBACK;`. A `UPDATE product_inventory SET on_hand_quantity=on_hand_quantity-1, version=version+1 WHERE product_id=:p1 AND on_hand_quantity-reserved_flash_quantity>=1;`, COMMIT. B chạy cùng UPDATE, phải có `0 rows updated`, rồi COMMIT. A khôi phục P1=100/version=0 và COMMIT.
+- **B2:** Quy tắc ưu đãi: đọc Stock=100 mới đủ điều kiện. Cả hai session dùng READ COMMITTED và UPDATE tương đối `SET on_hand_quantity=on_hand_quantity-1 WHERE product_id=:p1`. Nhánh thường: A SELECT=100/quyết định, A UPDATE chưa commit; B SELECT=100/quyết định, B UPDATE chờ; A COMMIT, B UPDATE hoàn tất/COMMIT; tồn=98, hai ưu đãi. Reset 100. Nhánh FOR UPDATE: A SELECT FOR UPDATE=100/quyết định; B SELECT FOR UPDATE WAIT 30 chờ; A UPDATE/COMMIT; B lấy khóa đọc 99/quyết định không ưu đãi rồi UPDATE/COMMIT; tồn=98, một ưu đãi. Kiểm tra B chưa hoàn tất trước A COMMIT; không tạo timeout Oracle cố ý. Sau mỗi nhánh khôi phục 100, cuối cùng lấy lại khóa từ B/ROLLBACK. UPDATE thường cũng tự lấy row lock. Harness B2 có assertion read/decision/stock, lỗi SQL làm fail.
 - **B3 lượt timeout:** A `SELECT product_id FROM product_inventory WHERE product_id=:p1 FOR UPDATE WAIT 3;`; B cùng câu `WAIT 2`, ghi lỗi thực, B `ROLLBACK;`, A `ROLLBACK;`. **Lượt deadlock:** A khóa P1, B khóa P2 bằng SELECT FOR UPDATE; A gửi SELECT P2 `FOR UPDATE WAIT 10` và để chờ; B gửi SELECT P1 `FOR UPDATE WAIT 10`. Ghi `ORA-00060` ở session nạn nhân; chủ động `ROLLBACK;` session đó để giải phóng khóa đầu tiên, chờ session còn lại kết thúc SELECT rồi `ROLLBACK;`. Dùng giới hạn 13 giây cho lượt chờ; nếu không trả prompt, ngắt client quá hạn để kết nối đóng và Oracle rollback, kiểm tra lại bằng `FOR UPDATE WAIT 2` trên cả P1/P2 trước khi reset. Transcript mẫu và mã lỗi Oracle 26ai ở [B3](evidence/p3/B3/README.md).
 
 ### Redis CLI tương tác
@@ -145,3 +145,15 @@ Chỉ cleanup sau khi toàn bộ case hoàn tất và snapshot đã về baselin
 ## Phân định kết quả
 
 14 case trên chứng minh cơ chế **DBMS-native** bằng SQL/PLSQL và Redis CLI/Lua, không cung cấp latency/TPS có ý nghĩa thống kê. Java `TransactionDbBenchmarkIT`/raw results đo hiệu năng database-only của runner riêng; JUnit còn kiểm tra ứng dụng, k6 đo HTTP. [Báo cáo Transaction](../SECTION_TRANSACTION.md) và [đánh giá P5](evidence/p5/README.md) giữ ba lớp này tách biệt.
+
+## Chạy lại riêng B2/B4/C2
+
+Sau audit P0 và xác nhận Compose local/dev, chọn run ID mới. Lệnh từ root repo:
+
+```bash
+python3 report/transaction/research/run-revisions.py <run_id> <evidence_directory> --repeat 5
+```
+
+Runner reuse setup, reset, snapshot, preview và cleanup hiện có. Manifest ghi ID Oracle và bảy key Redis cụ thể (thêm `product:<p1>` của C2 và Order); không xóa theo wildcard. C2 tạo Product Hash ACTIVE từ ID fixture, không thay Product thật Oracle. Direct mutation chỉ dùng chuẩn bị fixture lỗi, được đánh dấu `FIXTURE_INJECTION`; mọi request Checkout trong C2 gọi một EVAL validation-trước-ghi. Lua giới hạn số nguyên canonical tới 1e9, yêu cầu key không TTL. Không bao gồm giá/tổng tiền/quota trong Checkout NORMAL một mặt hàng này; quota và mặt hàng khác phải giữ nguyên.
+
+Evidence giữ input/output và snapshot mỗi case, năm lượt correctness, hậu kiểm Oracle bằng connection khác và Redis sau reset. Nếu lỗi, đọc transcript/manifest và kết quả finally cleanup trước khi thử run mới. Không xem exit code 0 là đủ: runner kiểm tra các assertion, snapshot equality và cleanup thực tế. `assertions.json` chỉ tổng hợp các assertion đã đạt; cần đối chiếu thêm oracle-verify/redis-verify. Đây không phải benchmark latency/TPS.

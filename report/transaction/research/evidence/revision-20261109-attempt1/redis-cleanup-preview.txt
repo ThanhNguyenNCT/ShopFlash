@@ -1,0 +1,14 @@
+$ bash report/transaction/research/redis/preview.sh rev1109 report/transaction/research/evidence/revision-20261109/keys.txt
+txresearch:rev1109:cart hash
+txresearch:rev1109:inventory:13376 hash
+txresearch:rev1109:inventory:13377 hash
+txresearch:rev1109:inventory:13378 hash
+txresearch:rev1109:quota hash
+txresearch:rev1109:order none
+txresearch:rev1109:product:13376 none
+ALL_RUN_KEYS:
+txresearch:rev1109:inventory:13377
+txresearch:rev1109:inventory:13378
+txresearch:rev1109:quota
+txresearch:rev1109:inventory:13376
+txresearch:rev1109:cart

@@ -1,0 +1,16 @@
+$ bash report/transaction/research/oracle/run-sql.sh rev1109 report/transaction/research/oracle/setup.sql
+
+PL/SQL procedure successfully completed.
+
+RESULT=CREATED
+RUN_ID=rev1109
+USER_ID=10630
+CATEGORY_ID=10632
+CART_ID=10625
+PRODUCT_1_ID=13376
+PRODUCT_2_ID=13377
+PRODUCT_3_ID=13378
+CART_ITEMS=3; PRODUCT_1/2 la hang mua, PRODUCT_3 la hang giu lai
+
+PL/SQL procedure successfully completed.
+

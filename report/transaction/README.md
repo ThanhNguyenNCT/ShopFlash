@@ -4,6 +4,8 @@ Thư mục này chứa thí nghiệm tính đúng đắn, phép đo cơ chế da
 
 Để đọc theo đúng mục đích, bắt đầu từ [runbook nghiên cứu DBMS-native](research/README.md) và [chỉ mục 14 thí nghiệm](research/evidence/INDEX.md). [SECTION_TRANSACTION.md](SECTION_TRANSACTION.md) là phần diễn giải để đưa vào báo cáo. Các mục Java/JUnit/k6 bên dưới là baseline kiểm thử và benchmark cũ, được giữ riêng với bằng chứng SQL/PLSQL và Redis CLI/Lua.
 
+B2/B4/C2 đã được chỉnh theo [OpenSpec change](../../local_docs/openspec/changes/revise-transaction-b2-b4-c2/proposal.md) và [evidence mới](research/evidence/revision-20261109/README.md). OpenSpec dùng convention hiện có trong `local_docs/openspec` (thư mục local bị gitignore); bản chụp đầy đủ artifact được lưu kèm [evidence](research/evidence/revision-20261109/openspec-plan/proposal.md) để bàn giao.
+
 ## 1. Môi trường
 
 - Oracle Database Free và Redis Stack chạy bằng `docker compose` trên `127.0.0.1` theo [`compose.yaml`](../../compose.yaml). Redis bật AOF (`--appendonly yes`). Ghi lại digest image, phiên bản Docker, CPU/RAM và tải nền trong lần chạy báo cáo.

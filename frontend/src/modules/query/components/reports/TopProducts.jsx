@@ -30,7 +30,6 @@ export default function TopProducts({ params }) {
   return (
     <ReportCard
       title="Top sản phẩm bán chạy"
-      feature="F6"
       state={state}
       extra={
         <Segmented

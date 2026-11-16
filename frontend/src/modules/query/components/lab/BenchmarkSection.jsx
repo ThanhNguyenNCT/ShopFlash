@@ -158,7 +158,7 @@ export default function BenchmarkSection({ range }) {
       >
         <Flex wrap gap={tokens.space[4]}>
           <Form.Item name="report" label="Báo cáo" rules={[{ required: true, message: 'Chọn một báo cáo' }]}>
-            <Select style={{ minWidth: tokens.space[8] * 7 }} options={REPORTS.map((r) => ({ value: r.slug, label: `${r.feature} · ${r.label}` }))} />
+            <Select style={{ minWidth: tokens.space[8] * 7 }} options={REPORTS.map((r) => ({ value: r.slug, label: r.label }))} />
           </Form.Item>
           {report === 'top-products' && (
             <Form.Item name="limit" label="Top" rules={[{ required: true, type: 'integer', min: 1, max: 100, message: 'Từ 1 đến 100' }]}>

@@ -11,18 +11,18 @@ export default [
     path: '/admin/categories',
     element: <AdminCategoriesPage />,
     title: 'Quản lý danh mục',
-    menu: { label: 'Danh mục', icon: <AppstoreOutlined />, group: 'Catalog', order: 1, owner: 'TV1', feature: 'F1' },
+    menu: { label: 'Danh mục', icon: <AppstoreOutlined />, group: 'Catalog', order: 1, owner: 'TV1' },
   },
   {
     path: '/admin/products',
     element: <AdminProductsPage />,
     title: 'Quản lý sản phẩm',
-    menu: { label: 'Sản phẩm', icon: <ShoppingOutlined />, group: 'Catalog', order: 2, owner: 'TV1', feature: 'F2' },
+    menu: { label: 'Sản phẩm', icon: <ShoppingOutlined />, group: 'Catalog', order: 2, owner: 'TV1' },
   },
   {
     path: '/admin/products/storage-lab',
     element: <StorageLabPage />,
     title: 'So sánh Oracle–Redis',
-    menu: { label: 'So sánh Oracle–Redis', icon: <DatabaseOutlined />, group: 'Catalog', order: 3, owner: 'TV1', feature: 'F1, F2' },
+    menu: { label: 'So sánh Oracle–Redis', icon: <DatabaseOutlined />, group: 'Catalog', order: 3, owner: 'TV1' },
   },
 ];

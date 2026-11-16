@@ -18,7 +18,7 @@ export default function ReportPicker({ value, onChange, reports = REPORTS }) {
         style={{ minWidth: tokens.space[8] * 7, maxWidth: tokens.space[8] * 10 }}
         value={value.report}
         onChange={(report) => set({ report, page: 1 })}
-        options={reports.map((r) => ({ value: r.slug, label: `${r.feature} · ${r.label}` }))}
+        options={reports.map((r) => ({ value: r.slug, label: r.label }))}
       />
       {value.report === 'top-products' && (
         <InputNumber prefix="Top" min={1} max={100} precision={0} value={value.limit} onChange={num('limit')} />

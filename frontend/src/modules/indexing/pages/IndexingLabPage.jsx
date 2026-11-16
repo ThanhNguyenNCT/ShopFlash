@@ -245,7 +245,7 @@ export default function IndexingLabPage() {
       <div>
         <Typography.Title level={3} style={{ margin: 0 }}>Indexing Lab</Typography.Title>
         <Typography.Text type="secondary">
-          F3/F4: cùng một yêu cầu tìm kiếm trên Oracle (B-tree, Oracle Text) và Redis (RediSearch), có và không có index.
+          Cùng một yêu cầu tìm kiếm trên Oracle (B-tree, Oracle Text) và Redis (RediSearch), có và không có index.
         </Typography.Text>
       </div>
       <Card size="small" title="Điều kiện tìm kiếm (dùng cho các thẻ 1–4)">

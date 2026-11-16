@@ -60,12 +60,6 @@
   white-space: normal;
 }
 
-.sf-report-card__feature {
-  margin: 0;
-  font-size: var(--sf-text-label-size);
-  font-weight: var(--sf-text-label-weight);
-}
-
 .sf-report-card__footer {
   margin-top: var(--sf-space-4);
   padding-top: var(--sf-space-3);

@@ -7,11 +7,11 @@ const USE_MOCK = import.meta.env.MODE === 'mock' || import.meta.env.VITE_USE_MOC
 const BASE = '/admin/reports';
 
 export const REPORTS = [
-  { slug: 'revenue-by-month', label: 'Doanh thu theo tháng', feature: 'F5', joinHint: false, paged: false },
-  { slug: 'revenue-by-category', label: 'Doanh thu theo danh mục', feature: 'F5', joinHint: true, paged: false },
-  { slug: 'top-products', label: 'Top sản phẩm bán chạy', feature: 'F6', joinHint: true, paged: false },
-  { slug: 'vip-customers', label: 'Khách VIP', feature: 'F6', joinHint: true, paged: true },
-  { slug: 'unsold-products', label: 'Sản phẩm chưa từng bán', feature: 'F6', joinHint: false, paged: true },
+  { slug: 'revenue-by-month', label: 'Doanh thu theo tháng', joinHint: false, paged: false },
+  { slug: 'revenue-by-category', label: 'Doanh thu theo danh mục', joinHint: true, paged: false },
+  { slug: 'top-products', label: 'Top sản phẩm bán chạy', joinHint: true, paged: false },
+  { slug: 'vip-customers', label: 'Khách VIP', joinHint: true, paged: true },
+  { slug: 'unsold-products', label: 'Sản phẩm chưa từng bán', joinHint: false, paged: true },
 ];
 
 export const SOURCES = ['oracle', 'redis'];

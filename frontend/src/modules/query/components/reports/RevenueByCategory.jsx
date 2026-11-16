@@ -45,7 +45,7 @@ export default function RevenueByCategory({ params }) {
   const chartRows = rows.slice(0, CHART_TOP);
 
   return (
-    <ReportCard title="Doanh thu theo danh mục" feature="F5" state={state} skeletonRows={8}>
+    <ReportCard title="Doanh thu theo danh mục" state={state} skeletonRows={8}>
       {rows.length === 0 ? (
         <Empty description="Không có đơn nào trong khoảng thời gian này" />
       ) : (

@@ -11,18 +11,18 @@ export default [
     path: '/admin',
     element: <AdminDashboardPage />,
     title: 'Tổng quan quản trị',
-    menu: { label: 'Tổng quan', icon: <DashboardOutlined />, group: 'Tổng quan', order: 0, owner: 'TV3', feature: 'F5, F6' },
+    menu: { label: 'Tổng quan', icon: <DashboardOutlined />, group: 'Tổng quan', order: 0, owner: 'TV3' },
   },
   {
     path: '/admin/reports',
     element: <ReportsPage />,
     title: 'Báo cáo',
-    menu: { label: 'Báo cáo', icon: <BarChartOutlined />, group: 'Báo cáo', order: 1, owner: 'TV3', feature: 'F5, F6' },
+    menu: { label: 'Báo cáo', icon: <BarChartOutlined />, group: 'Báo cáo', order: 1, owner: 'TV3' },
   },
   {
     path: '/admin/reports/lab',
     element: <QueryLabPage />,
     title: 'Query Lab',
-    menu: { label: 'Query Lab', icon: <ExperimentOutlined />, group: 'Báo cáo', order: 2, owner: 'TV3', feature: 'F5, F6' },
+    menu: { label: 'Query Lab', icon: <ExperimentOutlined />, group: 'Báo cáo', order: 2, owner: 'TV3' },
   },
 ];

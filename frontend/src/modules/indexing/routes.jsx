@@ -15,6 +15,6 @@ export default [
     path: '/admin/products/indexing-lab',
     element: <IndexingLabPage />,
     title: 'Indexing Lab',
-    menu: { label: 'Indexing Lab', icon: <ExperimentOutlined />, group: 'Catalog', order: 4, owner: 'TV2', feature: 'F3, F4' },
+    menu: { label: 'Indexing Lab', icon: <ExperimentOutlined />, group: 'Catalog', order: 4, owner: 'TV2' },
   },
 ];

@@ -16,7 +16,7 @@ F10 Giỏ hàng và F0 Đăng nhập đã bàn giao cho TV4 (`transaction`, `com
 ## Quyết định đã chốt
 
 - **Oracle là nguồn gốc** của chương trình, policy, giá, suất (`allocated_quantity`, `sold_quantity`), tồn kho và đơn flash sale. **Redis giữ trạng thái runtime** từ lúc chương trình được lên lịch: suất còn lại, số lượng mỗi người đã giữ, reservation. Reservation chỉ có trên Redis.
-- **Mất dữ liệu Redis vẫn không bán vượt.** Runtime dựng lại từ Oracle: `remaining = allocated - sold`, `user_qty` đếm từ `order_items` của các đơn chưa hủy. Chỉ mất các reservation đang chờ, nghĩa là suất đó được mở bán lại. Lúc khởi động và trong job định kỳ, chương trình `SCHEDULED`/`ACTIVE` nào thiếu key runtime thì được nạp lại.
+- **Mất dữ liệu Redis vẫn không bán vượt.** Runtime dựng lại từ Oracle: `remaining = allocated - sold`, `user_qty` đếm từ `order_items` của các đơn chưa hủy. Chỉ mất các reservation đang chờ, nghĩa là suất đó được mở bán lại. Giới hạn đã biết: đơn commit đúng lúc đang dựng lại (sau khi đọc Oracle, trước khi `load-item.lua` chạy) thì không được tính, `remaining` dư và `user_qty` thiếu lượt đó cho tới lần dựng lại sau. Oracle vẫn chặn bán vượt (người giữ suất dư nhận `SOLD_OUT` khi đặt đơn), nhưng giới hạn mỗi người chỉ có ở Redis nên khách đó có thể mua quá `maxPerUser`. Màn runtime báo `inSync = false` khi `held < 0`. Lúc khởi động và trong job định kỳ, chương trình `SCHEDULED`/`ACTIVE` nào thiếu key runtime thì được nạp lại.
 - **Giữ hàng trong kho từ lúc `SCHEDULED`**, không đợi đến `ACTIVE`. Lên lịch thì `reserved_flash_quantity += allocated_quantity` ngay, để đến giờ mở bán chắc chắn còn hàng. Vì vậy migration của module sửa `v_inventory_invariant_check` thành `fs.status IN ('SCHEDULED','ACTIVE')` (DATABASE_DESIGN §14 cho phép).
 - **Giờ mở/đóng do Lua quyết định bằng đồng hồ Redis** (`redis.call('TIME')`), không phụ thuộc job. Job chỉ đổi trạng thái trong Oracle và có thể trễ vài giây mà không ảnh hưởng người mua.
 - **Giữ suất là một Lua script duy nhất**: kiểm tra và trừ suất trong cùng một lệnh nên không có race. Không dùng khóa phân tán (`SET NX`) cho việc này; khóa phân tán chỉ nhắc trong báo cáo để so sánh.
@@ -78,12 +78,12 @@ Không dùng sản phẩm 1 của seed lõi: seed lõi đặt lại `reserved_fl
 | Chuyển | Ai | Điều kiện | Oracle (một transaction) | Redis (sau commit) |
 |---|---|---|---|---|
 | tạo → `DRAFT` | admin | `end_at > start_at` | insert `flash_sales` + `flash_sale_configs` | — |
-| `DRAFT` → `SCHEDULED` | admin `schedule` | `start_at > now`, có ít nhất 1 item | với từng sản phẩm: `reserved += allocated` khi `on_hand - reserved >= allocated`; 0 dòng thì rollback, `409 INSUFFICIENT_STOCK` kèm `productId` | nạp `flash:sale`, `flash:item` |
+| `DRAFT` → `SCHEDULED` | admin `schedule` | `start_at > now`, có ít nhất 1 item, không sản phẩm nào nằm trong chương trình `SCHEDULED`/`ACTIVE` khác trùng giờ (`409 PRODUCT_UNAVAILABLE`; kiểm tra sau khi đã khóa tồn kho, nên hai lệnh lên lịch cùng lúc chỉ một bên qua) | với từng sản phẩm: `reserved += allocated` khi `on_hand - reserved >= allocated`; 0 dòng thì rollback, `409 INSUFFICIENT_STOCK` kèm `productId` | nạp `flash:sale`, `flash:item` |
 | `SCHEDULED` → `DRAFT` | admin `unschedule` | còn ít nhất 60 s trước `start_at` | `reserved -= allocated` | xóa key runtime |
 | `DRAFT`/`SCHEDULED` → `CANCELLED` | admin `cancel` | `SCHEDULED` thì như dòng trên | như dòng trên nếu đang `SCHEDULED` | xóa key runtime |
 | `SCHEDULED` → `ACTIVE` | job | `start_at <= now` | chỉ đổi `status` | `HSET status ACTIVE` |
 | `ACTIVE` dừng sớm | admin `stop` | | `end_at = now` | ghi `endAt` vào Redis **trước** để chặn giữ suất ngay |
-| `ACTIVE` → `ENDED` | job | `now >= end_at + reservation_timeout_seconds + 120 s` | khóa `flash_sales`, rồi các item; `reserved -= (allocated - sold)` | xóa key runtime |
+| `ACTIVE` → `ENDED` | job | `now >= end_at + reservation_timeout_seconds + 120 s` | mỗi chương trình một transaction: khóa `flash_sales`, rồi các item; `reserved -= (allocated - sold)` | xóa key runtime |
 
 - Mốc 60 s trước giờ mở bán tránh trường hợp đã hủy lịch trong Oracle mà key Redis chưa kịp xóa đúng lúc giờ mở bán tới.
 - `ENDED` chờ thêm một khoảng sau `end_at` để mọi reservation còn hạn được chốt xong. Nếu trả hàng về kho trước, một đơn chốt muộn sẽ trừ `reserved` lần nữa và làm lệch bất biến.
@@ -96,7 +96,7 @@ Không dùng sản phẩm 1 của seed lõi: seed lõi đặt lại `reserved_fl
 ```text
 KEYS: flash:sale:{s}, flash:item:{i}, flash:item:{i}:user_qty, flash:item:{i}:pending,
       flash:reservation:{r}, flash:reservations:expiry
-ARGV: userId, quantity, reservationId
+ARGV: userId, quantity, reservationId, saleId, itemId
 
 now = TIME (ms)
 sale có, status ∈ {SCHEDULED, ACTIVE}         sai → SALE_NOT_FOUND
@@ -138,15 +138,16 @@ ROLLBACK → release: remaining += q, user_qty -= q, RELEASED, ZREM expiry, HDEL
 
 - Response giống đơn thường của `transaction`: `{ orderId, orderCode, status, totalAmount }`, `201` khi tạo mới, `200` khi trả lại đơn đã có.
 - Cài đặt: `FlashCheckoutService`. Bước claim chạy trước transaction; hook `TransactionSynchronization` đăng ký ngay đầu transaction, trước câu ghi đầu tiên. Transaction chưa kịp bắt đầu (ví dụ hết kết nối trong pool) thì trả suất ngay. Không rõ đã commit hay chưa (`STATUS_UNKNOWN`), hoặc Redis lỗi lúc confirm/release, thì để nguyên `CLAIMED` cho job tra Oracle.
+- Từ lúc claim tới lúc transaction lấy được kết nối quá 5 s (pool Oracle cạn; Hikari chờ kết nối tối đa 30 s, không tính vào timeout 10 s của transaction) thì bỏ: `503 CHECKOUT_BUSY`, trả suất ngay. Nhờ vậy từ claim tới commit tối đa khoảng 15 s, dưới mốc 30 s của job dọn.
 - Gửi lại khi reservation đang `CLAIMED` (lần trước commit xong nhưng confirm chưa chạy): tra `orders` theo `idempotency_key`, có đơn của đúng người thì trả `200`, không có thì `409 RESERVATION_ALREADY_USED`.
 - Mất phản hồi thì gửi lại cùng `reservationId` là an toàn: reservation đã `CONFIRMED` thì trả lại đơn cũ; nếu lọt qua thì `uk_orders_idempotency` vẫn chặn đơn trùng.
 
 ### 3. Job dọn reservation (mỗi 5 s)
 
-`ZRANGEBYSCORE flash:reservations:expiry -inf <now> LIMIT 0 100`, với từng reservation:
+`ZRANGEBYSCORE flash:reservations:expiry -inf <now> LIMIT 0 500`, với từng reservation:
 
 - `PENDING` đã hết hạn: release (Lua kiểm tra lại trạng thái và giờ trước khi hoàn).
-- `CLAIMED` quá `expiresAt + 30 s` (checkout bị sập giữa chừng): tra `orders.idempotency_key = 'FS-' || reservationId`. Có đơn thì confirm, không có thì release. Mốc 30 s chỉ an toàn khi transaction đặt đơn có timeout ≤ 10 s.
+- `CLAIMED` quá `expiresAt + 30 s` (checkout bị sập giữa chừng): tra `orders.idempotency_key = 'FS-' || reservationId`. Có đơn thì confirm, không có thì release. Mốc 30 s chỉ an toàn khi từ lúc claim tới commit ngắn hơn hẳn: chờ kết nối ≤ 5 s cộng transaction ≤ 10 s (mục 2).
 - Key reservation đã mất, hoặc đã `CONFIRMED`/`RELEASED` mà còn trong ZSET: `ZREM`.
 - Cài đặt: `ReservationSweeper` (logic), `FlashJobs` (lịch: dọn mỗi `shopflash.flash.sweep-interval-ms` = 5000; nạp lại runtime còn thiếu mỗi 30 s). Tắt lịch bằng `shopflash.flash.jobs.enabled=false` (test dùng), mốc 30 s đổi bằng `shopflash.flash.claim-grace-ms`. `@EnableScheduling` ở `config/FlashSchedulingConfig`.
 
@@ -217,7 +218,7 @@ Base khách hàng: `/api/flash-sales`. Base admin: `/api/admin/flash-sales`, `/a
 }
 ```
 
-`phase`: `UPCOMING` (chưa tới `startAt`) hoặc `LIVE`, so theo đồng hồ Redis. `remaining` lấy từ Redis; chương trình chưa nạp runtime thì lấy `allocated - sold` trong Oracle. Reservation trả về:
+`phase`: `UPCOMING` (chưa tới `startAt`) hoặc `LIVE`, so theo đồng hồ Redis. `remaining` lấy từ Redis; chương trình chưa nạp runtime thì lấy `allocated - sold` trong Oracle. Redis không kết nối được thì `/active` vẫn trả `200` với `allocated - sold` và giờ của backend (`/stock` và giữ suất vẫn `503 REDIS_UNAVAILABLE`). Reservation trả về:
 
 ```json
 { "reservationId": "3f1c...", "flashSaleId": 9101, "itemId": 9101, "productId": 9101,
@@ -267,7 +268,7 @@ Base khách hàng: `/api/flash-sales`. Base admin: `/api/admin/flash-sales`, `/a
 | 403 | `ACCESS_DENIED` (do `common/security` trả) |
 | 404 | `FLASH_SALE_NOT_FOUND`, `FLASH_SALE_ITEM_NOT_FOUND`, `RESERVATION_NOT_FOUND`, `PRODUCT_NOT_FOUND` |
 | 409 | `SALE_NOT_STARTED`, `SALE_ENDED`, `ITEM_UNAVAILABLE`, `SOLD_OUT`, `USER_LIMIT_REACHED`, `RESERVATION_EXPIRED`, `RESERVATION_ALREADY_USED`, `INSUFFICIENT_STOCK`, `INVALID_STATUS_TRANSITION`, `FLASH_SALE_CHANGED`, `PRODUCT_UNAVAILABLE`, `LAB_RUN_IN_PROGRESS` |
-| 503 | `REDIS_UNAVAILABLE`, `LAB_INTERRUPTED` (backend dừng giữa lần chạy Lab) |
+| 503 | `REDIS_UNAVAILABLE`, `CHECKOUT_BUSY` (đặt đơn chờ kết nối Oracle quá lâu, suất đã trả lại), `LAB_INTERRUPTED` (backend dừng giữa lần chạy Lab) |
 
 ## Loại truy vấn module thể hiện
 

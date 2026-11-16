@@ -106,18 +106,33 @@ public class FlashLifecycleRepository {
     }
 
     /**
-     * Chọn và khóa chương trình ACTIVE đã qua end_at + thời gian giữ suất + graceSeconds, để mọi reservation còn hạn
-     * kịp chốt trước khi trả phần chưa bán về kho.
+     * Chương trình ACTIVE đã qua end_at + thời gian giữ suất + graceSeconds (để mọi reservation còn hạn kịp chốt trước
+     * khi trả phần chưa bán về kho). Chỉ đọc; từng chương trình được khóa riêng bằng lockForEnding.
      */
-    public List<Long> lockDueForEnding(int graceSeconds) {
+    public List<Long> dueForEnding(int graceSeconds) {
         return jdbc.queryForList("""
                 SELECT fs.flash_sale_id
                 FROM   flash_sales fs
                 JOIN   flash_sale_configs c ON c.flash_sale_id = fs.flash_sale_id
                 WHERE  fs.status = 'ACTIVE'
                 AND    fs.end_at + NUMTODSINTERVAL(c.reservation_timeout_seconds + :grace, 'SECOND') <= SYSTIMESTAMP
-                FOR UPDATE OF fs.status SKIP LOCKED
+                ORDER  BY fs.flash_sale_id
                 """, Map.of("grace", graceSeconds), Long.class);
+    }
+
+    /**
+     * Khóa một chương trình tới hạn kết thúc (kiểm tra lại điều kiện). SKIP LOCKED: instance khác đang xử lý chương
+     * trình này thì bỏ qua, không chờ. false: không khóa được hoặc không còn tới hạn.
+     */
+    public boolean lockForEnding(long saleId, int graceSeconds) {
+        return !jdbc.queryForList("""
+                SELECT fs.flash_sale_id
+                FROM   flash_sales fs
+                JOIN   flash_sale_configs c ON c.flash_sale_id = fs.flash_sale_id
+                WHERE  fs.flash_sale_id = :id AND fs.status = 'ACTIVE'
+                AND    fs.end_at + NUMTODSINTERVAL(c.reservation_timeout_seconds + :grace, 'SECOND') <= SYSTIMESTAMP
+                FOR UPDATE OF fs.status SKIP LOCKED
+                """, Map.of("id", saleId, "grace", graceSeconds), Long.class).isEmpty();
     }
 
     public boolean end(long saleId) {

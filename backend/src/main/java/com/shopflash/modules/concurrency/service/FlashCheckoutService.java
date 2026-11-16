@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -48,6 +49,13 @@ public class FlashCheckoutService {
     /** Job chỉ xử lý CLAIMED quá expiresAt + 30 s; transaction phải ngắn hơn nhiều. */
     static final int TRANSACTION_TIMEOUT_SECONDS = 10;
 
+    /**
+     * Từ lúc claim tới lúc transaction có kết nối không được quá mốc này. Pool Oracle cạn thì chờ kết nối tới 30 s
+     * (Hikari mặc định) trước khi timeout 10 s của transaction bắt đầu tính; không chặn thì đơn có thể commit sau khi
+     * job dọn đã trả suất. Với mốc này, từ lúc claim tới commit tối đa khoảng 15 s, dưới mốc 30 s của job.
+     */
+    static final long MAX_START_DELAY_NANOS = 5_000_000_000L;
+
     public record Placed(boolean created, FlashOrderResponse order) {
     }
 
@@ -78,6 +86,7 @@ public class FlashCheckoutService {
         Recipient recipient = recipient(request);
         String key = idempotencyKey(reservationId);
 
+        long claimStarted = System.nanoTime();
         ClaimResult claim;
         try {
             claim = runtime.claim(reservationId, userId);
@@ -98,6 +107,11 @@ public class FlashCheckoutService {
             FlashOrderResponse order = transaction.execute(status -> {
                 TransactionSynchronizationManager.registerSynchronization(new ReservationOutcome(claimed));
                 hooked.set(true);
+                if (startedTooLate(claimStarted, System.nanoTime())) {
+                    // Hook rollback trả suất ngay; khách giữ suất lại.
+                    throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "CHECKOUT_BUSY",
+                            "Hệ thống đang quá tải nên chưa đặt được đơn. Suất đã được trả lại, vui lòng giữ suất lại");
+                }
                 return writeOrder(claimed, recipient, key);
             });
             return new Placed(true, order);
@@ -111,6 +125,10 @@ public class FlashCheckoutService {
             }
             throw e;
         }
+    }
+
+    static boolean startedTooLate(long claimNanos, long nowNanos) {
+        return nowNanos - claimNanos > MAX_START_DELAY_NANOS;
     }
 
     /** Thân transaction. Khóa FLASH_SALE_ITEMS rồi PRODUCT_INVENTORY (thứ tự khóa của module). */

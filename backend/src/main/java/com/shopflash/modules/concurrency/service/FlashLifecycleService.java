@@ -80,6 +80,17 @@ public class FlashLifecycleService {
                             null);
                 }
             }
+            // Kiểm tra trùng giờ lại ở đây, sau khi đã khóa PRODUCT_INVENTORY của mọi sản phẩm: lúc soạn (DRAFT) chỉ
+            // so với chương trình đã lên lịch, nên hai DRAFT cùng sản phẩm đều qua được. Hai lệnh lên lịch chạy cùng
+            // lúc thì bên sau chờ khóa tồn kho, tới lượt đã thấy bên trước SCHEDULED.
+            SaleState state = lifecycle.state(saleId).orElseThrow(FlashErrors::saleNotFound);
+            List<Long> busy = admin.productsInOverlappingSales(saleId, state.startAt(), state.endAt(),
+                    items.stream().map(LockedItem::productId).toList());
+            if (!busy.isEmpty()) {
+                throw new ApiException(HttpStatus.CONFLICT, "PRODUCT_UNAVAILABLE",
+                        "Sản phẩm đã nằm trong chương trình khác trùng giờ", Map.of("productId", busy.getFirst()),
+                        null);
+            }
         });
         loadQuietly(saleId);
         return adminService.detail(saleId);
@@ -131,13 +142,29 @@ public class FlashLifecycleService {
         }
         long nowMs = runtime.serverTimeMs();
         runtime.setSaleEndAt(saleId, nowMs);
-        if (!lifecycle.stop(saleId, FlashTime.ofEpochMs(nowMs))) {
+        boolean stopped;
+        try {
+            stopped = lifecycle.stop(saleId, FlashTime.ofEpochMs(nowMs));
+        } catch (RuntimeException e) {
+            // Oracle lỗi: chương trình chưa dừng, trả endAt trên Redis về giờ cũ.
+            restoreEndAt(saleId, state);
+            throw e;
+        }
+        if (!stopped) {
             // Trạng thái vừa đổi: đặt lại endAt trên Redis theo Oracle.
-            lifecycle.state(saleId).ifPresent(now ->
-                    runtime.setSaleEndAt(saleId, now.endAt().toInstant().toEpochMilli()));
+            restoreEndAt(saleId, lifecycle.state(saleId).orElse(state));
             throw whyNot(saleId, "ACTIVE", "Chương trình đã hết giờ hoặc đã dừng");
         }
         return adminService.detail(saleId);
+    }
+
+    private void restoreEndAt(long saleId, SaleState state) {
+        try {
+            runtime.setSaleEndAt(saleId, state.endAt().toInstant().toEpochMilli());
+        } catch (RuntimeException e) {
+            log.warn("Chưa đặt lại được endAt của chương trình {} trên Redis; dựng lại runtime để sửa: {}", saleId,
+                    e.getMessage());
+        }
     }
 
     /** Job: SCHEDULED → ACTIVE khi tới giờ. Giờ mở bán thật do reserve.lua quyết định; đây chỉ đổi trạng thái. */
@@ -166,16 +193,24 @@ public class FlashLifecycleService {
 
     /** Job: ACTIVE → ENDED sau end_at + thời gian giữ suất + mốc an toàn; trả phần chưa bán về kho, xóa runtime. */
     public List<Long> endDue() {
-        List<Long> ended = transaction.execute(s -> {
-            List<Long> done = new ArrayList<>();
-            for (long saleId : lifecycle.lockDueForEnding(endGraceSeconds)) {
-                returnUnsold(saleId);
-                if (lifecycle.end(saleId)) {
-                    done.add(saleId);
+        List<Long> ended = new ArrayList<>();
+        // Mỗi chương trình một transaction: một chương trình lỗi (bất biến tồn kho lệch) không chặn các chương trình khác.
+        for (long saleId : lifecycle.dueForEnding(endGraceSeconds)) {
+            try {
+                boolean done = Boolean.TRUE.equals(transaction.execute(s -> {
+                    if (!lifecycle.lockForEnding(saleId, endGraceSeconds)) {
+                        return false;   // instance khác đang xử lý, hoặc trạng thái vừa đổi
+                    }
+                    returnUnsold(saleId);
+                    return lifecycle.end(saleId);
+                }));
+                if (done) {
+                    ended.add(saleId);
                 }
+            } catch (RuntimeException e) {
+                log.error("Chưa kết thúc được chương trình {}, lần sau thử lại: {}", saleId, e.getMessage());
             }
-            return done;
-        });
+        }
         ended.forEach(this::unloadQuietly);
         return ended;
     }

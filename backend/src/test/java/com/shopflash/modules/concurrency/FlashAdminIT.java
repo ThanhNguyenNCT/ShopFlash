@@ -218,6 +218,30 @@ class FlashAdminIT {
     }
 
     @Test
+    void twoDraftsWithSameProductAndTimeOnlyOneIsScheduled() throws Exception {
+        // Lúc soạn, cả hai đều hợp lệ: kiểm tra trùng giờ chỉ so với chương trình đã lên lịch.
+        long first = createDraft(3600, 7200);
+        long second = createDraft(5400, 9000);
+        mvc.perform(asAdmin(put("/api/admin/flash-sales/{id}/items", first), items(0, item(FRYER, 99000, 10))))
+                .andExpect(status().isOk());
+        mvc.perform(asAdmin(put("/api/admin/flash-sales/{id}/items", second), items(0,
+                item(FRYER, 89000, 5), item(KETTLE, 149000, 5)))).andExpect(status().isOk());
+
+        mvc.perform(asAdmin(post("/api/admin/flash-sales/{id}/schedule", first), null)).andExpect(status().isOk());
+        mvc.perform(asAdmin(post("/api/admin/flash-sales/{id}/schedule", second), null))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("PRODUCT_UNAVAILABLE"))
+                .andExpect(jsonPath("$.error.details.productId").value(FRYER));
+
+        // Chương trình thứ hai rollback hết: vẫn DRAFT, không giữ thêm hàng, không nạp Redis.
+        assertThat((String) detail(second).get("status")).isEqualTo("DRAFT");
+        assertThat(reserved(FRYER)).isEqualTo(10);
+        assertThat(reserved(KETTLE)).isZero();
+        assertThat(runtime.saleLoaded(second)).isFalse();
+        assertThat(invariantViolations()).isZero();
+    }
+
+    @Test
     void concurrentAdminsEditingOneDraftOnlyOneWins() throws Exception {
         long id = createDraft(3600, 7200);
         int admins = 6;

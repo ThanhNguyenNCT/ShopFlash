@@ -1,5 +1,71 @@
 # Transaction: thí nghiệm và benchmark
 
+## Báo cáo LaTeX — Mục 4
+
+`report/main.tex` ghép `transaction/noi-dung.tex` thành một mục riêng
+**Transaction trên Oracle và Redis**, gồm ba phần liên tiếp:
+
+| Mục trong PDF | File LaTeX | Markdown nguồn trong `Bao_cao_Transaction_3_1-3_3_Rut_gon/` ở gốc repo |
+|---|---|---|
+| 4.1 Tổng quan và phương pháp nghiên cứu | `sections/01-tong-quan.tex` | `3.1_Tong_quan_va_phuong_phap_nghien_cuu.md` |
+| 4.2 Cơ sở lý thuyết và thực nghiệm ACID | `sections/02-thuc-nghiem-acid.tex` | `3.2_Co_so_ly_thuyet_va_thuc_nghiem_ACID.md` |
+| 4.3 Đánh giá hiệu năng và lựa chọn DBMS | `sections/03-hieu-nang.tex` | `3.3_Danh_gia_hieu_nang_va_lua_chon_DBMS (1).md` |
+
+Nguồn hiện tại là bản rút gọn ở **gốc repo**. File 3.3 có hậu tố `(1)` là bản
+cập nhật mới nhất được dùng, không lấy bản dài hơn trong
+`report/Bao_cao_Transaction_3_1-3_3_Rut_gon/` hay bộ Markdown cũ.
+Các thư mục `Bao_cao*/` chỉ lưu trên máy local, được gitignore và không commit.
+Bản báo cáo chia sẻ trong Git là các file LaTeX ở `sections/` và hình ở `images/`.
+
+Markdown gốc được giữ nguyên. Số mục, bảng, hình, mã nguồn và kết quả trong
+bản LaTeX được đánh tự động theo mục 4; các dẫn chiếu dùng `\label`/`\ref`.
+Tiểu mục 3.4 dẫn tới mục 4; thiết kế ứng dụng chuyển sang mục 5, đánh giá chung
+sang mục 6 và kết luận chung sang mục 7. Phần thiết kế riêng của module vẫn là
+`thiet-ke.tex` (chưa viết), không dùng phần nghiên cứu ACID để thay thế.
+
+Ba ghi chú `[Hình 3.x — ...]` trong Markdown được thay bằng biểu đồ thực tế.
+Ba hình vector trong `images/4.3-0*.pdf` được xuất từ SVG ở
+`report_assets/transaction/`. Chỉ bỏ số hình viết sẵn trong tiêu đề biểu đồ,
+để caption LaTeX cung cấp số 4.1–4.3; dữ liệu và các thành phần biểu đồ được giữ nguyên.
+`format.tex` khai báo kiểu kết quả thực nghiệm và syntax highlighting của Lua/JavaScript.
+Trong khối mã, ký tự tiếng Việt được bọc bằng escape của `listings` để giữ đúng
+thứ tự chữ có dấu khi dùng XeLaTeX; bỏ các delimiter này sẽ thu lại nguyên văn mã nguồn.
+
+Biên dịch bằng TeX cài sẵn, từ thư mục `report/`:
+
+```bash
+latexmk -outdir=build main.tex
+```
+
+Hoặc từ gốc repo, dùng image Docker của dự án:
+
+```bash
+bash report/build.sh
+```
+
+PDF chung nằm tại `report/build/main.pdf`. Build PDF chỉ cần các file LaTeX và
+hình đã có, không cần Python, Markdown local hay chạy lại benchmark. Trên máy
+có bộ Markdown local, nếu sửa nguồn thì tạo lại ba file LaTeX từ gốc repo bằng:
+
+```bash
+python3 report/transaction/import_markdown.py
+```
+
+Lệnh chuyển đổi cần `markdown-it-py` (`python3-markdown-it` trên Ubuntu).
+Thêm `--figures` khi cần xuất lại hình vector; tùy chọn này dùng PyGObject/Rsvg
+và Pycairo (`python3-gi`, `gir1.2-rsvg-2.0`, `python3-cairo`).
+
+Kiểm thử bản rút gọn ngày 16/11/2026: XeLaTeX + biber qua image `shopflash-latex:1`
+xuất PDF 51 trang (bản trước 85 trang). Đối chiếu đủ 14 tiêu đề, 15 bảng,
+24 đoạn mã, 19 khối kết quả, 3 hình và giữ nguyên nội dung 43 code fence.
+Kiểm tra trực quan trang mở đầu, mã nguồn, bảng constraint, hai bảng benchmark
+và biểu đồ. Không có
+overfull box, thiếu glyph hoặc tham chiếu chưa xác định. Còn cảnh báo căn dòng
+underfull/font math thay cỡ và bibliography trống vì nguồn chưa có trích dẫn;
+các phần chung và module chưa viết vẫn hiện placeholder của báo cáo.
+
+## Tài liệu nghiên cứu và benchmark
+
 Thư mục này chứa thí nghiệm tính đúng đắn, phép đo cơ chế database và phép đo HTTP của F10 → F7 → F8. Oracle là nguồn dữ liệu nghiệp vụ của ShopFlash. Redis trong phép đo database chỉ là mô phỏng cùng thao tác logic; không thay thế giao dịch đặt hàng thật.
 
 Để đọc theo đúng mục đích, bắt đầu từ [runbook nghiên cứu DBMS-native](research/README.md) và [chỉ mục 14 thí nghiệm](research/evidence/INDEX.md). [SECTION_TRANSACTION.md](SECTION_TRANSACTION.md) là phần diễn giải để đưa vào báo cáo. Các mục Java/JUnit/k6 bên dưới là baseline kiểm thử và benchmark cũ, được giữ riêng với bằng chứng SQL/PLSQL và Redis CLI/Lua.

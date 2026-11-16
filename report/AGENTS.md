@@ -7,9 +7,14 @@ Báo cáo môn học, nộp dạng PDF. Mỗi người viết phần module và 
 1. Giới thiệu
 2. Phân tích yêu cầu
 3. So sánh Oracle và Redis: 6 tiểu mục 3.1–3.6 theo 6 chủ đề
-4. Thiết kế và hiện thực ứng dụng
-5. Đánh giá và lựa chọn DBMS
-6. Kết luận và tự đánh giá
+4. Transaction trên Oracle và Redis: 4.1 Tổng quan và phương pháp; 4.2 Lý thuyết và thực nghiệm ACID; 4.3 Hiệu năng và lựa chọn DBMS
+5. Thiết kế và hiện thực ứng dụng
+6. Đánh giá và lựa chọn DBMS
+7. Kết luận và tự đánh giá
+
+Theo yêu cầu bố trí báo cáo, toàn bộ nội dung Transaction nằm riêng ở mục 4;
+tiểu mục 3.4 chỉ dẫn tới mục 4, không lặp lại nội dung. Ba phần Markdown gốc
+được chuyển sang LaTeX trong `transaction/sections/`, ghép bởi `transaction/noi-dung.tex`.
 
 Sau đó là Tài liệu tham khảo (trích dẫn theo IEEE) và Phụ lục: A. Đóng góp, B. Biên bản họp, C. Toàn bộ câu SQL và lệnh Redis, D. Hướng dẫn chạy demo.
 
@@ -25,12 +30,12 @@ Số đo phải chạy lại được. Mỗi phép đo chạy 5 lần, báo cáo
 
 Báo cáo chung là `main.tex` (XeLaTeX và biber), dựa trên [hcmut-report-template](https://github.com/davidnguyen1802/hcmut-report-template) (MIT, xem `TEMPLATE_LICENSE`). `main.tex` ghép phần của từng người; mỗi người chỉ sửa thư mục chủ đề của mình. File nào chưa có thì PDF hiện dòng chữ xám "[Chưa viết]".
 
-Thư mục chủ đề: `storage` (3.1), `indexing` (3.2), `query` (3.3), `transaction` (3.4), `concurrency` (3.5), `backup-recovery` (3.6). Phần chung (mục 1, 2, 4.1, 5, 6, phụ lục A, B, D) nằm trong `chung/`.
+Thư mục chủ đề: `storage` (3.1), `indexing` (3.2), `query` (3.3), `transaction` (mục 4; 3.4 dẫn chiếu), `concurrency` (3.5), `backup-recovery` (3.6). Phần chung (mục 1, 2, 5.1, 6, 7, phụ lục A, B, D) nằm trong `chung/`.
 
 | File trong thư mục chủ đề | Được ghép vào | Bắt đầu bằng |
 |---|---|---|
-| `noi-dung.tex` | Mục 3.x | `\subsection{...}` |
-| `thiet-ke.tex` | Mục 4 (thiết kế module) | `\subsection{...}` |
+| `noi-dung.tex` | Mục 3.x; riêng Transaction ghép 4.1–4.3 | `\subsection{...}` hoặc file ghép các tiểu mục |
+| `thiet-ke.tex` | Mục 5 (thiết kế module) | `\subsection{...}` |
 | `lenh.tex` | Phụ lục C | `\subsubsection{...}` |
 | `<chủ đề>.bib` | Tài liệu tham khảo | |
 | `images/` | Ảnh | |

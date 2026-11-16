@@ -1,0 +1,57 @@
+% Generated from Bao_cao_Transaction_3_1-3_3_Rut_gon/3.1_Tong_quan_va_phuong_phap_nghien_cuu.md; regenerate with report/transaction/import_markdown.py.
+% Heading and cross-reference numbers are supplied by the parent LaTeX document.
+\txsection{Tổng quan và phương pháp nghiên cứu}\label{sec:tx-1}
+\txsubsection{Mục tiêu và phạm vi nghiên cứu}\label{sec:tx-1-1}
+Nghiên cứu tập trung so sánh cơ chế \textbf{Transaction của Oracle Database và Redis} trên bốn tính chất ACID: \textbf{Atomicity} (xác nhận và hoàn tác thao tác), \textbf{Consistency} (duy trì dữ liệu hợp lệ), \textbf{Isolation} (kiểm soát truy cập đồng thời) và \textbf{Durability} (lưu bền thay đổi đã xác nhận). Trọng tâm không chỉ là một thao tác thành công hay thất bại, mà còn là \textbf{phạm vi bảo đảm, cách xử lý lỗi và giới hạn của từng DBMS}.
+
+Nhóm kết hợp thí nghiệm chức năng với benchmark độ trễ và thông lượng để xác định ưu, nhược điểm của hai cách triển khai. Các kịch bản sử dụng ngữ cảnh giỏ hàng, tồn kho, đặt hàng và quota Flash Sale của \textbf{ShopFlash} nhằm minh họa các vấn đề transaction trong thương mại điện tử. Kết quả nghiên cứu được sử dụng để lựa chọn DBMS phù hợp cho ứng dụng, thay vì xem ShopFlash là đối tượng phân tích chính.
+
+Phạm vi gồm các thí nghiệm thực thi trực tiếp trên từng DBMS, benchmark cấp cơ sở dữ liệu và phép đo HTTP bổ trợ ở cấp ứng dụng. Nhóm \textbf{không kiểm chứng transaction phân tán Oracle–Redis hoặc crash recovery}; các nội dung này chỉ được xem xét ở góc độ cơ chế và giới hạn thiết kế.
+
+\txsubsection{Môi trường, dữ liệu và phương pháp thực nghiệm}\label{sec:tx-1-2}
+\textbf{Môi trường.} Oracle và Redis được chạy bằng Docker Compose trong môi trường local. Thí nghiệm Oracle dùng SQL/PLSQL và SQL*Plus; Redis dùng \texttt{redis-\allowbreak{}cli}, \texttt{MULTI/\allowbreak{}EXEC} và Lua. Các kịch bản nhiều session/client được Bash/Python điều phối để tái hiện thứ tự đọc, ghi và tranh chấp.
+
+\textbf{Dữ liệu.} Nhóm dùng mô hình rút gọn gồm các đối tượng sau:
+
+\begin{table}[H]
+\centering
+\caption{Các đối tượng và trường dữ liệu chính trong thí nghiệm.}\label{tab:tx-1}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\linewidth}{@{}>{\hsize=0.65\hsize\linewidth=\hsize}L>{\hsize=1.05\hsize\linewidth=\hsize}L>{\hsize=1.3\hsize\linewidth=\hsize}L@{}}
+\toprule
+\textbf{Đối tượng} & \textbf{Biểu diễn trong Oracle/Redis} & \textbf{Dữ liệu và ý nghĩa} \\
+\midrule
+Product & Bảng \texttt{PRODUCTS} / Product key & \texttt{product\_\allowbreak{}id} định danh sản phẩm; \texttt{status} thể hiện trạng thái kinh doanh \\
+Inventory & Bảng \texttt{PRODUCT\_\allowbreak{}INVENTORY} / Inventory Hash & \texttt{on\_\allowbreak{}hand\_\allowbreak{}quantity} hoặc \texttt{on\_\allowbreak{}hand} là tồn kho; \texttt{reserved\_\allowbreak{}flash\_\allowbreak{}quantity} hoặc \texttt{reserved} là số lượng đã giữ; \texttt{version} là phiên bản dữ liệu \\
+Cart & Bảng \texttt{CARTS}, \texttt{CART\_\allowbreak{}ITEMS} / Cart Hash & \texttt{cart\_\allowbreak{}id} xác định giỏ hàng; \texttt{product\_\allowbreak{}id} và \texttt{quantity} xác định sản phẩm cùng số lượng trong giỏ \\
+Order & Bảng \texttt{ORDERS}, \texttt{ORDER\_\allowbreak{}ITEMS} / Order key & Thông tin đơn hàng, sản phẩm được mua, số lượng và trạng thái xử lý \\
+Quota & Redis Quota Hash & \texttt{limit} là tổng số suất; \texttt{remaining} là số suất còn lại; \texttt{held} là số suất đã giữ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+Fixture mặc định gồm \textbf{một user}, \textbf{một Cart với P1–P3} (mỗi sản phẩm Quantity = 1), \textbf{Stock = 100}, \textbf{Reserved = 0} cho từng sản phẩm. Các phép thử quota khởi tạo \texttt{limit =\allowbreak{} 2}, \texttt{remaining =\allowbreak{} 2}, \texttt{held =\allowbreak{} 0}. Mỗi test có thể tạo trạng thái lỗi hoặc điều chỉnh dữ liệu riêng trước khi chạy.
+
+\textbf{Thiết kế thực nghiệm.} Bộ nghiên cứu gồm \textbf{14 thí nghiệm}, chia thành bốn nhóm:
+
+\begin{table}[H]
+\centering
+\caption{Phân nhóm các thí nghiệm Transaction.}\label{tab:tx-2}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\linewidth}{@{}>{\hsize=0.4\hsize\linewidth=\hsize}L>{\hsize=0.65\hsize\linewidth=\hsize}L>{\hsize=1.95\hsize\linewidth=\hsize}L@{}}
+\toprule
+\textbf{Nhóm} & \textbf{Thí nghiệm} & \textbf{Nội dung kiểm chứng} \\
+\midrule
+A & A1–A5 & COMMIT, ROLLBACK, SAVEPOINT, MULTI/EXEC và xử lý lỗi \\
+B & B1–B5 & Isolation, locking, deadlock, WATCH và xử lý đồng thời bằng Lua \\
+C & C1–C2 & Ràng buộc toàn vẹn và cơ chế bảo vệ Consistency \\
+D & D1–D2 & Transaction gồm nhiều thao tác trong nghiệp vụ Checkout \\
+\bottomrule
+\end{tabularx}
+\end{table}
+Mỗi test tuân theo quy trình \textbf{tạo fixture \(\rightarrow\) chụp snapshot trước \(\rightarrow\) thực thi \(\rightarrow\) thu phản hồi/mã lỗi \(\rightarrow\) so sánh snapshot và assertion \(\rightarrow\) khôi phục fixture}. Kết luận dựa trên cả hành vi DBMS và biến đổi dữ liệu, không chỉ trạng thái kết thúc của script. Các trường hợp nhiều nhánh được đối chiếu trong cùng điều kiện khởi tạo.
+
+\textbf{Đánh giá hiệu năng.} Database-level benchmark dùng Java JDBC/Jedis để đo trực tiếp hai implementation transaction; application-level benchmark dùng k6 đo chuỗi API ShopFlash trên Oracle. Các mức tải, cách tính p50/p95, throughput và kết quả định lượng được trình bày ở Mục~\ref{sec:tx-3}. Nhờ đó, \textbf{Mục~\ref{sec:tx-2} đánh giá tính đúng đắn cơ chế}, còn \textbf{Mục~\ref{sec:tx-3} đánh giá chi phí thực thi trong workload đã chọn}.

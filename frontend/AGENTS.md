@@ -57,13 +57,13 @@ export default [
 
 Mọi màn hình trong kế hoạch đều đã có route. Màn hình chưa làm render `ComingSoon` (`src/shared/components/ComingSoon.jsx`): ghi chức năng, người phụ trách, file cần thay, việc cần làm và API gợi ý.
 
-Để làm màn hình của mình: sửa đúng một file trang, vd. `src/modules/storage/pages/AdminProductsPage.jsx`, thay `<ComingSoon .../>` bằng màn hình thật, giữ `export default`. Route, menu, layout, phân quyền đã nối sẵn. Xong thì bỏ `status: 'todo'` trong `routes.jsx`. Trang chủ (`indexing/pages/HomePage.jsx`) đang có dữ liệu minh họa, có nhãn "Dữ liệu minh họa"; TV2 thay toàn bộ.
+Để làm màn hình của mình: sửa đúng một file trang, vd. `src/modules/storage/pages/AdminProductsPage.jsx`, thay `<ComingSoon .../>` bằng màn hình thật, giữ `export default`. Route, menu, layout, phân quyền đã nối sẵn. Xong thì bỏ `status: 'todo'` trong `routes.jsx`. Trang chủ (`indexing/pages/HomePage.jsx`) đã đọc catalog thật qua API; dữ liệu mẫu local do hai app seed `R__00_catalog_seed.sql` và `R__00_core_seed.sql` cung cấp khi backend chạy profile `dev`.
 
 | Path | Module | Người phụ trách | Chức năng |
 |---|---|---|---|
 | `/` | indexing | TV2 | Trang chủ (F3, F4) |
 | `/search` | indexing | TV2 | Tìm kiếm, lọc (F3, F4) |
-| `/products/:productId` | indexing | TV2 | Chi tiết sản phẩm (nút "Thêm vào giỏ" từ transaction sau tích hợp) |
+| `/products/:productId` | indexing | TV2 | Chi tiết sản phẩm, đã tích hợp nút "Thêm vào giỏ" từ transaction |
 | `/flash-sale` | concurrency | TV5 | Flash sale (F9) |
 | `/cart` | transaction | TV4 | Giỏ hàng (F10) |
 | `/checkout` | transaction | TV4 | Thanh toán (F7) |

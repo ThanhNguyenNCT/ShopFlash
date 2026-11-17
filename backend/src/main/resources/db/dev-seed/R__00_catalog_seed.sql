@@ -1,12 +1,10 @@
 -- Danh mục và sản phẩm dùng chung cho mọi module (chỉ chạy ở profile dev).
 -- Tên file bắt đầu bằng R__00_catalog nên Flyway chạy file này TRƯỚC R__00_core_seed:
--- đơn hàng, flash sale và giỏ hàng trong core seed tham chiếu sản phẩm 1 định nghĩa ở đây.
--- Module seed (R__10_<module>) chạy sau, được tham chiếu mọi sản phẩm trong file này.
+-- core seed lấy sản phẩm 2101/2123 để tạo hai đơn mẫu; giỏ mới không có sản phẩm.
 --
 -- Phần 1: sản phẩm có sẵn, giữ nguyên ID/SKU/tên/giá, thêm ảnh (Unsplash, link trực tiếp).
---   Sản phẩm 1 (CORE-001), danh mục 1: chuyển từ R__00_core_seed; tồn kho sản phẩm 1 vẫn ở core seed
---   vì phải khớp với đơn hàng và flash sale ở đó.
---   Sản phẩm 101-106, danh mục 101-102: chuyển từ R__10_transaction_seed. Giữ cách làm cũ: chỉ thêm khi
+--   Sản phẩm 1 (CORE-001), danh mục 1: giữ để tương thích dữ liệu đã có; tồn kho chỉ tạo khi thiếu.
+--   Sản phẩm 101-106, danh mục 101-102: giữ các ví dụ mua hàng/hết hàng/ngừng bán; chỉ thêm khi
 --   chưa có để khỏi ghi đè giá và tồn kho đã sửa tay; ảnh chỉ điền khi đang trống.
 --   105 hết hàng, 106 ngừng bán: module transaction dùng để thử nhánh từ chối.
 -- Phần 2: 22 danh mục (ID 201-222) và 184 sản phẩm (ID 2001-2194 = 2000 + id DummyJSON).
@@ -44,6 +42,13 @@ WHEN NOT MATCHED THEN INSERT
 VALUES
   (source.product_id, source.category_id, source.sku, source.name, source.slug, source.description,
    source.base_price, source.thumbnail_url, source.status, TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM'), TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM'));
+
+MERGE INTO product_inventory target
+USING (SELECT 1 product_id, 20 on_hand_quantity FROM dual) source
+ON (target.product_id=source.product_id)
+WHEN NOT MATCHED THEN INSERT
+  (product_id, on_hand_quantity, reserved_flash_quantity, version, updated_at)
+VALUES (source.product_id, source.on_hand_quantity, 0, 0, SYSTIMESTAMP);
 
 MERGE INTO categories target
 USING (

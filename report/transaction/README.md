@@ -1,8 +1,107 @@
 # Transaction: thí nghiệm và benchmark
 
+## Markdown hiện hành — Mục 2.4
+
+Cấu trúc chung: [Report/REPORT.md](../../Report/REPORT.md).
+Bản dùng để ghép: **[2.4. Transaction](../../Report/Sections/Tasks/Transaction/noi-dung.md#transaction-2-4)**,
+gồm 2.4.1 Tổng quan/phương pháp, 2.4.2 Lý thuyết và thực nghiệm ACID,
+2.4.3 Hiệu năng và lựa chọn DBMS.
+
+Mục 2.4.1 hiện lấy từ file 3.1 trong bản đầy đủ
+`local_docs/Bao_cao_Transaction_Muc_3_1-3_3_MD/`; mục 2.4.2 dùng bản 3.2 cập nhật
+trong `local_docs/Bao_cao_Transaction_3_1-3_3_Rut_gon/`; mục 2.4.3 giữ nội dung
+Markdown rút gọn local đã chọn trước đó, nối số bảng thành 2.4.17–2.4.22;
+riêng mục 2.4.3.4 đã thay bằng nội dung 3.3.4 mới trong cùng nguồn rút gọn.
+Chỉ đổi heading, số caption/tham chiếu
+và liên kết khi nhập nội dung. Giữ nguyên code,
+log, các ô bảng số liệu, kết luận và ba biểu đồ vector đã có. Bảng, hình, mã và
+kết quả hiện mang tiền tố `2.4`; tên file artifact giữ nguyên để tránh gãy liên kết.
+
+`REPORT.md` và `SECTION_TRANSACTION.md` trong thư mục này là các bản trước,
+có cấu trúc dài hơn/khác; giữ để đối chiếu và đọc minh chứng, không ghép thêm
+vào mục 2.4. Các thư mục `Bao_cao*/` vẫn chỉ để local, không là dependency của
+bản Markdown hiện hành.
+
+## Bản LaTeX/PDF trước đó — Mục 4
+
+Các số 4.x và thông tin kiểm thử bố cục dưới đây mô tả bản xuất trước.
+Báo cáo hiện hành ở [Report/main.tex](../../Report/main.tex) đã dùng ba phần,
+có Phần 1, Transaction 2.4 và Phần 3; PDF là `Report/build/main.pdf`. Các hướng dẫn
+`report/main.tex` ở phần lịch sử dưới đây không phải bộ báo cáo hiện hành.
+
+`report/main.tex` ghép `transaction/noi-dung.tex` thành một mục riêng
+**4. Transaction** trong sáu chủ đề của đề bài, gồm ba phần liên tiếp:
+
+| Mục trong PDF | File LaTeX | Markdown nguồn trong `../../local_docs/Bao_cao_Transaction_3_1-3_3_Rut_gon/` ở gốc repo |
+|---|---|---|
+| 4.1 Tổng quan và phương pháp nghiên cứu | `sections/01-tong-quan.tex` | `3.1_Tong_quan_va_phuong_phap_nghien_cuu.md` |
+| 4.2 Cơ sở lý thuyết và thực nghiệm ACID | `sections/02-thuc-nghiem-acid.tex` | `3.2_Co_so_ly_thuyet_va_thuc_nghiem_ACID.md` |
+| 4.3 Đánh giá hiệu năng và lựa chọn DBMS | `sections/03-hieu-nang.tex` | `3.3_Danh_gia_hieu_nang_va_lua_chon_DBMS (1).md` |
+
+Nguồn hiện tại là bản rút gọn ở **gốc repo**. File 3.3 có hậu tố `(1)` là bản
+cập nhật mới nhất được dùng, không lấy bản dài hơn trong
+`report/Bao_cao_Transaction_3_1-3_3_Rut_gon/` hay bộ Markdown cũ.
+Các thư mục `Bao_cao*/` chỉ lưu trên máy local, được gitignore và không commit.
+Bản báo cáo chia sẻ trong Git là các file LaTeX ở `sections/` và hình ở `images/`.
+
+Markdown gốc được giữ nguyên. Số mục, bảng, hình, mã nguồn và kết quả trong
+bản LaTeX được đánh tự động theo mục 4; các dẫn chiếu dùng `\label`/`\ref`.
+Sáu mục lớn là Storage, Indexing, Query processing, Transaction, Concurrency
+control và Backup/recovery. Các mục giới thiệu/kiến trúc/đánh giá/kết luận chung
+và phụ lục cũ không còn ghép vào PDF. Nội dung chủ đề khác giữ riêng theo phân công.
+
+Ba ghi chú `[Hình 3.x — ...]` trong Markdown được thay bằng biểu đồ thực tế.
+Ba hình vector trong `images/4.3-0*.pdf` được xuất từ SVG ở
+`report_assets/transaction/`. Chỉ bỏ số hình viết sẵn trong tiêu đề biểu đồ,
+để caption LaTeX cung cấp số 4.1–4.3; dữ liệu và các thành phần biểu đồ được giữ nguyên.
+`format.tex` khai báo kiểu kết quả thực nghiệm và syntax highlighting của Lua/JavaScript.
+Trong khối mã, ký tự tiếng Việt được bọc bằng escape của `listings` để giữ đúng
+thứ tự chữ có dấu khi dùng XeLaTeX; bỏ các delimiter này sẽ thu lại nguyên văn mã nguồn.
+Bảng dùng lưới đầy đủ và hàng tiêu đề xanh nhạt. Log dùng nền xám xanh, giãn
+dòng đơn và bỏ dòng rỗng chỉ để giãn cách; các dòng kết quả giữ nguyên thứ tự.
+Code/log dài được phép ngắt qua trang để giảm khoảng trắng cuối trang.
+
+Biên dịch bằng TeX cài sẵn, từ thư mục `report/`:
+
+```bash
+latexmk -outdir=build main.tex
+```
+
+Hoặc từ gốc repo, dùng image Docker của dự án:
+
+```bash
+bash report/build.sh
+```
+
+PDF chung nằm tại `report/build/main.pdf`. Build PDF chỉ cần các file LaTeX và
+hình đã có, không cần Python, Markdown local hay chạy lại benchmark. Trên máy
+có bộ Markdown local, nếu sửa nguồn thì tạo lại ba file LaTeX từ gốc repo bằng:
+
+```bash
+python3 report/transaction/import_markdown.py
+```
+
+Lệnh chuyển đổi cần `markdown-it-py` (`python3-markdown-it` trên Ubuntu).
+Thêm `--figures` khi cần xuất lại hình vector; tùy chọn này dùng PyGObject/Rsvg
+và Pycairo (`python3-gi`, `gir1.2-rsvg-2.0`, `python3-cairo`).
+
+Kiểm thử bố cục sáu chủ đề ngày 16/11/2026: XeLaTeX + biber qua image
+`shopflash-latex:1` xuất PDF 46 trang (bản ghép sau rebase trước đó: 63 trang).
+Riêng Transaction giữ đủ 14 tiêu đề, 15 bảng, 24 đoạn mã, 19 khối kết quả và
+3 hình; mã nguồn giữ nguyên, log chỉ bỏ dòng rỗng để giãn cách. Toàn bộ PDF có
+20 bảng (thêm 5 bảng Concurrency), đều có lưới và hàng tiêu đề xanh nhạt.
+Đã kiểm tra trực quan mục lục, bảng, mã nguồn, WATCH log và các biểu đồ;
+không có tràn nội dung, thiếu glyph hoặc tham chiếu chưa xác định. Các mục
+chưa có file LaTeX chỉ giữ tiêu đề; thông tin cá nhân chưa được cung cấp trên
+trang bìa vẫn để trống.
+
+## Tài liệu nghiên cứu và benchmark
+
 Thư mục này chứa thí nghiệm tính đúng đắn, phép đo cơ chế database và phép đo HTTP của F10 → F7 → F8. Oracle là nguồn dữ liệu nghiệp vụ của ShopFlash. Redis trong phép đo database chỉ là mô phỏng cùng thao tác logic; không thay thế giao dịch đặt hàng thật.
 
 Để đọc theo đúng mục đích, bắt đầu từ [runbook nghiên cứu DBMS-native](research/README.md) và [chỉ mục 14 thí nghiệm](research/evidence/INDEX.md). [SECTION_TRANSACTION.md](SECTION_TRANSACTION.md) là phần diễn giải để đưa vào báo cáo. Các mục Java/JUnit/k6 bên dưới là baseline kiểm thử và benchmark cũ, được giữ riêng với bằng chứng SQL/PLSQL và Redis CLI/Lua.
+
+B2/B4/C2 đã được chỉnh theo [OpenSpec change](../../local_docs/openspec/changes/revise-transaction-b2-b4-c2/proposal.md) và [evidence mới](research/evidence/revision-20261109/README.md). OpenSpec dùng convention hiện có trong `local_docs/openspec` (thư mục local bị gitignore); bản chụp đầy đủ artifact được lưu kèm [evidence](research/evidence/revision-20261109/openspec-plan/proposal.md) để bàn giao.
 
 ## 1. Môi trường
 
@@ -102,7 +201,7 @@ python3 report/transaction/scripts/summarize.py \
 
 Chương trình xuất CSV/JSON mẫu chuẩn hóa và hai bảng **database**/**HTTP** tách biệt, thêm `comparison.md`. p50/p95 dùng toàn bộ mẫu `success` hợp lệ của năm lượt. Thông lượng thành công = số `success` / tổng thời gian thực của các lượt (DB: transactions/s; HTTP: requests/s theo API hoặc flows/s toàn luồng). Error rate = `error` / mẫu hoàn tất; rejection rate = `rejected` / mẫu hoàn tất; `expected_failure` và `invalid` đếm riêng. File JSON có số mẫu, p50/p95, trung bình và độ lệch chuẩn giữa các lượt, cùng số vi phạm bất biến. Lượt không có mẫu thành công để trống phân vị. HTTP tính thời gian thực từ dấu thời gian đầu/cuối của metric toàn luồng, không cộng thời gian đăng nhập.
 
-Đối chiếu correctness trước khi kết luận performance: đọc bảng chứng cứ Oracle/Redis, số thành công/từ chối/lỗi, trạng thái sau commit/rollback và hậu kiểm tồn kho/đơn. Không so trực tiếp các trị số latency/throughput của database-level với HTTP. Phần trình bày báo cáo theo `report/AGENTS.md`: Lý thuyết → Oracle (demo và số đo) → Redis (demo và số đo) → Bảng so sánh → Kết luận theo ShopFlash.
+Đối chiếu correctness trước khi kết luận performance: đọc bảng chứng cứ Oracle/Redis, số thành công/từ chối/lỗi, trạng thái sau commit/rollback và hậu kiểm tồn kho/đơn. Không so trực tiếp các trị số latency/throughput của database-level với HTTP. Phần trình bày báo cáo theo [Report/AGENTS.md](../../Report/AGENTS.md): Lý thuyết → Oracle (demo và số đo) → Redis (demo và số đo) → Bảng so sánh → Kết luận theo ShopFlash.
 
 ## 6. Lần đo dùng trong báo cáo
 
@@ -115,4 +214,4 @@ python3 -B report/transaction/scripts/summarize.py \
   --output-dir report/transaction/results/summary-20261027
 ```
 
-Đọc [tiểu mục báo cáo](SECTION_TRANSACTION.md), `results/evidence/oracle.csv`, `results/evidence/redis.csv`, `results/summary-20261027/{database,http}-summary.csv`, `results/summary-20261027/comparison.md` và 24 file `*-audit.json` để kiểm tra từng kết luận. File `results/environment-20261027.json` ghi phiên bản, image digest và hash của runner/script; các mật khẩu và JWT không được đưa vào kết quả. Lần đo này ghi nhận 8.000 giao dịch database và 4.000 luồng HTTP đo chính thức thành công, 0 vi phạm bất biến. Đây là số quan sát tại local, không phải ngưỡng bảo đảm hiệu năng.
+Đọc [mục 2.4 hiện hành](../../Report/Sections/Tasks/Transaction/noi-dung.md), [bản tổng hợp trước đó](SECTION_TRANSACTION.md), `results/evidence/oracle.csv`, `results/evidence/redis.csv`, `results/summary-20261027/{database,http}-summary.csv`, `results/summary-20261027/comparison.md` và 24 file `*-audit.json` để kiểm tra từng kết luận. File `results/environment-20261027.json` ghi phiên bản, image digest và hash của runner/script; các mật khẩu và JWT không được đưa vào kết quả. Lần đo này ghi nhận 8.000 giao dịch database và 4.000 luồng HTTP đo chính thức thành công, 0 vi phạm bất biến. Đây là số quan sát tại local, không phải ngưỡng bảo đảm hiệu năng.

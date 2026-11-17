@@ -1,0 +1,48 @@
+$ python3 report/transaction/research/redis/experiments/B4.py rev1109b 13379
+2026-11-09T17:22:43+07:00 independent> ('HGET', 'txresearch:rev1109b:inventory:13379', 'on_hand') < '100'
+2026-11-09T17:22:43+07:00 SNAPSHOT B4.1_before
+2026-11-09T17:22:43+07:00 independent> ('HGETALL', 'txresearch:rev1109b:inventory:13379') < 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:22:43+07:00 independent> ('HINCRBY', 'txresearch:rev1109b:inventory:13379', 'on_hand', '-1') < '98'
+2026-11-09T17:22:43+07:00 independent> ('HINCRBY', 'txresearch:rev1109b:inventory:13379', 'on_hand', '-1') < '99'
+2026-11-09T17:22:44+07:00 independent> ('HGET', 'txresearch:rev1109b:inventory:13379', 'on_hand') < '98'
+2026-11-09T17:22:44+07:00 SNAPSHOT B4.1_after
+2026-11-09T17:22:44+07:00 independent> ('HGETALL', 'txresearch:rev1109b:inventory:13379') < 'on_hand\n98\nreserved\n0\nversion\n0'
+2026-11-09T17:22:44+07:00 ASSERT B4.1 expected=[98,99]/98 actual=['99', '98']/98 PASS
+2026-11-09T17:22:44+07:00 independent> ('HSET', 'txresearch:rev1109b:inventory:13379', 'on_hand', '100') < '0'
+2026-11-09T17:22:44+07:00 SNAPSHOT B4.2_before
+2026-11-09T17:22:44+07:00 independent> ('HGETALL', 'txresearch:rev1109b:inventory:13379') < 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:22:44+07:00 RUN_ID=rev1109b KEY=txresearch:rev1109b:inventory:13379
+2026-11-09T17:22:44+07:00 A> WATCH txresearch:rev1109b:inventory:13379
+2026-11-09T17:22:44+07:00 A< 'OK'
+2026-11-09T17:22:44+07:00 A> HGET txresearch:rev1109b:inventory:13379 on_hand
+2026-11-09T17:22:44+07:00 A< '100'
+2026-11-09T17:22:44+07:00 A CALCULATED=99
+2026-11-09T17:22:44+07:00 B> HINCRBY txresearch:rev1109b:inventory:13379 on_hand -1 (kết nối khác)
+2026-11-09T17:22:44+07:00 B< '99'
+2026-11-09T17:22:44+07:00 A> MULTI
+2026-11-09T17:22:44+07:00 A< 'OK'
+2026-11-09T17:22:44+07:00 A> HSET txresearch:rev1109b:inventory:13379 on_hand 99
+2026-11-09T17:22:44+07:00 A< 'QUEUED'
+2026-11-09T17:22:44+07:00 A> EXEC
+2026-11-09T17:22:44+07:00 A< ''
+2026-11-09T17:22:44+07:00 A> HGET txresearch:rev1109b:inventory:13379 on_hand
+2026-11-09T17:22:44+07:00 A< '99'
+2026-11-09T17:22:44+07:00 SNAPSHOT B4.2_conflict
+2026-11-09T17:22:44+07:00 independent> ('HGETALL', 'txresearch:rev1109b:inventory:13379') < 'on_hand\n99\nreserved\n0\nversion\n0'
+2026-11-09T17:22:44+07:00 RETRY=1/1
+2026-11-09T17:22:44+07:00 A> WATCH txresearch:rev1109b:inventory:13379
+2026-11-09T17:22:44+07:00 A< 'OK'
+2026-11-09T17:22:44+07:00 A> HGET txresearch:rev1109b:inventory:13379 on_hand
+2026-11-09T17:22:44+07:00 A< '99'
+2026-11-09T17:22:44+07:00 A RETRY_CALCULATED=98
+2026-11-09T17:22:44+07:00 A> MULTI
+2026-11-09T17:22:44+07:00 A< 'OK'
+2026-11-09T17:22:44+07:00 A> HSET txresearch:rev1109b:inventory:13379 on_hand 98
+2026-11-09T17:22:44+07:00 A< 'QUEUED'
+2026-11-09T17:22:44+07:00 A> EXEC
+2026-11-09T17:22:44+07:00 A< '0'
+2026-11-09T17:22:44+07:00 A> HGET txresearch:rev1109b:inventory:13379 on_hand
+2026-11-09T17:22:44+07:00 A< '98'
+2026-11-09T17:22:44+07:00 SNAPSHOT B4.2_after
+2026-11-09T17:22:44+07:00 independent> ('HGETALL', 'txresearch:rev1109b:inventory:13379') < 'on_hand\n98\nreserved\n0\nversion\n0'
+2026-11-09T17:22:44+07:00 ASSERT B4.2 conflict=nil/99 retry=0/98 PASS

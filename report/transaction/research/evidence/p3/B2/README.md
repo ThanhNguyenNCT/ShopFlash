@@ -1,3 +1,19 @@
+# B2 — READ COMMITTED: SELECT thường và SELECT FOR UPDATE
+
+- Bản hiện hành: revision-20261109, run `rev1109b`, năm lượt correctness. [Tổng hợp và cleanup](../../revision-20261109/README.md).
+- [Timeline lượt 1](../../revision-20261109/1-B2.txt); các lượt 2–5 có cùng tên tương ứng. SQL*Plus giữ hai connection A/B, autocommit OFF và READ COMMITTED.
+- B2.1: A đọc 100/đủ ưu đãi, UPDATE tương đối chưa commit; B SELECT thường thấy committed 100/đủ ưu đãi rồi UPDATE chờ A. A COMMIT; B hoàn tất UPDATE/COMMIT. Assertion tồn=98, số quyết định ưu đãi=2.
+- B2.2: reset 100. A SELECT FOR UPDATE đọc 100/đủ ưu đãi; B SELECT FOR UPDATE WAIT 30 chờ. A UPDATE/COMMIT; B lấy khóa, đọc 99/không ưu đãi, UPDATE/COMMIT. Assertion tồn=98, số quyết định ưu đãi=1.
+- Timeline ghi `B_WAIT_CONFIRMED` trong từng nhánh, sau đó lệnh A COMMIT và phản hồi B. Thời điểm in phản hồi hai session có thể xen nhau do reader threads; không giả định thứ tự print A/B là thứ tự hoàn tất trong server.
+- PL/SQL assertion kiểm tra read/decision/stock thực; parser tính tổng eligibility từ output DB. Mỗi nhánh khôi phục 100. B lấy lại khóa rồi ROLLBACK; snapshot độc lập sau từng lượt bằng baseline. Không timeout Oracle cố ý, không protected/overselling branch.
+- UPDATE thường tự lấy row lock. FOR UPDATE thay đổi lúc khóa để quyết định nghiệp vụ dựa trên dữ liệu sau transaction trước; COMMIT xác nhận/cho phép nhìn thấy UPDATE đã thực hiện. Không tạo Order thật.
+
+---
+
+## Hồ sơ cũ — SUPERSEDED
+
+Các kết quả dưới đây chỉ mô tả phiên bản cũ; không dùng để nghiệm thu code hiện hành. Mọi transcript cũ giữ nguyên để truy vết.
+
 # B2 — Lost Update và bảo vệ tồn khả dụng
 
 - Trạng thái: **PASS**. Nhánh Lost Update được chạy lại ngày 2026-10-28 12:25 +07 với run `b2redo01`; nhánh bảo vệ được giữ nguyên trong script và chạy lại cùng B2.

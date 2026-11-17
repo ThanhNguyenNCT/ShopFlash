@@ -111,6 +111,25 @@ class CheckoutOracleIT {
     }
 
     @Test
+    void invalidRecipientPhoneReturnsValidationErrorWithoutChangingCartOrStock() throws Exception {
+        addItems(1);
+        CheckoutRequest valid = request(0, 1);
+        CheckoutRequest invalid = new CheckoutRequest(valid.cartVersion(), valid.recipientName(),
+                "123abc", valid.shippingAddress(), valid.expectedLines());
+
+        place(UUID.randomUUID().toString(), invalid)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.details.field").value("recipientPhone"));
+        assertThat(committedCount("SELECT COUNT(*) FROM orders WHERE user_id = ?", userId())).isZero();
+        assertThat(committedCount("SELECT quantity FROM cart_items WHERE cart_id = ? AND product_id = ?",
+                cartId(), productId(1))).isEqualTo(1);
+        assertThat(committedCount("SELECT version FROM carts WHERE cart_id = ?", cartId())).isZero();
+        assertThat(committedCount("SELECT on_hand_quantity FROM product_inventory WHERE product_id = ?",
+                productId(1))).isEqualTo(100);
+    }
+
+    @Test
     void previewMissingAndEmptyCartDoesNotWrite() throws Exception {
         long userId = userId();
         mvc.perform(get("/api/checkout/preview")).andExpect(status().isUnauthorized());

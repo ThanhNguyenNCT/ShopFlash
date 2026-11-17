@@ -14,7 +14,7 @@ Phần nghiên cứu tập trung trả lời bốn câu hỏi: (i) hai DBMS xử
 
 Thí nghiệm được chạy trên môi trường local với hai DBMS trong Docker Compose. Theo bản audit P0, Oracle sử dụng schema `SHOP` thuộc PDB `FREEPDB1` trên Oracle AI Database Free; Redis server phiên bản **7.4.7**, chế độ standalone, có bật AOF với `appendfsync everysec`. Oracle đã có migrations và các constraint được kiểm tra metadata trước khi chạy; Redis sử dụng namespace độc lập `txresearch:<run_id>:*`. Công cụ thực thi chính là **SQL/PLSQL qua SQL*Plus** và **Redis CLI/Lua**. Những script Python dùng trong các ca nhiều phiên chỉ điều phối thời điểm gửi lệnh, không thay DBMS thực hiện xử lý transaction [5].
 
-Bộ dữ liệu thí nghiệm (*fixture*) được tạo trên schema đang sử dụng của dự án, không tạo thêm một schema Oracle mô phỏng riêng. Dữ liệu cơ sở gồm một giỏ có ba sản phẩm, tồn kho ban đầu của mỗi sản phẩm là 100 và một quota Redis giới hạn hai suất. Các ca ghi dữ liệu có setup, trạng thái trước/sau, lệnh thực hiện, output, hậu kiểm và reset/cleanup theo danh sách bản ghi hoặc key thuộc run; C1 chỉ đọc metadata nên không cần reset. Riêng phép thử B2 sau khi điều chỉnh sử dụng run `b2redo01`; các phép thử còn lại tham chiếu run `native01`. Việc cách ly dữ liệu giúp thí nghiệm có thể tái lập mà không cần xóa dữ liệu nghiệp vụ khác [5], [6].
+Bộ dữ liệu thí nghiệm (*fixture*) được tạo trên schema đang sử dụng của dự án, không tạo thêm một schema Oracle mô phỏng riêng. Dữ liệu cơ sở gồm một giỏ có ba sản phẩm, tồn kho ban đầu của mỗi sản phẩm là 100 và một quota Redis giới hạn hai suất. Các ca ghi dữ liệu có setup, trạng thái trước/sau, lệnh thực hiện, output, hậu kiểm và reset/cleanup theo danh sách bản ghi hoặc key thuộc run; C1 chỉ đọc metadata nên không cần reset. B2/B4/C2 được chạy lại năm lượt trong run `rev1109b` ngày 09/11/2026; các case khác giữ evidence `native01`. Các lượt này kiểm chứng correctness, không cung cấp số đo latency/TPS. Việc cách ly dữ liệu giúp thí nghiệm có thể tái lập mà không cần xóa dữ liệu nghiệp vụ khác [5], [6].
 
 | Lớp kiểm chứng | Phương tiện | Phạm vi kết luận |
 |---|---|---|
@@ -73,12 +73,12 @@ Nghiên cứu gồm **14 trường hợp**, chia thành bốn nhóm. Mỗi case 
 | | A4 | Redis `MULTI/EXEC` so với `DISCARD` |
 | | A5 | Lỗi queue-time và runtime trong Redis `EXEC`/Lua |
 | Isolation / Concurrency | B1 | Oracle `READ COMMITTED` giữa hai session |
-| | B2 | Lost update do đọc–tính–ghi từ dữ liệu cũ; cơ chế bảo vệ tồn kho |
+| | B2 | SELECT thường so với FOR UPDATE: quyết định ưu đãi, tồn cuối đều 98 |
 | | B3 | Lock timeout và deadlock trên Oracle |
-| | B4 | Redis `WATCH` từ chối transaction xung đột và retry |
+| | B4 | Atomic HINCRBY và WATCH/HSET conflict, đọc lại rồi retry |
 | | B5 | Lua kiểm soát nhiều client tranh quota |
 | Consistency | C1 | Phạm vi PK/FK/UNIQUE/CHECK Oracle thực sự bảo vệ |
-| | C2 | Redis chấp nhận dữ liệu sai nếu không có validation tường minh |
+| | C2 | Guarded EVAL từ chối trước ghi; Checkout hợp lệ giữ invariant |
 | Multi-step | D1 | Oracle xử lý lỗi constraint sau ghi một phần, rồi full rollback |
 | | D2 | Redis Lua kiểm tra toàn bộ điều kiện trước khi ghi nhiều key |
 
@@ -188,79 +188,16 @@ Redis vẫn bảo đảm các lệnh của `EXEC` được xử lý tuần tự 
 
 **Khả năng nhìn thấy dữ liệu trên Oracle (B1).** Hai session độc lập được giữ liên tục ở `READ COMMITTED`. Session B lần đầu đọc tồn kho P1 bằng 100. Sau khi A cập nhật xuống 99 nhưng chưa `COMMIT`, B vẫn đọc 100. Khi A commit, câu `SELECT` mới của B đọc 99 dù B đang ở cùng transaction. Trình tự **100 → 100 → 99** xác nhận B không đọc dữ liệu chưa commit và mỗi câu SELECT trong chế độ này có thể dùng một ảnh nhất quán mới [11].
 
-**Lost update và phương án bảo vệ (B2).** Đây là thí nghiệm đã được sửa và thực thi lại với run `b2redo01` ngày 28/10/2026. Cả A và B đều đọc tồn ban đầu 100, lưu vào biến bind `:old_stock` riêng. A cập nhật bằng `:old_stock - 1`, chưa commit; B gửi cùng câu cập nhật trên một hàng và **phải chờ khóa của A**. Sau khi A commit, B vẫn ghi giá trị được tính từ biến cũ (100 − 1), rồi commit. Tồn cuối cùng là **99**, trong khi nếu hai lượt giảm đều được ghi nhận thì phải là **98** [12].
+**Oracle READ COMMITTED và khóa trước khi đọc (B2).** Quy tắc mô phỏng: chỉ lượt mua quan sát Stock=100 tại thời điểm quyết định đủ điều kiện ưu đãi. Hai nhánh cùng dùng `UPDATE product_inventory SET on_hand_quantity=on_hand_quantity-1 WHERE product_id=:p1`, cùng READ COMMITTED và stock đầu 100.
 
-```sql
-VARIABLE old_stock NUMBER
-BEGIN
-  SELECT on_hand_quantity INTO :old_stock FROM product_inventory WHERE product_id = :p1;
-  IF :old_stock <> 100 THEN RAISE_APPLICATION_ERROR(-20010, 'B2 fixture phai bat dau tu 100'); END IF;
-END;
-/
-PRINT old_stock
-UPDATE product_inventory SET on_hand_quantity = :old_stock - 1 WHERE product_id = :p1;
-```
+| Nhánh | A đọc / ưu đãi | B đọc / ưu đãi | Điểm B chờ | Tồn sau hai COMMIT |
+|---|---|---|---|---:|
+| B2.1 SELECT thông thường | 100 / có | 100 / có | UPDATE cùng row sau khi A UPDATE chưa commit | 98 |
+| B2.2 SELECT FOR UPDATE WAIT 30 | 100 / có | 99 / không | SELECT FOR UPDATE trước A UPDATE/COMMIT | 98 |
 
-*Các lệnh SQL*Plus trên được ghép từ hai bước gửi liên tiếp của [two-session.py](research/oracle/experiments/two-session.py); A và B chạy trên hai kết nối riêng, mỗi bên có bind `:old_stock` riêng. Đã lược khai báo `:p1` và thao tác mở/đóng session.* Output đọc ban đầu của từng session:
+B2.1 không khóa khi đọc, nhưng UPDATE vẫn tự động lấy row lock. A đã thực hiện UPDATE trước COMMIT; B SELECT thông thường thấy phiên bản committed 100. B UPDATE phải chờ A COMMIT rồi giảm từ giá trị hiện tại, nên cả hai lần giảm được giữ. B2.2 khóa trước khi quyết định: B chỉ đọc 99 sau khi A giảm tồn và COMMIT. Khác biệt nằm ở quyết định ưu đãi, không phải lost update hay overselling. COMMIT xác nhận thay đổi và quyết định khả năng nhìn thấy từ session khác, không phải lúc UPDATE mới được thực thi.
 
-```text
-2026-10-28T12:25:01+07:00 A<  OLD_STOCK
-2026-10-28T12:25:01+07:00 A< ----------
-2026-10-28T12:25:01+07:00 A<        100
-```
-
-```text
-2026-10-28T12:25:01+07:00 B<  OLD_STOCK
-2026-10-28T12:25:01+07:00 B< ----------
-2026-10-28T12:25:01+07:00 B<        100
-```
-
-*Đã lược dòng hoàn tất PL/SQL và prompt giữa hai lần đọc. Sau khi A UPDATE chưa commit, [timeline B2 mới](research/evidence/p3/B2/b2redo01-B2-timeline.txt) ghi liên tiếp:*
-
-```text
-2026-10-28T12:25:01+07:00 B> UPDATE product_inventory SET on_hand_quantity = :old_stock - 1 WHERE product_id = :p1;
-2026-10-28T12:25:03+07:00 B_WAIT_CONFIRMED: UPDATE chua hoan tat khi A giu khoa
-2026-10-28T12:25:03+07:00 A> COMMIT;
-2026-10-28T12:25:03+07:00 B< 
-2026-10-28T12:25:03+07:00 B< 1 row updated.
-```
-
-*Đã lược output xác nhận `COMMIT` của hai session trước truy vấn kiểm tra cuối. Output kiểm tra của A:*
-
-```text
-2026-10-28T12:25:03+07:00 A< ON_HAND_QUANTITY
-2026-10-28T12:25:03+07:00 A< ----------------
-2026-10-28T12:25:03+07:00 A< 	      99
-```
-
-> <span style="color:#087F72">■</span> **Nhận xét B2.** Cả hai bind đều là 100. B chờ khóa trước khi UPDATE thành công, nhưng vẫn ghi `100 - 1`; vì vậy tồn cuối là 99 thay vì 98. Khóa dòng đã hoạt động, còn lỗi nằm ở giá trị cũ do client giữ.
-
-| Thời điểm | Session A | Session B |
-|---|---|---|
-| Đọc dữ liệu | `old_stock = 100` | `old_stock = 100` |
-| Cập nhật | Ghi 99, chưa commit | Gửi UPDATE; chờ row lock của A |
-| Giải phóng khóa | `COMMIT` | Tiếp tục ghi 99, `COMMIT` |
-| Kiểm tra cuối | **SELECT thấy tồn = 99** (mất một lượt giảm) | — |
-
-*Bảng 3.6. Diễn biến lost update theo [timeline B2 sau khi sửa](research/evidence/p3/B2/b2redo01-B2-timeline.txt). Session A thực hiện SELECT kiểm tra cuối.*
-
-Đây là lỗi của mẫu lập trình **đọc → tính ở client → ghi từ giá trị cũ**; nó không có nghĩa Oracle cho hai phiên ghi cùng hàng đồng thời mà bỏ qua khóa. Nhánh bảo vệ của B2 chuyển sang `FOR UPDATE` và câu `UPDATE` có điều kiện:
-
-```sql
-UPDATE product_inventory
-SET on_hand_quantity = on_hand_quantity - 1,
-    version = version + 1
-WHERE product_id = :p1
-  AND on_hand_quantity - reserved_flash_quantity >= 1;
-```
-
-*Câu SQL bảo vệ được xuống dòng để dễ đọc từ chuỗi lệnh một dòng trong [two-session.py](research/oracle/experiments/two-session.py). Transcript nhánh này đã lược bước A cập nhật 1 dòng, B chờ `FOR UPDATE WAIT 2` rồi `ROLLBACK`; kết quả UPDATE có điều kiện của B là:*
-
-```text
-2026-10-28T12:25:05+07:00 B< 0 rows updated.
-```
-
-Khi chỉ còn một sản phẩm, A cập nhật **1 dòng**, B thử cập nhật sau đó được **0 dòng** và tồn cuối bằng **0**; không xảy ra bán vượt mức tồn khả dụng trong thí nghiệm. Kết quả phân biệt một câu `UPDATE` dựa trên **biến cũ** với câu `UPDATE` tính từ **giá trị hiện tại và điều kiện ngay tại DBMS**. B2 không tạo hai Order thật mà chỉ nghiên cứu tranh chấp Inventory [12].
+[Hồ sơ B2](research/evidence/p3/B2/README.md) và [timeline mới](research/evidence/revision-20261109/1-B2.txt) ghi các mốc đọc, quyết định, chờ, UPDATE, COMMIT, assertion tồn 98 và khôi phục 100. Không có nhánh protected update hay timeout cố ý trong B2 mới. Transcript `native01`/`b2redo01` được giữ làm lịch sử superseded [12].
 
 **Lock timeout và deadlock (B3).** B3 sử dụng hai hàng Inventory làm tài nguyên khóa. Khi A giữ khóa P1 và B yêu cầu khóa P1 với `FOR UPDATE WAIT 2`, Oracle trả `ORA-00054` (trong môi trường 26ai còn ghi `ORA-40097`) sau thời gian chờ. Ở nhánh deadlock, A giữ P1 và chờ P2, đồng thời B giữ P2 và chờ P1; Oracle phát hiện vòng chờ và trả `ORA-00060`. Script chủ động `ROLLBACK` các session liên quan, sau đó kiểm tra có thể lấy lại khóa. Cần phân biệt **lỗi ở câu lệnh chờ** với việc tự hoàn tác toàn transaction [13].
 
@@ -281,53 +218,11 @@ SELECT product_id FROM product_inventory WHERE product_id = :p1 FOR UPDATE WAIT 
 
 > <span style="color:#087F72">■</span> **Nhận xét B3.** `ORA-00060` báo vòng chờ giữa hai transaction; nó không thay cho lệnh `ROLLBACK` của A/B. Sau khi chủ động giải phóng khóa, script lấy lại P1/P2 thành công.
 
-**Phát hiện xung đột trong Redis (B4).** Client A gọi `WATCH` và đọc tồn bằng 100. Khi A đã xếp hàng lệnh giảm một đơn vị nhưng chưa `EXEC`, client B giảm tồn về 99. `EXEC` của A cho output rỗng (`nil` trong ngữ nghĩa Redis), nên lượt ghi đã xếp không chạy; A đọc lại rồi retry, tồn cuối bằng 98. Khác với khóa hàng của Oracle, `WATCH` chủ động **từ chối một lượt thực thi dùng dữ liệu đã thay đổi** và giao cho client quyết định việc thử lại [14].
+**Atomic command và optimistic concurrency (B4).** B4.1 thả hai client độc lập thực hiện `HINCRBY on_hand -1` từ 100, không WATCH. Tập phản hồi là {99,98}, tồn cuối 98; không giả định client nào hoàn tất trước. Mỗi command là nguyên tử, chuỗi command do client gửi không mặc nhiên nguyên tử.
 
-Bốn lệnh Redis đầu của A dưới đây lấy từ [B4.py](research/redis/experiments/B4.py) với key của run `native01`. A giữ cùng một kết nối `redis-cli` từ `WATCH` đến `EXEC`; lệnh `HINCRBY` của B chạy trên kết nối khác. Đã lược mã Python điều phối:
+B4.2: A giữ một connection từ WATCH → HGET=100 → tính 99. B dùng connection khác HINCRBY thành 99. A MULTI, xếp HSET=99, EXEC trả nil; snapshot tồn vẫn 99. A WATCH lại, HGET=99, tính lại 98, MULTI/HSET/EXEC thành công (HSET trả 0 vì field đã tồn tại), tồn cuối 98. Giá trị HSET được tính từ HGET thực, không hardcode [14].
 
-```redis
-WATCH txresearch:native01:inventory:12941
-HGET txresearch:native01:inventory:12941 on_hand
-MULTI
-HINCRBY txresearch:native01:inventory:12941 on_hand -1
-```
-
-```text
-2026-10-28T07:56:20+07:00 A> WATCH txresearch:native01:inventory:12941
-2026-10-28T07:56:20+07:00 A< 'OK'
-2026-10-28T07:56:20+07:00 A> HGET txresearch:native01:inventory:12941 on_hand
-2026-10-28T07:56:20+07:00 A< '100'
-2026-10-28T07:56:20+07:00 A> MULTI
-2026-10-28T07:56:20+07:00 A< 'OK'
-2026-10-28T07:56:20+07:00 A> HINCRBY txresearch:native01:inventory:12941 on_hand -1
-2026-10-28T07:56:20+07:00 A< 'QUEUED'
-2026-10-28T07:56:20+07:00 B> HINCRBY txresearch:native01:inventory:12941 on_hand -1 (kết nối khác)
-2026-10-28T07:56:20+07:00 B< '99'
-2026-10-28T07:56:20+07:00 A> EXEC
-2026-10-28T07:56:20+07:00 A< ''
-2026-10-28T07:56:20+07:00 A> HGET txresearch:native01:inventory:12941 on_hand
-2026-10-28T07:56:20+07:00 A< '99'
-2026-10-28T07:56:20+07:00 RETRY=1/1
-```
-
-*Nguồn: [timeline B4](research/evidence/p3/B4/native01-B4-timeline.txt); đã lược duy nhất dòng đầu ghi `RUN_ID`/`KEY` trước đoạn này. A xếp lệnh giảm tồn sau `MULTI`, B sửa chính key đang được `WATCH`, rồi `EXEC` của A trả rỗng. A đọc lại giá trị 99 và retry đúng một lần:*
-
-```text
-2026-10-28T07:56:20+07:00 A> WATCH txresearch:native01:inventory:12941
-2026-10-28T07:56:20+07:00 A< 'OK'
-2026-10-28T07:56:20+07:00 A> HGET txresearch:native01:inventory:12941 on_hand
-2026-10-28T07:56:20+07:00 A< '99'
-2026-10-28T07:56:20+07:00 A> MULTI
-2026-10-28T07:56:20+07:00 A< 'OK'
-2026-10-28T07:56:20+07:00 A> HINCRBY txresearch:native01:inventory:12941 on_hand -1
-2026-10-28T07:56:20+07:00 A< 'QUEUED'
-2026-10-28T07:56:20+07:00 A> EXEC
-2026-10-28T07:56:20+07:00 A< '98'
-```
-
-*Đã lược lệnh `HGET` xác nhận 98 và dòng `RESULT=COMPLETED` sau `EXEC` của lượt retry.*
-
-> <span style="color:#087F72">■</span> **Nhận xét B4.** Lượt đầu: `WATCH` đọc 100 → A xếp lệnh trong `MULTI` → B đổi key thành 99 → `EXEC` của A trả rỗng, nên lệnh đã xếp không ghi. Lượt retry đọc 99 rồi `EXEC` thành công, đưa tồn về 98.
+`MULTI/EXEC` cung cấp atomic execution của hàng đợi; WATCH bổ sung phát hiện key đổi trong khoảng đọc–EXEC, client phải đọc lại và retry. Cả hai khác với atomicity của một HINCRBY. [Timeline và snapshot B4](research/evidence/revision-20261109/1-B4.txt) có assertion cho từng phản hồi.
 
 **Bảo vệ quota bằng Lua (B5).** Redis được đặt ở trạng thái `limit=2`, `remaining=2`, `held=0`. Bốn client gần như đồng thời gọi cùng Lua script: script kiểm tra trạng thái quota, từ chối khi hết suất và cập nhật `remaining`/`held` trong một lượt `EVAL`. Transcript ghi nhận **2 client thành công, 2 client nhận `QUOTA_EXHAUSTED`**. Trạng thái cuối là `remaining=0`, `held=2`; không có lượt cấp suất thứ ba [15].
 
@@ -417,64 +312,11 @@ quantity > 0
 
 Đây là các điều kiện được DBMS bảo vệ bằng schema. Ngược lại, những quy tắc trải qua nhiều hàng/bảng hoặc phụ thuộc ngữ cảnh như chọn đúng dòng Cart, kiểm tra giá đang bán, tổng Order Items khớp Order hay không bán vượt tồn khả dụng vẫn cần logic nghiệp vụ và câu SQL có điều kiện. **29 constraint không tương đương với 29 quy tắc nghiệp vụ đã được giải quyết hoàn toàn.**
 
-**Redis (C2).** Hai lệnh `HSET` trực tiếp ghi được `order.product_id=999999` dù fixture không có Inventory tương ứng, và `inventory.on_hand=-5`. Redis trả kết quả thành công vì các key không được ràng buộc tự động bằng FK/CHECK. Lua validation sau đó trả `INVALID_PRODUCT_REFERENCE` hoặc `INVALID_STOCK` theo điều kiện do người viết script định nghĩa [17].
+**Redis guarded Checkout (C2).** Luồng Checkout NORMAL mô phỏng mua một mặt hàng trong Cart ba dòng. Product Hash `product:<id>` là fixture riêng của C2 trong namespace run; Product ACTIVE và ID phải khớp chính xác với Inventory key. Lua kiểm tra kiểu key, key không có TTL, Order chưa tồn tại, quantity nguyên dương, Cart khớp request, stock/reserved/version là số nguyên trong miền an toàn và đủ tồn khả dụng. Toàn bộ validation xảy ra trước ghi đầu tiên, trong cùng một EVAL với tạo Order, giảm tồn/tăng version và xóa đúng dòng Cart đã mua [17].
 
-Hai lệnh `HSET` trong [C2.sh](research/redis/experiments/C2.sh) sau khi thế `run_id=native01`, `p1=12941`; đã lược phần gọi `docker compose exec -T redis redis-cli --raw` và các bước chọn mode:
+[Hồ sơ C2](research/evidence/p2/C2/README.md) và [output/snapshot](research/evidence/revision-20261109/1-C2.txt) gồm 14 case bị từ chối độc lập: thiếu Product, Product–Inventory mismatch, thiếu tồn, quantity 0/âm/lẻ, stock âm, version sai, reserved vượt stock, Cart mismatch, sai kiểu Inventory/Cart/Product và Order đã tồn tại. Mỗi case có snapshot đầy đủ trước/sau bằng nhau. Case hợp lệ tạo Order quantity=1, stock=99, version=1, reserved=0, giữ hai dòng Cart còn lại và quota. Fixture được reset giữa các case.
 
-```redis
-HSET txresearch:native01:order product_id 999999 status PENDING
-HSET txresearch:native01:inventory:12941 on_hand -5
-```
-
-```text
-MODE=invalid RUN_ID=native01
-2
-0
-```
-
-*Nguồn: [output ghi sai C2](research/evidence/p2/C2/native01-C2-invalid.txt). [Snapshot sau ghi](research/evidence/p2/C2/native01-C2-after-cli.txt) ghi lại hai trạng thái cần kiểm tra:*
-
-```text
-KEY=txresearch:native01:inventory:12941 TYPE=hash
-on_hand
--5
-```
-
-```text
-KEY=txresearch:native01:order TYPE=hash
-product_id
-999999
-status
-PENDING
-```
-
-*Hai trích đoạn trên lấy từ [snapshot C2](research/evidence/p2/C2/native01-C2-after-cli.txt); đã lược các field và key nằm giữa. Phản hồi `0` của lệnh `HSET` thứ hai nghĩa là không thêm field mới, không phải lệnh ghi thất bại.* Đoạn kiểm tra nguyên văn từ [C2-validate.lua](research/redis/lua/C2-validate.lua), đã lược kiểm tra Order thiếu `product_id` và dòng trả `VALID`:
-
-```lua
-if redis.call('EXISTS', KEYS[2]) == 0 then
-  return redis.error_reply('INVALID_PRODUCT_REFERENCE')
-end
-local stock = tonumber(redis.call('HGET', KEYS[2], 'on_hand'))
-if not stock or stock < 0 then
-  return redis.error_reply('INVALID_STOCK')
-end
-```
-
-```text
-MODE=reference RUN_ID=native01
-ERR INVALID_PRODUCT_REFERENCE
-```
-
-```text
-MODE=negative RUN_ID=native01
-ERR INVALID_STOCK
-```
-
-*Nguồn: [output reference C2](research/evidence/p2/C2/native01-C2-reference.txt) và [output negative C2](research/evidence/p2/C2/native01-C2-negative.txt); lược dòng trống cuối transcript.*
-
-> <span style="color:#087F72">■</span> **Nhận xét C2.** Redis chấp nhận cả hai lệnh ghi sai; lỗi chỉ xuất hiện khi gọi Lua validation tường minh. Hai mã `INVALID_PRODUCT_REFERENCE` và `INVALID_STOCK` là phản hồi do script định nghĩa, không phải constraint tự sinh của Redis.
-
-Cần nêu rõ giới hạn của chính thí nghiệm: script Lua C2 kiểm tra sự tồn tại của key Inventory **được truyền vào**, nhưng chưa kiểm tra đầy đủ việc key đó khớp với `product_id` lưu trong Order. Do vậy, C2 chỉ chứng minh nhu cầu **tự lập trình kiểm tra**, không chứng minh Lua hiện tại thay thế hoàn chỉnh một foreign key quan hệ. Hai hệ quản trị cũng đều cần thiết kế nghiệp vụ đúng; có constraint tự động không đồng nghĩa mọi quy tắc đã được kiểm tra.
+Các lệnh ghi trực tiếp trong harness chỉ chuẩn bị fixture lỗi, được đánh dấu `FIXTURE_INJECTION`; request Checkout thử nghiệm chỉ đi qua guarded EVAL. Redis không tự áp dụng FK/CHECK, Lua không có full rollback nếu runtime error sau ghi. Tiền kiểm kiểu và số trước ghi giảm nguy cơ lỗi giữa chừng; kết quả không chứng minh bảo vệ mọi direct write từ client khác, lỗi OOM/crash hoặc Checkout production.
 
 ### 3.3.5. Giao dịch nhiều bước: lỗi sau ghi và tiền kiểm trước ghi
 
@@ -640,7 +482,7 @@ Redis phù hợp với những thao tác trên key cần kiểm tra–cập nh�
 
 Liên hệ ngắn với bối cảnh ứng dụng của nhóm, việc dùng Oracle để quản lý đơn hàng, dòng đơn, giỏ và tồn kho, đồng thời sử dụng Redis cho quota/trạng thái Flash Sale, là một lựa chọn **phù hợp với sự phân công trách nhiệm dữ liệu** nói trên. Ứng dụng chỉ là ví dụ áp dụng nhận định đã rút ra từ nghiên cứu DBMS, không phải căn cứ duy nhất của kết luận.
 
-Giới hạn còn lại gồm: chưa thử crash recovery để định lượng durability; benchmark chưa chuẩn hóa hoàn toàn workload và chi phí client; chưa đo latency khi nhiều worker cùng tranh một fixture; C2 mới minh họa một số điều kiện validation, chưa thay thế đầy đủ FK; và D2 không chứng minh rollback sau lỗi runtime. Những giới hạn này được công bố để tránh diễn giải quá mức từ kết quả `PASS` hoặc bảng tốc độ.
+Giới hạn còn lại gồm: chưa thử crash recovery để định lượng durability; benchmark chưa chuẩn hóa hoàn toàn workload và chi phí client; chưa đo latency khi nhiều worker cùng tranh một fixture; C2 chỉ bảo vệ luồng guarded Checkout mô phỏng, chưa thay thế FK tự động hay kiểm soát client ghi trực tiếp; và D2 không chứng minh rollback sau lỗi runtime. Những giới hạn này được công bố để tránh diễn giải quá mức từ kết quả `PASS` hoặc bảng tốc độ.
 
 **Kết luận:** Oracle nổi trội về bộ công cụ giao dịch quan hệ, kiểm soát toàn vẹn và khả năng full rollback của các thao tác chưa commit. Redis cung cấp cơ chế thực thi nguyên tử và kiểm soát xung đột hữu ích cho các công việc dựa trên key, nhưng cần thiết kế validation và xử lý lỗi phù hợp với ngữ nghĩa của nó. Lựa chọn DBMS nên dựa trước hết vào yêu cầu correctness và phạm vi giao dịch, sau đó mới xét kết quả hiệu năng trong workload tương ứng.
 
@@ -670,7 +512,7 @@ Giới hạn còn lại gồm: chưa thử crash recovery để định lượng
 
 [11] [`research/evidence/p3/B1/README.md`](research/evidence/p3/B1/README.md).
 
-[12] [`research/evidence/p3/B2/README.md`](research/evidence/p3/B2/README.md), [`research/evidence/p3/B2/b2redo01-B2-timeline.txt`](research/evidence/p3/B2/b2redo01-B2-timeline.txt) — **bản B2 đã sửa**.
+[12] [`research/evidence/p3/B2/README.md`](research/evidence/p3/B2/README.md), [`research/evidence/revision-20261109/1-B2.txt`](research/evidence/revision-20261109/1-B2.txt) — **bản B2 hiện hành**.
 
 [13] [`research/evidence/p3/B3/README.md`](research/evidence/p3/B3/README.md).
 

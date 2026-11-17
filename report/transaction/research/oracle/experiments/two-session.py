@@ -124,45 +124,87 @@ def b1(h):
     h.step("B", q)
 
 
+class B2Harness(Harness):
+    """Strict output checking riêng B2; không đổi hành vi B1/B3."""
+    def __init__(self, p1, p2):
+        self.output = []
+        super().__init__(p1, p2)
+
+    def _read(self, label, process):
+        for line in process.stdout:
+            self.output.append((label, line.rstrip("\n")))
+            self.events.put((label, line.rstrip("\n")))
+        self.events.put((label, None))
+
+    def wait(self, label, tag, timeout=15):
+        result = super().wait(label, tag, timeout)
+        errors = [line for _, line in self.output if line.startswith(("ORA-", "SP2-", "ERROR"))]
+        if errors:
+            raise AssertionError(errors)
+        return result
+
+
 def b2(h):
-    q = "SELECT on_hand_quantity FROM product_inventory WHERE product_id = :p1;"
-    print(f"{stamp()} PHASE=risk stale read/write; hai lượt mua cùng đọc 100", flush=True)
-    read_old_stock = (
-        "VARIABLE old_stock NUMBER\n"
-        "BEGIN\n"
-        "  SELECT on_hand_quantity INTO :old_stock FROM product_inventory WHERE product_id = :p1;\n"
-        "  IF :old_stock <> 100 THEN RAISE_APPLICATION_ERROR(-20010, 'B2 fixture phai bat dau tu 100'); END IF;\n"
-        "END;\n/\nPRINT old_stock"
-    )
-    h.step("A", read_old_stock)
-    h.step("B", read_old_stock)
-    update_from_read = (
-        "UPDATE product_inventory SET on_hand_quantity = :old_stock - 1 WHERE product_id = :p1;"
-    )
-    h.step("A", update_from_read)
-    b_update = h.send("B", update_from_read)
-    try:
-        h.wait("B", b_update, 1.5)
-    except TimeoutError:
-        print(f"{stamp()} B_WAIT_CONFIRMED: UPDATE chua hoan tat khi A giu khoa", flush=True)
-    else:
-        raise AssertionError("B UPDATE hoan tat truoc A COMMIT; khong co bang chung cho khoa cho")
-    h.step("A", "COMMIT;")
-    h.wait("B", b_update, 5)
-    h.step("B", "COMMIT;")
-    h.step("A", q)
-    print(f"{stamp()} PHASE=protected FOR UPDATE + conditional UPDATE", flush=True)
-    h.step("A", "UPDATE product_inventory SET on_hand_quantity = 1 WHERE product_id = :p1;\nCOMMIT;")
-    h.step("A", "SELECT on_hand_quantity FROM product_inventory WHERE product_id = :p1 FOR UPDATE WAIT 3;")
-    blocked = h.send("B", "SELECT on_hand_quantity FROM product_inventory WHERE product_id = :p1 FOR UPDATE WAIT 2;")
-    h.wait("B", blocked, 5)
-    h.step("B", "ROLLBACK;")
-    h.step("A", "UPDATE product_inventory SET on_hand_quantity = on_hand_quantity - 1, version = version + 1 "
-           "WHERE product_id = :p1 AND on_hand_quantity - reserved_flash_quantity >= 1;\nCOMMIT;")
-    h.step("B", "UPDATE product_inventory SET on_hand_quantity = on_hand_quantity - 1, version = version + 1 "
-           "WHERE product_id = :p1 AND on_hand_quantity - reserved_flash_quantity >= 1;\nCOMMIT;")
-    h.step("B", q)
-    h.step("A", "UPDATE product_inventory SET on_hand_quantity = 100, version = 0 WHERE product_id = :p1;\nCOMMIT;")
+    update = "UPDATE product_inventory SET on_hand_quantity = on_hand_quantity - 1 WHERE product_id = :p1;"
+
+    def stock(expected):
+        h.step("A", f"DECLARE n NUMBER; BEGIN SELECT on_hand_quantity INTO n FROM product_inventory "
+               f"WHERE product_id=:p1; IF n <> {expected} THEN RAISE_APPLICATION_ERROR(-20010,'STOCK'); END IF; "
+               f"DBMS_OUTPUT.PUT_LINE('ASSERT stock expected={expected} actual=' || n || ' PASS'); END;\n/")
+
+    def read(label, locked, expected):
+        suffix = " FOR UPDATE WAIT 30" if locked else ""
+        return ("BEGIN SELECT on_hand_quantity INTO :observed FROM product_inventory WHERE product_id=:p1"
+                + suffix + "; :eligible := CASE WHEN :observed=100 THEN 1 ELSE 0 END; "
+                + f"IF :observed <> {expected} OR :eligible <> {int(expected == 100)} THEN "
+                "RAISE_APPLICATION_ERROR(-20011,'READ_OR_DECISION'); END IF; "
+                + f"DBMS_OUTPUT.PUT_LINE('READ_DECISION {label} expected={expected}/{int(expected == 100)} actual=' "
+                "|| :observed || '/' || :eligible || ' PASS'); END;\n/")
+
+    def waiting(tag):
+        try:
+            h.wait("B", tag, 1.5)
+        except TimeoutError:
+            print(f"{stamp()} B_WAIT_CONFIRMED: chưa hoàn tất trong khi A giữ row lock", flush=True)
+        else:
+            raise AssertionError("B đã hoàn tất trước A COMMIT")
+
+    for label in ("A", "B"):
+        h.step(label, "SET SERVEROUTPUT ON\nVARIABLE observed NUMBER\nVARIABLE eligible NUMBER")
+    for locked in (False, True):
+        branch = "B2.2_FOR_UPDATE" if locked else "B2.1_PLAIN_SELECT"
+        print(f"{stamp()} PHASE={branch}", flush=True)
+        stock(100)
+        for label in ("A", "B"):
+            h.step(label, "COMMIT;\nSET TRANSACTION ISOLATION LEVEL READ COMMITTED;")
+        h.step("A", read("A", locked, 100))
+        if locked:
+            pending = h.send("B", read("B", True, 99))
+            waiting(pending)
+            h.step("A", update)
+        else:
+            h.step("A", update)
+            h.step("B", read("B", False, 100))
+            pending = h.send("B", update)
+            waiting(pending)
+        h.step("A", "COMMIT;")
+        h.wait("B", pending, 10)
+        if locked:
+            h.step("B", update)
+        h.step("B", "COMMIT;")
+        stock(98)
+        import re
+        decisions = [re.search(r"READ_DECISION ([AB]) expected=\d+/\d actual=(\d+)/(\d) PASS", line)
+                     for _, line in h.output]
+        decisions = [match for match in decisions if match][-2:]
+        eligible_count = sum(int(match[3]) for match in decisions)
+        assert len(decisions) == 2 and eligible_count == (1 if locked else 2), decisions
+        print(f"{stamp()} ASSERT {branch} eligible_count expected={1 if locked else 2} "
+              f"actual={eligible_count} PASS", flush=True)
+        h.step("A", "UPDATE product_inventory SET on_hand_quantity=100 WHERE product_id=:p1;\nCOMMIT;")
+        stock(100)
+    h.step("B", "SELECT on_hand_quantity FROM product_inventory WHERE product_id=:p1 FOR UPDATE WAIT 2;\nROLLBACK;")
+    print(f"{stamp()} B2 ASSERTIONS=PASS RESET=100 LOCK_REACQUIRED=YES", flush=True)
 
 
 def b3(h):
@@ -198,7 +240,7 @@ def main():
     print(f"{stamp()} SCENARIO={args.scenario} P1={args.p1} P2={args.p2}", flush=True)
     h = None
     try:
-        h = Harness(args.p1, args.p2)
+        h = (B2Harness if args.scenario == "B2" else Harness)(args.p1, args.p2)
         {"B1": b1, "B2": b2, "B3": b3}[args.scenario](h)
         print(f"{stamp()} RESULT=COMPLETED; đối chiếu ORA/output và snapshot trước PASS", flush=True)
     finally:

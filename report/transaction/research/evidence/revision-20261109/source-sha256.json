@@ -1,0 +1,8 @@
+{
+  "report/transaction/research/oracle/experiments/two-session.py": "09dbef87fb52e6c636fcffb9bb53bdb63eb6ca1e6256d07cfe23962210d56206",
+  "report/transaction/research/redis/experiments/B4.py": "70a99465ead9579561470b9b051835487f690deb78083b89a0c94a8dfa76e8e3",
+  "report/transaction/research/redis/experiments/C2.py": "7b69c02114e60755d816d4a1d6ef02671f237c113f1e5db416b237d2c43653f7",
+  "report/transaction/research/redis/experiments/C2.sh": "401948652c652ff729d52659f95e03e1ee14bbed3c091694867fa9cafab45a29",
+  "report/transaction/research/redis/lua/C2-validate.lua": "32d6a8df64b7500a437b151f09b27c7c1024292f650f2ce4d8dcc2a6f70d742e",
+  "report/transaction/research/run-revisions.py": "f8b0a2e6056af83e963964b92f48e74f47efbaeff3784974564763c4d02d40e4"
+}

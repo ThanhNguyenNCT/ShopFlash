@@ -1,0 +1,8 @@
+$ bash report/transaction/research/redis/setup.sh rev1109b 13379 13380 13381
+RESULT=CREATED
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart
+KEY=txresearch:rev1109b:inventory:13379
+KEY=txresearch:rev1109b:inventory:13380
+KEY=txresearch:rev1109b:inventory:13381
+KEY=txresearch:rev1109b:quota

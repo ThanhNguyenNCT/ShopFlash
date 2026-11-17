@@ -25,7 +25,7 @@ Giỏ chưa có dòng `CARTS` được trả rỗng mà không ghi Oracle:
 | `DELETE` | `/api/cart/items/{productId}` | `X-Cart-Version` | Xóa một dòng, trả giỏ và phiên bản mới |
 | `DELETE` | `/api/cart/items` | `X-Cart-Version` | Xóa mọi dòng, giữ `CARTS` để duy trì phiên bản; trả giỏ |
 
-`items` chứa `productId`, `name`, `sku`, `quantity`, `unitPrice`, `lineTotal`; `totalAmount` là tổng các dòng. Giá lấy từ `PRODUCTS.base_price` hiện tại và chỉ để **tham khảo**; Checkout kiểm tra lại. Số lượng mỗi dòng từ 1 đến 999; thêm sản phẩm đã có là phép **cộng**, còn `PATCH` là phép **đặt** số lượng tuyệt đối. Tổng sau phép cộng không được vượt 999. Xóa toàn giỏ rỗng không tăng phiên bản. Thêm/sửa giỏ không giữ hàng, không giảm tồn kho hoặc giữ suất Flash Sale.
+`items` chứa `productId`, `name`, `sku`, `quantity`, `unitPrice`, `lineTotal`, `thumbnailUrl`; `totalAmount` là tổng các dòng. `thumbnailUrl` là ảnh catalog hiện tại, có thể `null`; FE có ô dự phòng khi thiếu ảnh hoặc tải lỗi. Giá lấy từ `PRODUCTS.base_price` hiện tại và chỉ để **tham khảo**; Checkout kiểm tra lại. Số lượng mỗi dòng từ 1 đến 999; thêm sản phẩm đã có là phép **cộng**, còn `PATCH` là phép **đặt** số lượng tuyệt đối. Tổng sau phép cộng không được vượt 999. Xóa toàn giỏ rỗng không tăng phiên bản. Thêm/sửa giỏ không giữ hàng, không giảm tồn kho hoặc giữ suất Flash Sale.
 
 Mọi lệnh sửa giỏ cần `X-Cart-Version` vừa đọc và chạy trong giao dịch Oracle: khóa `CARTS FOR UPDATE`, kiểm tra phiên bản, sửa dòng rồi tăng `CARTS.version` một lần. Phiên bản cũ hoặc hai yêu cầu cùng tạo giỏ trả `409 CART_CHANGED`; client tải lại và để người dùng quyết định thao tác tiếp. Sản phẩm thêm vào phải tồn tại và `ACTIVE`. Mặt hàng sửa/xóa không có trong giỏ trả `404 CART_ITEM_NOT_FOUND`; sản phẩm không tồn tại trả `404 PRODUCT_NOT_FOUND`, ngừng bán trả `409 PRODUCT_UNAVAILABLE`. Số lượng/ID sai trả `400 VALIDATION_ERROR`.
 
@@ -39,6 +39,13 @@ Mọi lệnh sửa giỏ cần `X-Cart-Version` vừa đọc và chạy trong gi
 | `POST` | `/api/orders` | `Idempotency-Key` là UUID; `{cartVersion, recipientName, recipientPhone, shippingAddress, expectedLines:[{productId,quantity,unitPrice}]}` | `{orderId, orderCode, status, totalAmount}`; cùng khóa và cùng nội dung trả cùng đơn |
 
 Mỗi dòng preview có `productId`, `name`, `sku`, `quantity`, `unitPrice`, `lineTotal`, `status`, `availableQuantity = on_hand_quantity - reserved_flash_quantity`. `warnings` có thể chứa `CART_EMPTY`, `PRODUCT_UNAVAILABLE`, `OUT_OF_STOCK`. Preview chỉ đọc; giá và tồn phải được kiểm tra lại khi đặt đơn.
+
+`recipientPhone` phải đúng định dạng số di động Việt Nam: `0[35789]` và tám chữ số
+tiếp theo (10 chữ số), hoặc thay `0` đầu bằng `+84`. Chấp nhận khoảng trắng hai
+đầu; không chấp nhận chữ, dấu phân cách hay mã quốc gia khác. Frontend và backend
+cùng kiểm tra; API sai trả `400 VALIDATION_ERROR`, `details.field=recipientPhone`
+trước khi truy cập/ghi dữ liệu đặt hàng. Đây là kiểm tra định dạng, không xác minh
+số đang hoạt động hoặc quyền sở hữu bằng OTP. Quy tắc này thuộc F7 (đơn NORMAL).
 
 Ví dụ body của `POST /api/orders`:
 
@@ -63,6 +70,8 @@ Các lỗi nghiệp vụ cần phân biệt: `CART_EMPTY`, `CART_CHANGED`, `PROD
 Mọi truy vấn đơn lọc `user_id` ngay trong SQL; đơn của khách khác trả cùng `404` như đơn không tồn tại. Chỉ đơn `NORMAL/PENDING` được hủy. Giao dịch hủy khóa `ORDERS` rồi `PRODUCT_INVENTORY` theo `product_id` tăng dần, tăng `version` tồn kho; hủy lặp hoặc trạng thái sai trả `409 ORDER_NOT_CANCELLABLE`, không hoàn hàng lần nữa. Đơn `FLASH_SALE` thuộc F9. Giao diện dùng đúng trạng thái Oracle: `PENDING`, `CONFIRMED`, `COMPLETED`, `CANCELLED`.
 
 `page` bắt đầu từ 1; `size` từ 1 đến 100. `status` chỉ nhận bốn trạng thái trên. Danh sách trả `orderId`, `orderCode`, `orderType`, `status`, `createdAt`, `totalAmount`, `itemCount` (tổng số đơn vị); trang vượt cuối trả `items=[]` và `total` chính xác. Chi tiết có `recipientName`, `recipientPhone`, `shippingAddress`, `subtotal`, `discountAmount`, `totalAmount`, `createdAt`, `cancelledAt` và snapshot từng dòng `orderItemId`, `productId`, `productName`, `productSku`, `unitPrice`, `quantity`, `lineTotal`; Product đổi sau đó không sửa lịch sử.
+
+Mỗi dòng chi tiết có thêm `thumbnailUrl` đọc từ catalog bằng `LEFT JOIN`, kể cả Product đã ngừng bán. Ảnh này có thể `null` và không phải snapshot lúc mua; tên, SKU, giá, số lượng và thành tiền vẫn lấy nguyên từ `ORDER_ITEMS`. Không thêm truy vấn riêng cho từng ảnh hoặc thay đổi dữ liệu đơn hàng.
 
 Khi hủy, mỗi dòng tồn kho được hoàn đúng số lượng đã mua; `on_hand_quantity`, `version`, `status='CANCELLED'` và `cancelled_at` đổi trong cùng giao dịch. Không đổi `reserved_flash_quantity`, không đưa hàng về giỏ. Nếu thiếu Inventory hoặc không thể hoàn tồn hợp lệ, API trả `409 INVENTORY_CONFLICT` và Oracle rollback toàn bộ; hủy đồng thời chỉ cho một yêu cầu thành công.
 

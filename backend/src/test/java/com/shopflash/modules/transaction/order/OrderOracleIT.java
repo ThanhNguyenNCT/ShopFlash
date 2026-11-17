@@ -161,13 +161,20 @@ class OrderOracleIT {
                                          unit_price, quantity, line_total)
                 VALUES (:orderId, :productId, 'Tên lúc mua', 'SKU-LUC-MUA', 123.45, 2, 246.90)
                 """, Map.of("orderId", own, "productId", productId));
-        jdbc.update("UPDATE products SET name = 'Tên hiện tại', base_price = 999 WHERE product_id = :id",
-                Map.of("id", productId));
+        jdbc.update("""
+                UPDATE products SET name = 'Tên hiện tại', base_price = 999, status = 'INACTIVE',
+                                    thumbnail_url = :image WHERE product_id = :id
+                """, Map.of("id", productId, "image", "https://example.test/order-product.png"));
         mvc.perform(get("/api/orders/{id}", own).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].productName").value("Tên lúc mua"))
                 .andExpect(jsonPath("$.items[0].productSku").value("SKU-LUC-MUA"))
                 .andExpect(jsonPath("$.items[0].unitPrice").value(123.45))
+                .andExpect(jsonPath("$.items[0].thumbnailUrl").value("https://example.test/order-product.png"))
                 .andExpect(jsonPath("$.items[0].quantity").value(2));
+        jdbc.update("UPDATE products SET thumbnail_url = NULL WHERE product_id = :id", Map.of("id", productId));
+        mvc.perform(get("/api/orders/{id}", own).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
+                .andExpect(jsonPath("$.items[0].thumbnailUrl").isEmpty());
         mvc.perform(get("/api/orders").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].itemCount").value(2));
         for (long id : new long[] {foreign, Long.MAX_VALUE}) {

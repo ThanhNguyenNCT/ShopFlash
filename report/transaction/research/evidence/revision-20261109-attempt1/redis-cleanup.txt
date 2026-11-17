@@ -1,0 +1,9 @@
+$ bash report/transaction/research/redis/cleanup.sh rev1109 report/transaction/research/evidence/revision-20261109/keys.txt
+1
+1
+1
+1
+1
+0
+0
+CLEANUP_DONE RUN_ID=rev1109 KEYS_LISTED=7

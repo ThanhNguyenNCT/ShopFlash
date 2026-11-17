@@ -1,0 +1,103 @@
+$ python3 report/transaction/research/oracle/experiments/two-session.py B2 13376 13377
+2026-11-09T17:18:11+07:00 SCENARIO=B2 P1=13376 P2=13377
+2026-11-09T17:18:11+07:00 A> SET AUTOCOMMIT OFF | SET PAGESIZE 100 | SET LINESIZE 180 | VARIABLE p1 NUMBER | VARIABLE p2 NUMBER | EXEC :p1 := 13376; | EXEC :p2 := 13377;
+2026-11-09T17:18:11+07:00 A< 
+2026-11-09T17:18:11+07:00 A< PL/SQL procedure successfully completed.
+2026-11-09T17:18:11+07:00 A< 
+2026-11-09T17:18:11+07:00 A< 
+2026-11-09T17:18:11+07:00 A< PL/SQL procedure successfully completed.
+2026-11-09T17:18:11+07:00 A< 
+2026-11-09T17:18:11+07:00 A< __TXRESEARCH_1__
+2026-11-09T17:18:11+07:00 B> SET AUTOCOMMIT OFF | SET PAGESIZE 100 | SET LINESIZE 180 | VARIABLE p1 NUMBER | VARIABLE p2 NUMBER | EXEC :p1 := 13376; | EXEC :p2 := 13377;
+2026-11-09T17:18:11+07:00 B< 
+2026-11-09T17:18:11+07:00 B< PL/SQL procedure successfully completed.
+2026-11-09T17:18:11+07:00 B< 
+2026-11-09T17:18:11+07:00 B< 
+2026-11-09T17:18:11+07:00 B< PL/SQL procedure successfully completed.
+2026-11-09T17:18:11+07:00 B< 
+2026-11-09T17:18:11+07:00 B< __TXRESEARCH_2__
+2026-11-09T17:18:11+07:00 A> SET SERVEROUTPUT ON | VARIABLE observed NUMBER | VARIABLE eligible NUMBER
+2026-11-09T17:18:11+07:00 A< __TXRESEARCH_3__
+2026-11-09T17:18:11+07:00 B> SET SERVEROUTPUT ON | VARIABLE observed NUMBER | VARIABLE eligible NUMBER
+2026-11-09T17:18:11+07:00 B< __TXRESEARCH_4__
+2026-11-09T17:18:11+07:00 PHASE=B2.1_PLAIN_SELECT
+2026-11-09T17:18:11+07:00 A> DECLARE n NUMBER; BEGIN SELECT on_hand_quantity INTO n FROM product_inventory WHERE product_id=:p1; IF n <> 100 THEN RAISE_APPLICATION_ERROR(-20010,'STOCK'); END IF; DBMS_OUTPUT.PUT_LINE('ASSERT stock expected=100 actual=' || n || ' PASS'); END; | /
+2026-11-09T17:18:11+07:00 A< ASSERT stock expected=100 actual=100 PASS
+2026-11-09T17:18:11+07:00 A< 
+2026-11-09T17:18:11+07:00 A< PL/SQL procedure successfully completed.
+2026-11-09T17:18:11+07:00 A< 
+2026-11-09T17:18:11+07:00 A< __TXRESEARCH_5__
+2026-11-09T17:18:11+07:00 A> COMMIT; | SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+2026-11-09T17:18:11+07:00 A< 
+2026-11-09T17:18:11+07:00 A< Commit complete.
+2026-11-09T17:18:11+07:00 A< 
+2026-11-09T17:18:11+07:00 A< 
+2026-11-09T17:18:11+07:00 A< Transaction set.
+2026-11-09T17:18:11+07:00 A< 
+2026-11-09T17:18:11+07:00 A< __TXRESEARCH_6__
+2026-11-09T17:18:11+07:00 B> COMMIT; | SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+2026-11-09T17:18:11+07:00 B< 
+2026-11-09T17:18:11+07:00 B< Commit complete.
+2026-11-09T17:18:11+07:00 B< 
+2026-11-09T17:18:11+07:00 B< 
+2026-11-09T17:18:11+07:00 B< Transaction set.
+2026-11-09T17:18:11+07:00 B< 
+2026-11-09T17:18:11+07:00 B< __TXRESEARCH_7__
+2026-11-09T17:18:11+07:00 A> BEGIN SELECT on_hand_quantity INTO :observed FROM product_inventory WHERE product_id=:p1; :eligible := CASE WHEN :observed=100 THEN 1 ELSE 0 END; IF :observed <> 100 OR :eligible <> 1 THEN RAISE_APPLICATION_ERROR(-20011,'READ_OR_DECISION'); END IF; DBMS_OUTPUT.PUT_LINE('READ_DECISION A expected=100/1 actual=' || :observed || '/' || :eligible || ' PASS'); END; | /
+2026-11-09T17:18:11+07:00 A< READ_DECISION A expected=100/1 actual=100/1 PASS
+2026-11-09T17:18:11+07:00 A< 
+2026-11-09T17:18:11+07:00 A< PL/SQL procedure successfully completed.
+2026-11-09T17:18:11+07:00 A< 
+2026-11-09T17:18:11+07:00 A< __TXRESEARCH_8__
+2026-11-09T17:18:11+07:00 A> UPDATE product_inventory SET on_hand_quantity = on_hand_quantity - 1 WHERE product_id = :p1;
+2026-11-09T17:18:11+07:00 A< 
+2026-11-09T17:18:11+07:00 A< 1 row updated.
+2026-11-09T17:18:11+07:00 A< 
+2026-11-09T17:18:11+07:00 A< __TXRESEARCH_9__
+2026-11-09T17:18:11+07:00 B> BEGIN SELECT on_hand_quantity INTO :observed FROM product_inventory WHERE product_id=:p1; :eligible := CASE WHEN :observed=100 THEN 1 ELSE 0 END; IF :observed <> 100 OR :eligible <> 1 THEN RAISE_APPLICATION_ERROR(-20011,'READ_OR_DECISION'); END IF; DBMS_OUTPUT.PUT_LINE('READ_DECISION B expected=100/1 actual=' || :observed || '/' || :eligible || ' PASS'); END; | /
+2026-11-09T17:18:11+07:00 B< READ_DECISION B expected=100/1 actual=100/1 PASS
+2026-11-09T17:18:11+07:00 B< 
+2026-11-09T17:18:11+07:00 B< PL/SQL procedure successfully completed.
+2026-11-09T17:18:11+07:00 B< 
+2026-11-09T17:18:11+07:00 B< __TXRESEARCH_10__
+2026-11-09T17:18:11+07:00 B> UPDATE product_inventory SET on_hand_quantity = on_hand_quantity - 1 WHERE product_id = :p1;
+2026-11-09T17:18:13+07:00 B_WAIT_CONFIRMED: chưa hoàn tất trong khi A giữ row lock
+2026-11-09T17:18:13+07:00 A> COMMIT;
+2026-11-09T17:18:13+07:00 B< 
+2026-11-09T17:18:13+07:00 B< 1 row updated.
+2026-11-09T17:18:13+07:00 B< 
+2026-11-09T17:18:13+07:00 B< __TXRESEARCH_11__
+2026-11-09T17:18:13+07:00 A< 
+2026-11-09T17:18:13+07:00 A< Commit complete.
+2026-11-09T17:18:13+07:00 A< 
+2026-11-09T17:18:13+07:00 A< __TXRESEARCH_12__
+2026-11-09T17:18:13+07:00 B> COMMIT;
+2026-11-09T17:18:13+07:00 B< 
+2026-11-09T17:18:13+07:00 B< Commit complete.
+2026-11-09T17:18:13+07:00 B< 
+2026-11-09T17:18:13+07:00 B< __TXRESEARCH_13__
+2026-11-09T17:18:13+07:00 A> DECLARE n NUMBER; BEGIN SELECT on_hand_quantity INTO n FROM product_inventory WHERE product_id=:p1; IF n <> 98 THEN RAISE_APPLICATION_ERROR(-20010,'STOCK'); END IF; DBMS_OUTPUT.PUT_LINE('ASSERT stock expected=98 actual=' || n || ' PASS'); END; | /
+2026-11-09T17:18:13+07:00 A< ASSERT stock expected=98 actual=98 PASS
+2026-11-09T17:18:13+07:00 A< 
+2026-11-09T17:18:13+07:00 A< PL/SQL procedure successfully completed.
+2026-11-09T17:18:13+07:00 A< 
+2026-11-09T17:18:13+07:00 A< __TXRESEARCH_14__
+2026-11-09T17:18:13+07:00 A> ROLLBACK; EXIT (giải phóng khóa)
+2026-11-09T17:18:13+07:00 B> ROLLBACK; EXIT (giải phóng khóa)
+2026-11-09T17:18:13+07:00 B< 
+2026-11-09T17:18:13+07:00 B< Rollback complete.
+2026-11-09T17:18:13+07:00 B< 
+2026-11-09T17:18:13+07:00 A< 
+2026-11-09T17:18:13+07:00 A< Rollback complete.
+2026-11-09T17:18:13+07:00 A< 
+Traceback (most recent call last):
+  File "/home/haixon/Documents/HCMUT/HK261/DBMS/Project/ShopFlash/report/transaction/research/oracle/experiments/two-session.py", line 252, in <module>
+    main()
+    ~~~~^^
+  File "/home/haixon/Documents/HCMUT/HK261/DBMS/Project/ShopFlash/report/transaction/research/oracle/experiments/two-session.py", line 244, in main
+    {"B1": b1, "B2": b2, "B3": b3}[args.scenario](h)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/home/haixon/Documents/HCMUT/HK261/DBMS/Project/ShopFlash/report/transaction/research/oracle/experiments/two-session.py", line 201, in b2
+    assert len(decisions) == 2 and eligible_count == (1 if locked else 2), decisions
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: []

@@ -1,0 +1,1 @@
+Independent evidence verification: 5 x (2 B2 + 2 B4 + 15 C2) = 95 outcomes PASS; 70 rejected snapshots unchanged; 5 valid snapshots; cleanup PASS

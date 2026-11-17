@@ -1,4 +1,4 @@
-# 3.2 Indexing: thí nghiệm và số đo (TV2)
+# 2.2. Indexing: thí nghiệm và số đo (TV2)
 
 Chủ đề Indexing của module `indexing` (F3 tìm kiếm, F4 lọc nâng cao). Thư mục này chứa ghi chú lý thuyết, script thí nghiệm trên Oracle và Redis, số liệu thô và bảng kết quả.
 
@@ -7,8 +7,8 @@ Chủ đề Indexing của module `indexing` (F3 tìm kiếm, F4 lọc nâng cao
 ```text
 report/indexing/
 ├── README.md            file này: cấu trúc, cách chạy, trạng thái
-├── SECTION_INDEXING.md  **mục 3.2 của báo cáo** (lý thuyết, Oracle, Redis, so sánh, kết luận, tài liệu tham khảo)
-├── ly-thuyet.md         ghi chú 8 bài lý thuyết (nguyên liệu cho phần Lý thuyết của 3.2)
+├── SECTION_INDEXING.md  **mục 2.2 của báo cáo** (lý thuyết, Oracle, Redis, so sánh, kết luận, tài liệu tham khảo)
+├── ly-thuyet.md         ghi chú 8 bài lý thuyết (nguyên liệu cho phần Lý thuyết của 2.2)
 ├── ket-qua.md           bảng kết quả và nhận xét từng thí nghiệm (nguyên liệu cho phần Demo/So sánh)
 ├── ket-luan.md          bảng so sánh tổng hợp và quyết định cho F3/F4
 ├── oracle/              chạy trong container Oracle bằng run.sh

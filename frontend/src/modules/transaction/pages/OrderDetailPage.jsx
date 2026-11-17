@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Card, Empty, Popconfirm, Spin, Typography } from 'antd';
-import { Link, useParams } from 'react-router-dom';
+import { Link, Navigate, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '@/shared/auth';
 import { PriceTag, formatVND, tokens } from '@/shared/design-system';
 import { cancelOrder, getOrderDetail } from '../api';
 import OracleOrderStatus from '../components/OracleOrderStatus';
+import ProductThumbnail from '../components/ProductThumbnail';
 
 function orderTime(value) {
   return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Ho_Chi_Minh' })
@@ -13,6 +14,7 @@ function orderTime(value) {
 
 export default function OrderDetailPage() {
   const { orderId } = useParams();
+  const { pathname, search, hash } = useLocation();
   const { user, loading: authLoading } = useAuth();
   const [loaded, setLoaded] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -20,7 +22,7 @@ export default function OrderDetailPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const requestSeq = useRef(0);
-  const order = loaded?.userId === user?.userId ? loaded.data : null;
+  const order = loaded && user && loaded.userId === user.userId ? loaded.data : null;
 
   const refresh = useCallback(async () => {
     const requestId = ++requestSeq.current;
@@ -72,7 +74,8 @@ export default function OrderDetailPage() {
   };
 
   if (authLoading) return <Spin description="Đang kiểm tra phiên đăng nhập"><div style={{ minHeight: tokens.space[8] }} /></Spin>;
-  if (!user || user.role !== 'CUSTOMER') {
+  if (!user) return <Navigate to={`/login?next=${encodeURIComponent(pathname + search + hash)}`} replace />;
+  if (user.role !== 'CUSTOMER') {
     return <Alert type="info" showIcon title="Cần tài khoản Khách"
       description={<Link to={`/login?next=${encodeURIComponent(`/orders/${orderId}`)}`}>Đăng nhập bằng tài khoản Khách để xem đơn hàng</Link>} />;
   }
@@ -103,10 +106,13 @@ export default function OrderDetailPage() {
             <div className="sf-tx-summary">
               <div className="sf-tx-receipt-lines">
                 {order.items.map((item) => <div key={item.orderItemId} className="sf-tx-receipt-line">
-                  <div className="sf-tx-receipt-line__identity">
-                    <strong>{item.productName}</strong>
-                    <span className="sf-code">{item.productSku}</span>
-                    <span className="sf-tx-muted">{item.quantity} × {formatVND(item.unitPrice)}</span>
+                  <div className="sf-tx-product-identity">
+                    <ProductThumbnail thumbnailUrl={item.thumbnailUrl} name={item.productName} />
+                    <div className="sf-tx-receipt-line__identity">
+                      <strong>{item.productName}</strong>
+                      <span className="sf-code">{item.productSku}</span>
+                      <span className="sf-tx-muted">{item.quantity} × {formatVND(item.unitPrice)}</span>
+                    </div>
                   </div>
                   <PriceTag price={item.lineTotal} size="sm" />
                 </div>)}

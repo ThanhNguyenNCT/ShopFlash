@@ -72,7 +72,7 @@ Backend và database mặc định chỉ mở trên máy mình (`127.0.0.1`). F0
 
 | Dữ liệu | Cách có |
 |---|---|
-| Dữ liệu mẫu nhỏ: 2 user, 1 sản phẩm, 2 đơn | Tự nạp khi chạy profile `dev` (`dev-seed/R__00_core_seed.sql`) |
+| Catalog chung: 25 danh mục, 191 sản phẩm có URL ảnh; 2 tài khoản và 2 đơn demo; giỏ mới trống | Flyway nạp `R__00_catalog_seed.sql` rồi `R__00_core_seed.sql` khi chạy profile `dev` |
 | Dữ liệu lớn: 100k đơn, 10k sản phẩm, 20k khách | Chạy tay, khoảng 1,5 phút: [`report/query/oracle/seed/README.md`](../report/query/oracle/seed/README.md) |
 | Read model Redis cho báo cáo | Script tự dựng khi đang trống; hoặc trang Query Lab, tab Nhất quán, nút "Dựng lại" |
 

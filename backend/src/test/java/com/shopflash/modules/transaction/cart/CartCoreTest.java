@@ -36,7 +36,7 @@ class CartCoreTest {
                         new AuthPrincipal(42, "customer@example.test", "Customer", "CUSTOMER"), null, List.of()));
         when(carts.read(42)).thenReturn(new CartResponse(3, List.of(
                 new CartResponse.Item(11, "Sản phẩm", "SKU-11", 2,
-                        new BigDecimal("12.50"), new BigDecimal("25.00"))), new BigDecimal("25.00")));
+                        new BigDecimal("12.50"), new BigDecimal("25.00"), "https://example.test/product.png")), new BigDecimal("25.00")));
 
         try {
             mvc(identity, carts).perform(get("/api/cart"))
@@ -44,6 +44,7 @@ class CartCoreTest {
                 .andExpect(jsonPath("$.version").value(3))
                 .andExpect(jsonPath("$.items[0].productId").value(11))
                 .andExpect(jsonPath("$.items[0].lineTotal").value(25.00))
+                .andExpect(jsonPath("$.items[0].thumbnailUrl").value("https://example.test/product.png"))
                 .andExpect(jsonPath("$.totalAmount").value(25.00));
             verify(carts).read(42);
         } finally {

@@ -1,0 +1,98 @@
+% !TeX program = xelatex
+% !TeX root = main.tex
+% Cấu trúc và bố cục dựa trên mẫu local_docs/Report/.
+\input{Sections/preamp}
+
+\begin{document}
+\pagenumbering{alph}
+\begin{titlepage}
+  \PageFrameSetup{
+    outer left=1.5cm,outer right=1.5cm,outer top=2cm,outer bottom=2cm,
+    inner left=1.7cm,inner right=1.7cm,inner top=2.2cm,inner bottom=2.2cm,
+    outer width=3pt,inner width=1.9pt,
+    outer color=black,inner color=black,corner radius=0pt
+  }
+  \thispagestyle{empty}
+  \PageFrameThisPage
+  \begin{center}
+    {\Large ĐẠI HỌC QUỐC GIA THÀNH PHỐ HỒ CHÍ MINH}\\
+    {\Large TRƯỜNG ĐẠI HỌC BÁCH KHOA}\\
+    \textbf{\Large \khoa}
+  \end{center}
+
+  \vspace{0.5cm}
+  \begin{figure}[h!]
+    \centering
+    \includegraphics[scale=1]{Pictures/hcmut.png}
+  \end{figure}
+  \vspace{0.2cm}
+
+  \begin{center}
+    \textbf{\LARGE BÁO CÁO BÀI TẬP LỚN}\\[0.5cm]
+    {\color{blue}\hrule}
+    \vspace{0.5cm}
+    {\color{blue}\textbf{\LARGE \detai}\\[0.5cm]}
+    {\color{blue}\hrule}
+    \vspace{0.5cm}
+
+    \begin{table}[h]
+      \large
+      \centering
+      \begin{tabular}{@{}r@{\hspace{1cm}}ll@{}}
+        Môn học: & \monhoc & \\[0.25cm]
+        Giảng viên hướng dẫn: & \giangvien & \\[0.25cm]
+        Lớp: & \lop & \\[0.25cm]
+        Nhóm: & \nhom & \\[0.25cm]
+        Học kỳ: & \hocky & \\[0.25cm]
+        Sinh viên thực hiện: & \sinhvien & \mssv
+      \end{tabular}
+    \end{table}
+  \end{center}
+
+  \vspace{0.6cm}
+  \centering{\fontsize{12}{14}\selectfont THÀNH PHỐ HỒ CHÍ MINH -- 11/2026}
+\end{titlepage}
+
+\pagenumbering{arabic}
+\setstretch{1.3}
+{\fontsize{12}{15}\selectfont\tableofcontents\par}
+\clearpage
+\fontsize{13}{18}\selectfont
+\input{Sections/workload}
+
+\clearpage
+\section{GIỚI THIỆU ĐỀ TÀI VÀ TỔNG QUAN HỆ THỐNG}\label{sec:introduction}
+\begingroup
+\setstretch{1.15}
+\fontsize{12}{16}\selectfont
+\input{Sections/Introduction/noi-dung}
+\par
+\endgroup
+
+\clearpage
+\section{NGHIÊN CỨU VÀ SO SÁNH ORACLE VỚI REDIS}\label{sec:research}
+\input{Sections/Tasks/task1}
+\input{Sections/Tasks/task2}
+\input{Sections/Tasks/task3}
+\input{Sections/Tasks/task4}
+\input{Sections/Tasks/task5}
+\input{Sections/Tasks/task6}
+
+\clearpage
+\section{HIỆN THỰC ỨNG DỤNG VÀ KẾT LUẬN}\label{sec:implementation}
+\begingroup
+\setstretch{1.15}
+\fontsize{12}{16}\selectfont
+\clubpenalty=10000
+\widowpenalty=10000
+\input{Sections/Implementation/noi-dung}
+\par
+\endgroup
+
+% Chỉ hiện tài liệu tham khảo khi các phần nội dung có trích dẫn.
+\ifreportcitations
+  \clearpage
+  \printbibliography[heading=bibintoc,title={Tài liệu tham khảo}]
+\fi
+\label{LastPage}
+\end{document}

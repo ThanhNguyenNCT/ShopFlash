@@ -1,15 +1,26 @@
--- Dữ liệu mẫu cho máy local, chỉ chạy ở profile dev (spring.flyway.locations có db/dev-seed).
--- Repeatable migration: Flyway chạy sau mọi version và chạy lại khi file đổi; MERGE nên chạy lại vẫn an toàn.
--- ID dưới 10000 dành cho dữ liệu mẫu; ID do ứng dụng sinh bắt đầu từ 10000.
---
--- Kịch bản nhất quán với DATABASE_DESIGN.md §14 (không phụ thuộc ngày chạy):
---   Flash Sale #1 đã kết thúc (ENDED, 2026-10-01 09:00-10:00 +07), allocated 5, sold 1.
---   Sale kết thúc nên 4 suất chưa bán trả về kho thường: reserved_flash_quantity = 0.
---   on_hand_quantity = 20 là tồn kho hiện tại, đã trừ 2 đơn bên dưới.
---   Đơn #1 thường, COMPLETED; đơn #2 flash sale, CONFIRMED, tạo lúc 09:30 trong khung giờ sale.
--- Sửa file này thì Flyway chạy lại nó và đặt lại tồn kho, sold_quantity của sản phẩm 1 về giá trị dưới đây.
--- Tài khoản: admin@shopflash.local / customer@shopflash.local, mật khẩu ShopFlash123! (chỉ dùng local).
--- Danh mục 1 và sản phẩm 1 nằm trong R__00_catalog_seed.sql (chạy trước file này theo thứ tự tên).
+-- Dữ liệu demo ứng dụng, chỉ chạy với profile dev, sau R__00_catalog_seed.sql.
+-- Tài khoản/giỏ chỉ tạo khi chưa có; không tự thêm CART_ITEMS hoặc đặt lại tồn kho.
+-- Hai đơn mẫu riêng (ID 1/2, CORE-*) lấy snapshot tên/SKU/giá từ catalog:
+--   NORMAL/COMPLETED: AirPods Max (2101), giá catalog.
+--   FLASH_SALE/CONFIRMED: iPhone 13 Pro (2123), giá sale = 80% giá catalog.
+-- Flash Sale #1 đã ENDED, allocated=5/sold=1, reserved=0; không tạo runtime sale Redis.
+-- Stock catalog là tồn hiện có sau dữ liệu demo; không trừ lại khi seed chạy lại.
+-- Chỉ hai đơn mẫu được cập nhật khi file seed đổi; không đồng bộ lại đơn thật của khách.
+-- Tài khoản local: admin@shopflash.local / customer@shopflash.local, ShopFlash123!.
+
+DECLARE
+  n NUMBER;
+BEGIN
+  SELECT COUNT(*) INTO n FROM products p JOIN categories c ON c.category_id=p.category_id
+  JOIN product_inventory i ON i.product_id=p.product_id
+  WHERE p.product_id IN (2101, 2123) AND p.status='ACTIVE' AND c.status='ACTIVE' AND p.base_price>0;
+  IF n <> 2 THEN RAISE_APPLICATION_ERROR(-20001, 'Chay catalog seed truoc core seed'); END IF;
+  SELECT COUNT(*) INTO n FROM orders WHERE order_id IN (1,2)
+    AND (user_id <> 2 OR (order_id=1 AND order_code<>'CORE-NORMAL-001')
+         OR (order_id=2 AND order_code<>'CORE-FLASH-001'));
+  IF n <> 0 THEN RAISE_APPLICATION_ERROR(-20002, 'ID don demo bi du lieu khac chiem; khong ghi de'); END IF;
+END;
+/
 
 MERGE INTO users target
 USING (
@@ -18,11 +29,6 @@ USING (
   SELECT 2, 'customer@shopflash.local', '$2b$12$uoZ3TNSlBoAKxDE1X39W6uVon9QzLJijSkDUq1AQkFXD6zv8kqz0O', 'ShopFlash Customer', '0900000002', 'CUSTOMER', 'ACTIVE' FROM dual
 ) source
 ON (target.user_id = source.user_id)
-WHEN MATCHED THEN UPDATE SET
-  target.email = source.email, target.password_hash = source.password_hash,
-  target.full_name = source.full_name, target.phone = source.phone,
-  target.role = source.role, target.status = source.status,
-  target.updated_at = TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM')
 WHEN NOT MATCHED THEN INSERT
   (user_id, email, password_hash, full_name, phone, role, status, created_at, updated_at)
 VALUES
@@ -30,44 +36,16 @@ VALUES
    TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM'),
    TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM'));
 
-MERGE INTO product_inventory target
-USING (SELECT 1 product_id, 20 on_hand_quantity, 0 reserved_flash_quantity, 0 version FROM dual) source
-ON (target.product_id = source.product_id)
-WHEN MATCHED THEN UPDATE SET
-  target.on_hand_quantity = source.on_hand_quantity,
-  target.reserved_flash_quantity = source.reserved_flash_quantity,
-  target.version = source.version,
-  target.updated_at = TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM')
-WHEN NOT MATCHED THEN INSERT
-  (product_id, on_hand_quantity, reserved_flash_quantity, version, updated_at)
-VALUES
-  (source.product_id, source.on_hand_quantity, source.reserved_flash_quantity, source.version,
-   TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM'));
-
 MERGE INTO carts target
 USING (SELECT 1 cart_id, 2 user_id FROM dual) source
 ON (target.cart_id = source.cart_id)
-WHEN MATCHED THEN UPDATE SET
-  target.user_id = source.user_id,
-  target.updated_at = TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM')
 WHEN NOT MATCHED THEN INSERT (cart_id, user_id, created_at, updated_at)
 VALUES (source.cart_id, source.user_id,
   TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM'),
   TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM'));
 
-MERGE INTO cart_items target
-USING (SELECT 1 cart_item_id, 1 cart_id, 1 product_id, 1 quantity FROM dual) source
-ON (target.cart_item_id = source.cart_item_id)
-WHEN MATCHED THEN UPDATE SET
-  target.cart_id = source.cart_id, target.product_id = source.product_id, target.quantity = source.quantity,
-  target.updated_at = TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM')
-WHEN NOT MATCHED THEN INSERT (cart_item_id, cart_id, product_id, quantity, created_at, updated_at)
-VALUES (source.cart_item_id, source.cart_id, source.product_id, source.quantity,
-  TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM'),
-  TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM'));
-
 MERGE INTO flash_sales target
-USING (SELECT 1 flash_sale_id, 'Core Flash Sale' name, 'Minimal relationship fixture' description, 'ENDED' status FROM dual) source
+USING (SELECT 1 flash_sale_id, 'Flash Sale iPhone 13 Pro' name, 'Demo catalog checkout' description, 'ENDED' status FROM dual) source
 ON (target.flash_sale_id = source.flash_sale_id)
 WHEN MATCHED THEN UPDATE SET
   target.name = source.name, target.description = source.description,
@@ -100,7 +78,9 @@ VALUES
    TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM'));
 
 MERGE INTO flash_sale_items target
-USING (SELECT 1 flash_sale_item_id, 1 flash_sale_id, 1 product_id, 80000 sale_price, 5 allocated_quantity, 1 sold_quantity, 'ACTIVE' status FROM dual) source
+USING (SELECT 1 flash_sale_item_id, 1 flash_sale_id, p.product_id,
+              ROUND(p.base_price * 0.8) sale_price, 5 allocated_quantity, 1 sold_quantity, 'ACTIVE' status
+       FROM products p WHERE p.product_id=2123) source
 ON (target.flash_sale_item_id = source.flash_sale_item_id)
 WHEN MATCHED THEN UPDATE SET
   target.flash_sale_id = source.flash_sale_id, target.product_id = source.product_id,
@@ -117,11 +97,15 @@ VALUES
 
 MERGE INTO orders target
 USING (
-  SELECT 1 order_id, 'CORE-NORMAL-001' order_code, 2 user_id, 'NORMAL' order_type, 'COMPLETED' status, 100000 subtotal, 0 discount_amount, 100000 total_amount, 'core-normal-001' idempotency_key,
-         TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM') created_at FROM dual
+  SELECT 1 order_id, 'CORE-NORMAL-001' order_code, 2 user_id, 'NORMAL' order_type,
+         'COMPLETED' status, p.base_price subtotal, 0 discount_amount, p.base_price total_amount,
+         'core-normal-001' idempotency_key,
+         TO_TIMESTAMP_TZ('2026-10-01T08:00:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM') created_at
+  FROM products p WHERE p.product_id=2101
   UNION ALL
-  SELECT 2, 'CORE-FLASH-001', 2, 'FLASH_SALE', 'CONFIRMED', 80000, 0, 80000, 'core-flash-001',
-         TO_TIMESTAMP_TZ('2026-10-01T09:30:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM') FROM dual
+  SELECT 2, 'CORE-FLASH-001', 2, 'FLASH_SALE', 'CONFIRMED', f.sale_price, 0, f.sale_price,
+         'core-flash-001', TO_TIMESTAMP_TZ('2026-10-01T09:30:00 +07:00', 'YYYY-MM-DD"T"HH24:MI:SS TZH:TZM')
+  FROM flash_sale_items f WHERE f.flash_sale_item_id=1 AND f.product_id=2123
 ) source
 ON (target.order_id = source.order_id)
 WHEN MATCHED THEN UPDATE SET
@@ -145,18 +129,37 @@ VALUES
 
 MERGE INTO order_items target
 USING (
-  SELECT 1 order_item_id, 1 order_id, 1 product_id, CAST(NULL AS NUMBER(19)) flash_sale_item_id, 100000 unit_price FROM dual
-  UNION ALL
-  SELECT 2, 2, 1, 1, 80000 FROM dual
+  SELECT o.order_id order_item_id, o.order_id, p.product_id,
+         CASE WHEN o.order_type='FLASH_SALE' THEN 1 END flash_sale_item_id,
+         p.name product_name, p.sku product_sku, o.total_amount unit_price
+  FROM orders o JOIN products p ON p.product_id=CASE WHEN o.order_id=1 THEN 2101 ELSE 2123 END
+  WHERE o.order_id IN (1,2)
 ) source
 ON (target.order_item_id = source.order_item_id)
 WHEN MATCHED THEN UPDATE SET
   target.order_id = source.order_id, target.product_id = source.product_id,
-  target.flash_sale_item_id = source.flash_sale_item_id, target.product_name = 'Core Product',
-  target.product_sku = 'CORE-001', target.unit_price = source.unit_price,
+  target.flash_sale_item_id = source.flash_sale_item_id, target.product_name = source.product_name,
+  target.product_sku = source.product_sku, target.unit_price = source.unit_price,
   target.quantity = 1, target.line_total = source.unit_price
 WHEN NOT MATCHED THEN INSERT
   (order_item_id, order_id, product_id, flash_sale_item_id, product_name, product_sku, unit_price, quantity, line_total)
 VALUES
   (source.order_item_id, source.order_id, source.product_id, source.flash_sale_item_id,
-   'Core Product', 'CORE-001', source.unit_price, 1, source.unit_price);
+   source.product_name, source.product_sku, source.unit_price, 1, source.unit_price);
+
+-- Hậu kiểm riêng dữ liệu demo, không kiểm tra/ghi lại snapshot đơn người dùng khác.
+DECLARE
+  n NUMBER;
+BEGIN
+  SELECT COUNT(*) INTO n FROM orders o
+  WHERE o.order_id IN (1,2) AND o.subtotal=(SELECT SUM(oi.line_total) FROM order_items oi WHERE oi.order_id=o.order_id)
+    AND o.total_amount=o.subtotal-o.discount_amount;
+  IF n<>2 THEN RAISE_APPLICATION_ERROR(-20003, 'Tong don demo khong khop order items'); END IF;
+  SELECT COUNT(*) INTO n FROM order_items oi JOIN products p ON p.product_id=oi.product_id
+  WHERE oi.order_id IN (1,2) AND oi.product_name=p.name AND oi.product_sku=p.sku AND oi.quantity=1
+    AND ((oi.order_id=1 AND oi.product_id=2101 AND oi.flash_sale_item_id IS NULL AND oi.unit_price=p.base_price)
+      OR (oi.order_id=2 AND oi.product_id=2123 AND oi.flash_sale_item_id=1
+          AND oi.unit_price=(SELECT sale_price FROM flash_sale_items WHERE flash_sale_item_id=1)));
+  IF n<>2 THEN RAISE_APPLICATION_ERROR(-20004, 'Snapshot don demo khong khop catalog'); END IF;
+END;
+/

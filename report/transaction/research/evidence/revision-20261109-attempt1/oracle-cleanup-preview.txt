@@ -1,0 +1,37 @@
+$ bash report/transaction/research/oracle/run-sql.sh rev1109 report/transaction/research/oracle/cleanup-preview.sql 10630 10632 10625 13376 13377 13378 []
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+
+PL/SQL procedure successfully completed.
+
+PREVIEW run=rev1109
+USERS=1 ID=10630
+CATEGORIES=1 ID=10632
+CARTS=1 ID=10625
+PRODUCTS=3 IDS=13376,13377,13378
+INVENTORY=3
+CART_ITEMS=3
+ORDERS_OWNED=0 MANIFEST_IDS=[]
+ORDER_ITEMS=0
+
+PL/SQL procedure successfully completed.
+

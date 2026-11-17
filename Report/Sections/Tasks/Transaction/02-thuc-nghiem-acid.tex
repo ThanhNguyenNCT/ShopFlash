@@ -1,0 +1,947 @@
+% !TeX root = ../../../main.tex
+% Nhập bản 3.2 mới từ Bao_cao_Transaction_3_1-3_3_Rut_gon, chuẩn hóa thành 2.4.2.
+% Giữ nguyên mã nguồn, dữ liệu và các dòng kết quả; chỉ lược dòng trống trong log.
+\txsection{Cơ sở lý thuyết và thực nghiệm các tính chất ACID}\label{sec:tx-2}
+Phần này đối chiếu các tính chất ACID trên Oracle và Redis thông qua cơ chế DBMS, mã nguồn và kết quả thực nghiệm. Trọng tâm là \textbf{Atomicity}, \textbf{Consistency} và Checkout nhiều bước; \textbf{Isolation} và \textbf{Durability} được trình bày ở mức cần thiết, còn phân tích chuyên sâu thuộc các topic Concurrency Control và Backup \& Recovery.
+
+\txsubsection{Atomicity — Tính nguyên tử}\label{sec:tx-2-1}
+\paragraph*{Cơ sở lý thuyết}
+
+Atomicity quy định rằng các thao tác thuộc một transaction phải được xử lý như một đơn vị logic thống nhất. Trong mô hình transaction hỗ trợ rollback đầy đủ, khi transaction được xác nhận thành công, toàn bộ thay đổi của nó được ghi nhận; nếu transaction bị hủy, các thay đổi chưa commit phải được hoàn tác để dữ liệu trở về trạng thái trước transaction.
+
+Giả sử một transaction gồm ba thao tác:
+
+\begin{itemize}[leftmargin=*,itemsep=2pt,topsep=4pt]
+\item
+Tạo một đơn hàng (\emph{Order}).
+
+\item
+Giảm số lượng tồn kho (\emph{Inventory}).
+
+\item
+Xóa sản phẩm đã mua khỏi giỏ hàng (\emph{Cart}).
+
+\end{itemize}
+Nếu thao tác cuối thất bại, việc chỉ giữ lại hai thao tác đầu có thể khiến trạng thái dữ liệu không còn phù hợp với kết quả nghiệp vụ. Atomicity giải quyết vấn đề này bằng cách kiểm soát phạm vi xác nhận và hoàn tác các thay đổi.
+
+Tuy nhiên, cần phân biệt \textbf{khả năng hoàn tác một transaction} với \textbf{tính nguyên tử trong quá trình thực thi}. Hai khái niệm này liên quan nhưng không đồng nhất:
+
+\begin{itemize}[leftmargin=*,itemsep=2pt,topsep=4pt]
+\item
+\textbf{Khả năng hoàn tác (Rollback capability):} Cho phép hủy các thay đổi chưa được xác nhận, kể cả khi một số câu lệnh trước đó đã thực hiện thành công. Chẳng hạn, Oracle có thể thực hiện ba lệnh UPDATE trong cùng transaction; nếu bước cuối thất bại, ứng dụng gọi \texttt{ROLLBACK} để khôi phục cả những thay đổi của hai lệnh đầu.
+
+\item
+\textbf{Tính nguyên tử trong thực thi (Atomic execution):} Bảo đảm một thao tác hoặc nhóm lệnh được thực thi như một đơn vị không bị thao tác từ client khác chen ngang. Chẳng hạn, Redis thực thi các command trong \texttt{MULTI/\allowbreak{}EXEC} hoặc một Lua script mà không xử lý command khác xen vào giữa. Tuy nhiên, nếu một lệnh đã ghi dữ liệu thành công rồi lệnh tiếp theo gặp lỗi runtime, Redis không tự hoàn tác các thay đổi trước đó.
+
+\end{itemize}
+Như vậy, một nhóm lệnh có thể được thực thi liên tục, không bị lệnh khác chen ngang, nhưng vẫn không có khả năng khôi phục toàn bộ thay đổi khi phát sinh lỗi. Ngược lại, khả năng rollback của Oracle không có nghĩa mọi transaction phải được thực thi tuần tự; Oracle vẫn cho phép nhiều transaction chạy đồng thời và kiểm soát xung đột thông qua cơ chế isolation và locking.
+
+Sự khác biệt cốt lõi nằm ở câu hỏi được bảo đảm: \textbf{Atomic execution bảo vệ quá trình thực thi khỏi sự xen ngang, còn rollback bảo vệ khả năng khôi phục trạng thái dữ liệu khi transaction bị hủy.} Đây là điểm đặc biệt quan trọng khi đối chiếu Oracle với Redis.
+
+\paragraph*{Cơ chế COMMIT và ROLLBACK của Oracle — Thí nghiệm A1}
+
+Oracle quản lý nhiều câu lệnh thay đổi dữ liệu trong cùng một transaction. Hai lệnh điều khiển cơ bản là \texttt{COMMIT}, dùng để xác nhận transaction, và \texttt{ROLLBACK}, dùng để hủy những thay đổi chưa được commit.
+
+Thí nghiệm A1 sử dụng hai nhánh độc lập. Nhánh thứ nhất thực hiện Checkout cho sản phẩm P1 và kết thúc bằng \texttt{COMMIT}; nhánh thứ hai thực hiện thao tác tương tự với P2 nhưng kết thúc bằng \texttt{ROLLBACK}.
+
+Đoạn SQL trọng tâm được trích từ nhánh COMMIT:
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=OracleSQL,caption={Trích các thao tác cập nhật và xác nhận transaction trong A1.},label={lst:tx-1},escapeinside={(*@}{@*)}]
+UPDATE product_inventory
+SET on_hand_quantity = on_hand_quantity - 1,
+    version = version + 1,
+    updated_at = SYSTIMESTAMP
+WHERE product_id = :p1_id
+  AND on_hand_quantity - reserved_flash_quantity >= 1;
+
+-- Ki(*@ể@*)m tra s(*@ố@*) d(*@ò@*)ng c(*@ậ@*)p nh(*@ậ@*)t th(*@à@*)nh c(*@ô@*)ng (l(*@ư@*)(*@ợ@*)c)
+
+DELETE FROM cart_items
+WHERE cart_id = :fixture_cart_id
+  AND product_id = :p1_id;
+
+-- Ki(*@ể@*)m tra s(*@ố@*) d(*@ò@*)ng x(*@ó@*)a th(*@à@*)nh c(*@ô@*)ng (l(*@ư@*)(*@ợ@*)c)
+
+COMMIT;
+\end{lstlisting}
+
+Trong đó, \texttt{:\allowbreak{}p1\_\allowbreak{}id} là định danh sản phẩm P1; \texttt{:\allowbreak{}fixture\_\allowbreak{}cart\_\allowbreak{}id} là định danh giỏ hàng; \texttt{on\_\allowbreak{}hand\_\allowbreak{}quantity} là tồn kho hiện có; \texttt{reserved\_\allowbreak{}flash\_\allowbreak{}quantity} là số lượng đã giữ. Điều kiện trong \texttt{WHERE} chỉ cho phép giảm tồn khi lượng khả dụng còn ít nhất một đơn vị. Biến \texttt{version} được tăng sau khi cập nhật tồn kho.
+
+Trước đoạn mã trên, transaction còn thực hiện hai lệnh \texttt{INSERT} để tạo Order và Order Item. Sau mỗi thao tác thay đổi dữ liệu quan trọng, chương trình kiểm tra \texttt{SQL\%ROWCOUNT} nhằm xác nhận số dòng bị ảnh hưởng đúng với dự kiến.
+
+Ở nhánh ROLLBACK, nhóm thực hiện cùng chuỗi thao tác với P2 nhưng thay \texttt{COMMIT} bằng \texttt{ROLLBACK}. Ngay trước rollback, Order mới được tạo vẫn có thể được truy vấn trong chính session đang thực hiện transaction; sau rollback, Order này không còn tồn tại.
+
+Kết quả được quan sát từ một kết nối Oracle độc lập:
+
+\begin{table}[!htbp]
+\centering
+\caption{Trạng thái dữ liệu sau hai nhánh COMMIT và ROLLBACK của A1.}\label{tab:tx-3}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=1.15\hsize\linewidth=\hsize}L|>{\hsize=1.05\hsize\linewidth=\hsize}L|>{\hsize=0.9\hsize\linewidth=\hsize}L|>{\hsize=0.9\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Chỉ tiêu} & \reportheader{Trạng thái ban đầu} & \reportheader{Sau COMMIT P1} & \reportheader{Sau ROLLBACK P2} \\ \hline
+Số Order & 0 & 1 & 1 \\ \hline
+Số Order Item & 0 & 1 & 1 \\ \hline
+Số dòng Cart & 3 & 2 & 2 \\ \hline
+Tồn kho P1 & 100 & 99 & 99 \\ \hline
+Tồn kho P2 & 100 & 100 & 100 \\ \hline
+\end{tabularx}
+\end{table}
+Nhánh COMMIT tạo một Order, giảm tồn P1 từ 100 xuống 99 và xóa P1 khỏi Cart. Các thay đổi này vẫn tồn tại khi được truy vấn từ kết nối mới.
+
+Ở nhánh ROLLBACK, transaction đã tạo một Order khác và thay đổi P2, nhưng toàn bộ thay đổi chưa commit của nhánh này bị hủy. Vì vậy, snapshot cuối vẫn chỉ ghi nhận Order đã commit ở nhánh trước, trong khi tồn kho P2 và dòng Cart tương ứng không thay đổi.
+
+Kết quả chứng minh Oracle có thể xác nhận hoặc hoàn tác toàn bộ những thao tác chưa commit thuộc cùng một transaction, thay vì chỉ xác nhận từng câu SQL riêng lẻ.
+
+\paragraph*{Các phạm vi hoàn tác của Oracle — Thí nghiệm A3}
+
+A3 kiểm chứng ba phạm vi hoàn tác của Oracle. \texttt{SAVEPOINT} đánh dấu một mốc trong transaction để có thể quay lại mà không hủy các thay đổi trước mốc đó:
+
+\begin{itemize}[leftmargin=*,itemsep=2pt,topsep=4pt]
+\item
+\emph{Statement rollback:} Khi một câu SQL thất bại trong quá trình thực thi, Oracle hoàn tác tác động của chính câu SQL đó. Những câu lệnh thành công trước đó trong transaction không mặc nhiên bị hủy.
+
+\item
+\emph{Rollback to savepoint:} Chỉ hoàn tác các thay đổi được thực hiện sau một savepoint đã xác định.
+
+\item
+\emph{Full rollback:} Hủy toàn bộ thay đổi chưa commit trong transaction hiện tại.
+
+\end{itemize}
+A3 kiểm chứng ba phạm vi này bằng cách lần lượt cập nhật tồn kho P1, P2 và cố tình tạo một lỗi ràng buộc.
+
+Đoạn SQL trọng tâm:
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=OracleSQL,caption={Các thao tác chính tạo trạng thái trung gian trong A3; phần cập nhật timestamp, kiểm tra row count và xử lý exception được lược bỏ.},label={lst:tx-2},escapeinside={(*@}{@*)}]
+UPDATE product_inventory
+SET on_hand_quantity = 99
+WHERE product_id = :p1_id;
+
+SAVEPOINT before_p2;
+
+UPDATE product_inventory
+SET on_hand_quantity = 98
+WHERE product_id = :p2_id;
+
+UPDATE cart_items
+SET quantity = 0
+WHERE cart_id = :fixture_cart_id
+  AND product_id = :p1_id;
+\end{lstlisting}
+
+Câu \texttt{UPDATE} gán \texttt{quantity =\allowbreak{} 0} vi phạm constraint \texttt{CK\_\allowbreak{}CART\_\allowbreak{}ITEMS\_\allowbreak{}QUANTITY}. Script ghi nhận trạng thái sau lỗi, gọi \texttt{ROLLBACK TO before\_\allowbreak{}p2} rồi thực hiện full \texttt{ROLLBACK}.
+
+Kết quả SQL*Plus:
+
+\reportblockspace{72pt}
+\begingroup
+\captionof{txresult}{Các trạng thái ghi nhận trong A3, trích từ transcript thực nghiệm.}\label{result:tx-1}
+\nopagebreak[4]
+\begin{Verbatim}
+STATEMENT_ERROR=-2290 ORA-02290: check constraint
+(SHOP.CK_CART_ITEMS_QUANTITY) violated
+AFTER_FAILED_STATEMENT P1=99 P2=98 CART_QTY=1
+AFTER_ROLLBACK_TO P1=99 P2=100
+AFTER_FULL_ROLLBACK P1=100 P2=100
+\end{Verbatim}
+\endgroup\par\smallskip
+Trong đó, \texttt{P1} và \texttt{P2} là số lượng tồn kho tương ứng; \texttt{CART\_\allowbreak{}QTY} là số lượng P1 trong giỏ hàng.
+
+\begin{table}[!htbp]
+\centering
+\caption{So sánh ba phạm vi hoàn tác trong Oracle.}\label{tab:tx-4}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=1.25\hsize\linewidth=\hsize}L|>{\hsize=0.55\hsize\linewidth=\hsize}L|>{\hsize=0.55\hsize\linewidth=\hsize}L|>{\hsize=1.65\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Thời điểm} & \reportheader{Tồn P1} & \reportheader{Tồn P2} & \reportheader{Ý nghĩa} \\ \hline
+Ban đầu & 100 & 100 & Chưa phát sinh cập nhật \\ \hline
+Sau câu SQL lỗi & 99 & 98 & Chỉ câu UPDATE Cart bị hoàn tác \\ \hline
+Sau \texttt{ROLLBACK TO before\_\allowbreak{}p2} & 99 & 100 & Hoàn tác phần cập nhật P2 \\ \hline
+Sau full \texttt{ROLLBACK} & 100 & 100 & Hoàn tác toàn bộ thay đổi chưa commit \\ \hline
+\end{tabularx}
+\end{table}
+Kết quả đầu tiên cho thấy lỗi \texttt{ORA-\allowbreak{}02290} không tự hủy những câu UPDATE Inventory đã thành công trước đó. Ở mốc thứ hai, P2 được khôi phục về 100 trong khi P1 vẫn bằng 99, phù hợp với vị trí của savepoint. Cuối cùng, full rollback đưa cả hai giá trị trở về trạng thái ban đầu.
+
+Điểm cần nhấn mạnh là \textbf{một câu SQL thất bại không đồng nghĩa toàn bộ transaction tự động bị hủy}. Để bảo đảm một nghiệp vụ nhiều bước được hoàn tác đầy đủ, chương trình phải quản lý phạm vi transaction và xử lý lỗi phù hợp.
+
+\paragraph*{Cơ chế MULTI/EXEC và DISCARD của Redis — Thí nghiệm A4}
+
+Với Redis, \texttt{MULTI} xếp hàng các command và trả \texttt{QUEUED}. \texttt{EXEC} thực thi hàng đợi theo thứ tự, còn \texttt{DISCARD} hủy các command chưa chạy. A4 đối chiếu hai cách kết thúc trên cùng fixture:
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=Redis,caption={Các Redis command cốt lõi trong nhánh EXEC của A4. Tên key được rút gọn để dễ theo dõi; script thực tế sử dụng prefix \texttt{txresearch:\allowbreak{}native01:\allowbreak{}}.},label={lst:tx-3},escapeinside={(*@}{@*)}]
+MULTI
+HSET order user_id 10528 status PENDING product_id 12941 quantity 1
+HINCRBY inventory:12941 on_hand -1
+HDEL cart 12941
+EXEC
+\end{lstlisting}
+
+Ở đây, \texttt{HSET} tạo các field của Order Hash; \texttt{HINCRBY} giảm tồn P1 một đơn vị; \texttt{HDEL} xóa field của P1 trong Cart Hash.
+
+Kết quả Redis CLI:
+
+\reportblockspace{72pt}
+\begingroup
+\captionof{txresult}{Phản hồi của nhánh MULTI/EXEC trong A4.}\label{result:tx-2}
+\nopagebreak[4]
+\begin{Verbatim}
+OK
+QUEUED
+QUEUED
+QUEUED
+4
+99
+1
+\end{Verbatim}
+\endgroup\par\smallskip
+Phản hồi \texttt{OK} đầu tiên xác nhận bắt đầu transaction. Ba dòng \texttt{QUEUED} cho biết ba command được xếp hàng thành công. Sau \texttt{EXEC}, Redis trả kết quả của từng command theo đúng thứ tự:
+
+\begin{itemize}[leftmargin=*,itemsep=2pt,topsep=4pt]
+\item
+\texttt{4}: \texttt{HSET} thêm bốn field mới vào Order Hash.
+
+\item
+\texttt{99}: \texttt{HINCRBY} trả tồn kho sau khi giảm từ 100 xuống 99.
+
+\item
+\texttt{1}: \texttt{HDEL} xóa thành công một field Cart.
+
+\end{itemize}
+Snapshot sau \texttt{EXEC} xác nhận Order được tạo, tồn kho P1 bằng 99 và P1 không còn trong Cart.
+
+Ở nhánh đối chứng, nhóm giữ nguyên ba command \texttt{HSET}, \texttt{HINCRBY}, \texttt{HDEL} và chỉ thay \textbf{dòng cuối \texttt{EXEC} bằng \texttt{DISCARD}}:
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=Redis,caption={Lệnh cuối thay thế EXEC trong nhánh DISCARD của A4; các lệnh phía trước giữ nguyên Mã nguồn~\ref{lst:tx-3}.},label={lst:tx-4},escapeinside={(*@}{@*)}]
+DISCARD
+\end{lstlisting}
+
+Kết quả thực tế từ Redis CLI:
+
+\reportblockspace{72pt}
+\begingroup
+\captionof{txresult}{Phản hồi của nhánh MULTI/DISCARD trong A4.}\label{result:tx-3}
+\nopagebreak[4]
+\begin{Verbatim}
+OK
+QUEUED
+QUEUED
+QUEUED
+OK
+\end{Verbatim}
+\endgroup\par\smallskip
+Sau \texttt{DISCARD}, Redis chỉ trả \texttt{OK} mà không trả kết quả của ba command, vì hàng đợi chưa được thực thi. Đối chiếu snapshot của hai nhánh:
+
+\begin{table}[!htbp]
+\centering
+\caption{Đối chiếu trạng thái dữ liệu của hai nhánh EXEC và DISCARD trong A4.}\label{tab:tx-5}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.9\hsize\linewidth=\hsize}L|>{\hsize=1.05\hsize\linewidth=\hsize}L|>{\hsize=1.05\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Dữ liệu kiểm tra} & \reportheader{Sau EXEC} & \reportheader{Sau DISCARD} \\ \hline
+Order & Tồn tại dưới dạng Hash & Không tồn tại (\texttt{TYPE=\allowbreak{}none}) \\ \hline
+Inventory P1 (\texttt{on\_\allowbreak{}hand}) & 99 & 100 \\ \hline
+Cart P1 & Đã xóa khỏi Cart & Vẫn có Quantity = 1 \\ \hline
+\end{tabularx}
+\end{table}
+Hai nhánh được thực hiện trên fixture đã được khôi phục về cùng trạng thái ban đầu. Vì vậy, sự khác biệt trong kết quả xuất phát từ lệnh kết thúc transaction: \texttt{EXEC} thực thi các command đã xếp hàng, còn \texttt{DISCARD} hủy hàng đợi mà không làm thay đổi dữ liệu.
+
+Thí nghiệm chứng minh \texttt{MULTI/\allowbreak{}EXEC} giúp thực hiện một nhóm command theo thứ tự, không bị các command từ client khác chen vào trong quá trình thực thi hàng đợi. Tuy nhiên, \textbf{DISCARD chỉ hủy những command chưa được chạy; nó không phải cơ chế hoàn tác các thay đổi đã thực hiện thành công}.
+
+\paragraph*{Giới hạn xử lý lỗi trong Redis — Thí nghiệm A5}
+
+A5 tiếp tục kiểm tra hành vi khi command hoặc Lua script phát sinh lỗi ở những thời điểm khác nhau:
+
+\begin{table}[!htbp]
+\centering
+\caption{Ba loại lỗi được kiểm chứng trong A5.}\label{tab:tx-6}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.75\hsize\linewidth=\hsize}L|>{\hsize=0.9\hsize\linewidth=\hsize}L|>{\hsize=1.35\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Tình huống} & \reportheader{Thời điểm lỗi} & \reportheader{Hành vi được kiểm chứng} \\ \hline
+Queue-time error & Trước \texttt{EXEC}, khi xếp command & \texttt{EXECABORT}, hàng đợi không được thực thi \\ \hline
+Runtime error & Trong quá trình thực thi \texttt{EXEC} & Command lỗi trả lỗi; các command khác vẫn có thể thực hiện \\ \hline
+Lua runtime error & Sau khi Lua đã thực hiện một số lệnh ghi & Script báo lỗi nhưng không tự hoàn tác các ghi trước đó \\ \hline
+\end{tabularx}
+\end{table}
+\paragraph*{Trường hợp 1 — Lỗi khi xếp hàng (queue-time error)}
+
+Chương trình cố tình gửi một command không tồn tại, \texttt{TXRESEARCH\_\allowbreak{}INVALID\_\allowbreak{}COMMAND}, sau khi đã xếp một lệnh giảm tồn kho hợp lệ:
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=Redis,caption={Nhánh tạo queue-time error trong A5. Tên Inventory key được rút gọn; script thực tế sử dụng prefix của fixture.},label={lst:tx-5},escapeinside={(*@}{@*)}]
+MULTI
+HINCRBY inventory:12941 on_hand -1
+TXRESEARCH_INVALID_COMMAND
+EXEC
+\end{lstlisting}
+
+Kết quả Redis CLI:
+
+\reportblockspace{72pt}
+\begingroup
+\captionof{txresult}{Phản hồi khi command không hợp lệ được gửi trong giai đoạn xếp hàng của A5.}\label{result:tx-4}
+\nopagebreak[4]
+\begin{Verbatim}
+OK
+QUEUED
+ERR unknown command 'TXRESEARCH_INVALID_COMMAND', with args beginning with:
+EXECABORT Transaction discarded because of previous errors.
+\end{Verbatim}
+\endgroup\par\smallskip
+Lệnh \texttt{HINCRBY} hợp lệ được xếp hàng và trả \texttt{QUEUED}, nhưng \texttt{TXRESEARCH\_\allowbreak{}INVALID\_\allowbreak{}COMMAND} bị Redis từ chối ngay khi nhận lệnh. Do Redis đã ghi nhận lỗi trong giai đoạn queue, lệnh \texttt{EXEC} tiếp theo trả \texttt{EXECABORT} và không thực thi cả lệnh giảm tồn kho đã được xếp hàng trước đó.
+
+Snapshot xác nhận Inventory P1 vẫn bằng 100, Cart giữ nguyên ba sản phẩm và Order chưa tồn tại. Như vậy, lỗi queue-time khiến toàn bộ hàng đợi bị hủy trước khi bất kỳ thao tác ghi nào được thực hiện.
+
+\paragraph*{Trường hợp 2 — Lỗi trong quá trình EXEC (runtime error)}
+
+Nhánh runtime sử dụng \texttt{LPUSH} lên key \texttt{order} đã được tạo dưới dạng Hash:
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=Redis,caption={Nhánh tạo lỗi runtime trong A5; tên key được rút gọn.},label={lst:tx-6},escapeinside={(*@}{@*)}]
+MULTI
+HINCRBY inventory:12941 on_hand -1
+HSET order status PENDING product_id 12941
+LPUSH order impossible
+HDEL cart 12941
+EXEC
+\end{lstlisting}
+
+\texttt{LPUSH} là command thêm phần tử vào List, trong khi \texttt{order} đang là Hash. Khi \texttt{EXEC} chạy đến lệnh này, Redis trả lỗi \texttt{WRONGTYPE}.
+
+Các phản hồi sau \texttt{EXEC}:
+
+\reportblockspace{72pt}
+\begingroup
+\captionof{txresult}{Phản hồi khi một command trong MULTI/EXEC phát sinh lỗi runtime.}\label{result:tx-5}
+\nopagebreak[4]
+\begin{Verbatim}
+99
+2
+WRONGTYPE Operation against a key holding the wrong kind of value
+1
+\end{Verbatim}
+\endgroup\par\smallskip
+\texttt{LPUSH} thất bại vì \texttt{order} là Hash, không phải List. Tuy nhiên, các command còn lại vẫn chạy: P1 giảm còn 99, hai field Order được tạo và P1 bị xóa khỏi Cart. Redis \textbf{không hoàn tác các ghi thành công} khi một command trong \texttt{EXEC} gặp lỗi runtime.
+
+\paragraph*{Trường hợp 3 — Lỗi Lua sau khi đã ghi dữ liệu}
+
+Nhánh Lua tiếp tục kiểm chứng giới hạn tương tự:
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=TransactionLua,caption={Toàn bộ nội dung Lua tạo lỗi sau ghi trong A5.},label={lst:tx-7},escapeinside={(*@}{@*)}]
+redis.call('HINCRBY', KEYS[1], 'on_hand', -1)
+redis.call('HSET', KEYS[2], 'status', 'PENDING')
+return redis.call('LPUSH', KEYS[2], 'impossible')
+\end{lstlisting}
+
+\texttt{KEYS[1]} là Inventory Hash, còn \texttt{KEYS[2]} là Order Hash. Hai lệnh đầu cập nhật thành công trước khi lệnh thứ ba gây lỗi \texttt{WRONGTYPE}.
+
+Kết quả thực tế cho thấy Lua trả lỗi ở dòng thứ tư, nhưng snapshot sau đó vẫn ghi nhận tồn kho P1 bằng 99 và Order có trạng thái \texttt{PENDING}. Khác với nhánh runtime của \texttt{EXEC}, Cart không bị thay đổi bởi script Lua này vì nó không có lệnh cập nhật Cart.
+
+Lua trong Redis được thực thi như một đơn vị không bị command khác chen ngang, nhưng cơ chế đó \textbf{không cung cấp full rollback khi script đã ghi dữ liệu rồi gặp lỗi runtime}.
+
+\paragraph*{Đối chiếu kết quả Atomicity}
+
+\paragraph*{Oracle}
+
+A1 và A3 cho thấy Oracle hỗ trợ \texttt{COMMIT}, \texttt{ROLLBACK} và \texttt{SAVEPOINT}. Khi một câu SQL lỗi, các lệnh thành công trước đó chưa tự bị hủy; ứng dụng lựa chọn rollback một phần hoặc toàn bộ transaction.
+
+\paragraph*{Redis}
+
+A4 xác nhận \texttt{MULTI/\allowbreak{}EXEC} thực thi hàng đợi và \texttt{DISCARD} hủy hàng đợi chưa chạy. A5 cho thấy lỗi runtime trong \texttt{EXEC} hoặc Lua có thể để lại thay đổi một phần vì Redis không tự khôi phục những ghi đã hoàn thành.
+
+\paragraph*{Nhận xét chung}
+
+Oracle cung cấp \textbf{khả năng hoàn tác nhiều câu SQL}, còn Redis cung cấp \textbf{thực thi không bị xen ngang} nhưng thiếu full rollback tương đương cho lỗi runtime sau ghi. Nghiệp vụ Redis nhiều bước vì vậy cần validation trước ghi và xử lý lỗi phù hợp.
+
+\txsubsection{Consistency — Tính nhất quán}\label{sec:tx-2-2}
+\paragraph*{Cơ sở lý thuyết}
+
+Consistency yêu cầu transaction duy trì dữ liệu trong trạng thái hợp lệ theo tập hợp các quy tắc đã được xác định. Nếu trạng thái trước transaction thỏa mãn các ràng buộc, việc thực hiện transaction thành công phải bảo toàn những ràng buộc cần thiết trong trạng thái sau cùng.
+
+Các quy tắc này có thể được chia thành hai nhóm.
+
+Thứ nhất là \textbf{ràng buộc toàn vẹn dữ liệu} (\emph{integrity constraints}), chẳng hạn khóa chính không được trùng, khóa ngoại phải tham chiếu tới bản ghi hợp lệ và số lượng sản phẩm không được âm. Những ràng buộc này có thể được khai báo trực tiếp trong schema quan hệ.
+
+Thứ hai là \textbf{bất biến nghiệp vụ} (\emph{business invariants}), tức các điều kiện cần luôn được duy trì trong quá trình thực hiện một nghiệp vụ. Ví dụ, số lượng mua phải phù hợp với giỏ hàng, sản phẩm phải ở trạng thái có thể bán và lượng tồn khả dụng phải đủ để đáp ứng yêu cầu.
+
+Việc bảo đảm Consistency phụ thuộc vào cả DBMS và cách triển khai nghiệp vụ. Hệ quản trị có thể tự động thực thi những ràng buộc đã được khai báo, nhưng không thể tự suy ra tất cả quy tắc kinh doanh nếu các quy tắc đó chưa được biểu diễn trong database hoặc logic ứng dụng.
+
+\paragraph*{Oracle — Bảo vệ dữ liệu bằng Integrity Constraints}
+
+Oracle hỗ trợ \texttt{PRIMARY KEY}, \texttt{FOREIGN KEY}, \texttt{UNIQUE}, \texttt{CHECK} và \texttt{NOT NULL}. DBMS tự từ chối câu SQL vi phạm constraint đang có hiệu lực. Để xác nhận các ràng buộc trong schema, C1 truy vấn hai metadata view:
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=OracleSQL,caption={Trích phần truy vấn metadata trong C1; điều kiện lọc, cột CHECK và GROUP BY được lược bỏ.},label={lst:tx-8},escapeinside={(*@}{@*)}]
+SELECT c.table_name,
+       c.constraint_name,
+       c.constraint_type,
+       c.status,
+       c.validated,
+       c.deferrable,
+       c.deferred,
+       LISTAGG(cc.column_name, ', ')
+         WITHIN GROUP (ORDER BY cc.position) AS columns
+FROM user_constraints c
+LEFT JOIN user_cons_columns cc
+  ON cc.constraint_name = c.constraint_name
+\end{lstlisting}
+
+\texttt{USER\_\allowbreak{}CONSTRAINTS} cho biết loại và trạng thái ràng buộc; \texttt{USER\_\allowbreak{}CONS\_\allowbreak{}COLUMNS} xác định cột liên quan. Các trường \texttt{status}, \texttt{validated}, \texttt{deferrable}, \texttt{deferred} thể hiện hiệu lực và thời điểm kiểm tra constraint. Mã \texttt{constraint\_\allowbreak{}type} được giải thích như sau:
+
+\begin{table}[!htbp]
+\centering
+\caption{Ý nghĩa các mã phân loại constraint trong metadata Oracle.}\label{tab:tx-7}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.3\hsize\linewidth=\hsize}L|>{\hsize=1\hsize\linewidth=\hsize}L|>{\hsize=1.7\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Mã} & \reportheader{Loại constraint} & \reportheader{Ý nghĩa} \\ \hline
+\texttt{P} & Primary Key & Khóa chính, xác định duy nhất từng bản ghi \\ \hline
+\texttt{R} & Referential Integrity / Foreign Key & Khóa ngoại, bảo đảm giá trị tham chiếu phù hợp với khóa được tham chiếu \\ \hline
+\texttt{U} & Unique & Ràng buộc duy nhất, ngăn các giá trị trùng nhau theo quy tắc của constraint \\ \hline
+\texttt{C} & Check / Not Null & Ràng buộc điều kiện trên giá trị cột; Oracle cũng biểu diễn NOT NULL bằng loại \texttt{C} \\ \hline
+\end{tabularx}
+\end{table}
+C1 ghi nhận \textbf{29 constraint} trên các bảng \texttt{ORDERS}, \texttt{ORDER\_\allowbreak{}ITEMS}, \texttt{PRODUCTS} và \texttt{PRODUCT\_\allowbreak{}INVENTORY}. Những ràng buộc được phân tích đều ở trạng thái \texttt{ENABLED}, \texttt{VALIDATED}, \texttt{NOT DEFERRABLE}, \texttt{IMMEDIATE}. Một số ví dụ:
+
+\begin{table}[!htbp]
+\centering
+\caption{Một số constraint tiêu biểu được xác nhận từ metadata Oracle trong C1.}\label{tab:tx-8}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=1.1\hsize\linewidth=\hsize}L|>{\hsize=0.65\hsize\linewidth=\hsize}L|>{\hsize=0.9\hsize\linewidth=\hsize}L|>{\hsize=1.35\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Constraint} & \reportheader{Loại (mã)} & \reportheader{Bảng} & \reportheader{Quy tắc được bảo vệ} \\ \hline
+\texttt{PK\_\allowbreak{}ORDERS} & Primary Key (\texttt{P}) & \texttt{ORDERS} & Mỗi Order có khóa chính duy nhất \\ \hline
+\texttt{FK\_\allowbreak{}ORDER\_\allowbreak{}ITEMS\_\allowbreak{}ORDER} & Foreign Key (\texttt{R}) & \texttt{ORDER\_\allowbreak{}ITEMS} & Order Item phải tham chiếu tới Order hợp lệ \\ \hline
+\texttt{CK\_\allowbreak{}ORDER\_\allowbreak{}ITEMS\_\allowbreak{}QUANTITY} & Check (\texttt{C}) & \texttt{ORDER\_\allowbreak{}ITEMS} & Số lượng sản phẩm phải lớn hơn 0 \\ \hline
+\texttt{CK\_\allowbreak{}ORDERS\_\allowbreak{}TOTAL} & Check (\texttt{C}) & \texttt{ORDERS} & \texttt{total\_\allowbreak{}amount =\allowbreak{} subtotal -\allowbreak{} discount\_\allowbreak{}amount} \\ \hline
+\texttt{CK\_\allowbreak{}INVENTORY\_\allowbreak{}RES\_\allowbreak{}LE\_\allowbreak{}ON} & Check (\texttt{C}) & \texttt{PRODUCT\_\allowbreak{}INVENTORY} & Tồn đã giữ không được lớn hơn tồn hiện có \\ \hline
+\texttt{UK\_\allowbreak{}ORDERS\_\allowbreak{}IDEMPOTENCY} & Unique (\texttt{U}) & \texttt{ORDERS} & Không cho phép trùng giá trị idempotency key theo ràng buộc đã khai báo \\ \hline
+\end{tabularx}
+\end{table}
+C1 kiểm tra metadata; A2 kiểm chứng phản hồi thực tế khi dữ liệu vi phạm constraint.
+
+\paragraph*{Kiểm chứng phản hồi constraint — Thí nghiệm A2}
+
+Ba tình huống được tạo có chủ đích:
+
+\begin{table}[!htbp]
+\centering
+\caption{Các vi phạm được tạo có chủ đích và kết quả của A2.}\label{tab:tx-9}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=1.3\hsize\linewidth=\hsize}L|>{\hsize=1.05\hsize\linewidth=\hsize}L|>{\hsize=0.65\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Thao tác} & \reportheader{Constraint} & \reportheader{Mã lỗi Oracle} \\ \hline
+Thêm lại cùng cặp \texttt{(cart\_\allowbreak{}id, product\_\allowbreak{}id)} đã có trong \texttt{CART\_\allowbreak{}ITEMS} & \texttt{UK\_\allowbreak{}CART\_\allowbreak{}ITEMS\_\allowbreak{}CART\_\allowbreak{}PRODUCT} & \texttt{ORA-\allowbreak{}00001} \\ \hline
+Tạo Order Item tham chiếu tới \texttt{order\_\allowbreak{}id =\allowbreak{} -\allowbreak{}1}, không tồn tại & \texttt{FK\_\allowbreak{}ORDER\_\allowbreak{}ITEMS\_\allowbreak{}ORDER} & \texttt{ORA-\allowbreak{}02291} \\ \hline
+Cập nhật Quantity của Cart Item thành 0 & \texttt{CK\_\allowbreak{}CART\_\allowbreak{}ITEMS\_\allowbreak{}QUANTITY} & \texttt{ORA-\allowbreak{}02290} \\ \hline
+\end{tabularx}
+\end{table}
+Đoạn SQL tạo lỗi CHECK constraint:
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=OracleSQL,caption={Thao tác cố tình vi phạm CHECK constraint trong A2.},label={lst:tx-9},escapeinside={(*@}{@*)}]
+UPDATE cart_items
+SET quantity = 0
+WHERE cart_id = :fixture_cart_id
+  AND product_id = :p1_id;
+\end{lstlisting}
+
+Do Quantity hợp lệ của Cart Item phải lớn hơn 0, Oracle từ chối câu UPDATE. Kết quả SQL*Plus ghi nhận:
+
+\reportblockspace{72pt}
+\begingroup
+\captionof{txresult}{Ba mã lỗi constraint được ghi nhận trong A2; các phần mô tả bổ trợ của SQL*Plus được lược bỏ.}\label{result:tx-6}
+\nopagebreak[4]
+\begin{Verbatim}
+UNIQUE SQLCODE=-1 ORA-00001: unique constraint
+(SHOP.UK_CART_ITEMS_CART_PRODUCT) violated
+FK SQLCODE=-2291 ORA-02291: integrity constraint
+(SHOP.FK_ORDER_ITEMS_ORDER) violated
+CHECK SQLCODE=-2290 ORA-02290: check constraint
+(SHOP.CK_CART_ITEMS_QUANTITY) violated
+\end{Verbatim}
+\endgroup\par\smallskip
+Trong đó, \texttt{SQLCODE} là mã lỗi dạng số mà PL/SQL ghi nhận, còn mã \texttt{ORA-\allowbreak{}xxxxx} là mã lỗi được Oracle trả về để xác định loại vi phạm.
+
+Cả ba thao tác đều bị từ chối. Snapshot sau khi kết thúc thí nghiệm khớp với trạng thái ban đầu: Cart và Inventory không thay đổi, không xuất hiện Order Item tham chiếu sai.
+
+Từ C1 và A2 có thể kết luận rằng Oracle thực sự bảo vệ những ràng buộc đã khai báo trong schema. Tuy nhiên, constraint không thay thế toàn bộ logic nghiệp vụ. Chẳng hạn, khóa ngoại có thể bảo đảm một Product ID tồn tại nhưng không tự bảo đảm sản phẩm đang ở trạng thái \texttt{ACTIVE}; hoặc một CHECK constraint về tồn kho không tự xác nhận yêu cầu mua đáp ứng đúng số lượng còn khả dụng tại thời điểm cập nhật.
+
+Những điều kiện còn lại cần được triển khai trong transaction thông qua validation và thao tác cập nhật phù hợp.
+
+\paragraph*{Redis — Bảo vệ Consistency bằng Guarded Write}
+
+Khác với schema quan hệ của Oracle, các Redis Hash và key độc lập không tự áp dụng FOREIGN KEY hoặc CHECK giữa những đối tượng dữ liệu. Một client có quyền ghi có thể tạo field hoặc cập nhật giá trị mà không phải vượt qua các ràng buộc nghiệp vụ được khai báo tương tự Oracle.
+
+Vì vậy, để bảo vệ tính nhất quán cho một luồng xử lý, ứng dụng phải chủ động kiểm tra dữ liệu và kiểm soát những thao tác ghi được phép thực hiện.
+
+Thí nghiệm C2 tập trung kiểm chứng hướng tiếp cận này bằng cơ chế \textbf{guarded write}: yêu cầu Checkout chỉ được phép thay đổi dữ liệu sau khi toàn bộ điều kiện cần thiết đã được xác nhận hợp lệ.
+
+C2 sử dụng Lua script chạy bằng \texttt{EVAL}. Một request Checkout NORMAL cho một sản phẩm được biểu diễn bằng bốn key:
+
+\begin{table}[!htbp]
+\centering
+\caption{Các key được sử dụng trong Lua Checkout của C2; prefix của lần chạy được lược bỏ.}\label{tab:tx-10}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.65\hsize\linewidth=\hsize}L|>{\hsize=0.95\hsize\linewidth=\hsize}L|>{\hsize=1.4\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Ký hiệu} & \reportheader{Redis key} & \reportheader{Ý nghĩa} \\ \hline
+\texttt{KEYS[1]} & \texttt{cart} & Giỏ hàng và Quantity của sản phẩm \\ \hline
+\texttt{KEYS[2]} & \texttt{order} & Đơn hàng được tạo nếu Checkout hợp lệ \\ \hline
+\texttt{KEYS[3]} & \texttt{product:\allowbreak{}<id>} & Thông tin định danh và trạng thái sản phẩm \\ \hline
+\texttt{KEYS[4]} & \texttt{inventory:\allowbreak{}<id>} & Tồn kho, lượng đã giữ và version \\ \hline
+\end{tabularx}
+\end{table}
+Ngoài các key trên, script nhận ba đối số: \texttt{ARGV[1]} là prefix của bộ dữ liệu, \texttt{ARGV[2]} là Product ID và \texttt{ARGV[3]} là Quantity được yêu cầu mua.
+
+Cơ chế kiểm tra gồm các nhóm điều kiện chính: key phải có cấu trúc và kiểu dữ liệu phù hợp; Product phải tồn tại và ở trạng thái \texttt{ACTIVE}; Inventory key phải thuộc đúng Product ID; Quantity phải là số nguyên dương; tồn kho phải hợp lệ và đủ số lượng; Cart phải chứa Quantity phù hợp; đồng thời Order chưa được tạo trước đó.
+
+Một trong những điều kiện trọng tâm là kiểm tra sự tương ứng giữa Product ID và Inventory key:
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=TransactionLua,caption={Kiểm tra tên các key được truyền vào Lua trong C2.},label={lst:tx-10},escapeinside={(*@}{@*)}]
+if KEYS[1] ~= prefix..'cart' or KEYS[2] ~= prefix..'order'
+   or KEYS[3] ~= prefix..'product:'..id
+   or KEYS[4] ~= prefix..'inventory:'..id then
+  return reject('PRODUCT_INVENTORY_MISMATCH')
+end
+\end{lstlisting}
+
+\texttt{prefix} là namespace, \texttt{id} là Product ID. Kiểm tra này từ chối yêu cầu trỏ đến Inventory của sản phẩm khác. Sau khi xác nhận kiểu dữ liệu và tồn kho hợp lệ, script kiểm tra tiếp:
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=TransactionLua,caption={Kiểm tra tồn khả dụng và Quantity trong Cart của C2.},label={lst:tx-11},escapeinside={(*@}{@*)}]
+if stock - reserved < quantity then
+  return reject('OUT_OF_STOCK')
+end
+
+if integer(redis.call('HGET', KEYS[1], id)) ~= quantity then
+  return reject('CART_MISMATCH')
+end
+\end{lstlisting}
+
+\texttt{stock} là số lượng tồn hiện có, \texttt{reserved} là lượng đã giữ và \texttt{quantity} là số lượng yêu cầu mua. Hàm \texttt{integer()} kiểm tra giá trị đầu vào có đúng biểu diễn số nguyên trong giới hạn cho phép của script hay không.
+
+Nếu tồn khả dụng nhỏ hơn Quantity, script trả \texttt{OUT\_\allowbreak{}OF\_\allowbreak{}STOCK}. Nếu Quantity trong Cart không khớp yêu cầu, script trả \texttt{CART\_\allowbreak{}MISMATCH}. Các nhánh lỗi tương ứng đều kết thúc \textbf{trước lệnh ghi đầu tiên}.
+
+Chỉ khi toàn bộ validation thành công, Lua mới thực hiện:
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=TransactionLua,caption={Toàn bộ phần ghi dữ liệu sau validation trong Lua Checkout của C2.},label={lst:tx-12},escapeinside={(*@}{@*)}]
+redis.call('HSET', KEYS[2],
+  'product_id', id,
+  'quantity', quantity,
+  'status', 'PENDING')
+
+redis.call('HSET', KEYS[4],
+  'on_hand', stock - quantity,
+  'version', version + 1)
+
+redis.call('HDEL', KEYS[1], id)
+
+return 'OK'
+\end{lstlisting}
+
+Các lệnh ghi tạo Order, giảm Stock, tăng Version và xóa dòng Cart. Vì validation và ghi đều nằm trong \textbf{một lần \texttt{EVAL}}, client khác không thể chen vào giữa hai giai đoạn.
+
+\paragraph*{Kết quả kiểm chứng C2}
+
+Thí nghiệm xây dựng 15 test case, gồm 14 trường hợp không hợp lệ và một trường hợp Checkout hợp lệ. Mỗi case được chuẩn bị fixture riêng và có snapshot trước/sau để so sánh.
+
+Các trường hợp không hợp lệ được phân thành những nhóm:
+
+\begin{table}[!htbp]
+\centering
+\caption{Các nhóm trường hợp được kiểm chứng trong C2.}\label{tab:tx-11}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.75\hsize\linewidth=\hsize}L|>{\hsize=1.65\hsize\linewidth=\hsize}L|>{\hsize=0.6\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Nhóm kiểm tra} & \reportheader{Ví dụ test case} & \reportheader{Kết quả} \\ \hline
+Product reference & Product không tồn tại; Inventory key sai sản phẩm & Từ chối \\ \hline
+Quantity & Quantity bằng 0, âm hoặc thập phân & Từ chối \\ \hline
+Inventory & Không đủ tồn, stock âm, version sai kiểu, reserved lớn hơn stock & Từ chối \\ \hline
+Cart & Quantity trong Cart không khớp & Từ chối \\ \hline
+Redis key type & Cart, Product hoặc Inventory có kiểu dữ liệu sai & Từ chối \\ \hline
+Order & Order đã tồn tại & Từ chối \\ \hline
+Checkout hợp lệ & Product ACTIVE, Cart và Inventory hợp lệ & Cho phép ghi \\ \hline
+\end{tabularx}
+\end{table}
+Dưới đây là một số kết quả tiêu biểu, trích phần nội dung assertion sau timestamp:
+
+\reportblockspace{72pt}
+\begingroup
+\captionof{txresult}{Một số assertion đại diện của C2.}\label{result:tx-7}
+\nopagebreak[4]
+\begin{Verbatim}
+ASSERT mismatch
+expected=PRODUCT_INVENTORY_MISMATCH
+actual=ERR PRODUCT_INVENTORY_MISMATCH
+snapshot_match=True PASS
+ASSERT out_of_stock
+expected=OUT_OF_STOCK
+actual=ERR OUT_OF_STOCK
+snapshot_match=True PASS
+ASSERT cart_mismatch
+expected=CART_MISMATCH
+actual=ERR CART_MISMATCH
+snapshot_match=True PASS
+ASSERT valid
+expected=OK
+actual=OK
+snapshot_match=True PASS
+\end{Verbatim}
+\endgroup\par\smallskip
+\texttt{expected} là kết quả dự kiến, \texttt{actual} là phản hồi Redis; \texttt{snapshot\_\allowbreak{}match=\allowbreak{}True} xác nhận trạng thái dữ liệu khớp kỳ vọng.
+
+\paragraph*{Các trường hợp bị từ chối}
+
+Cả 14 case không hợp lệ đều bị từ chối trước ghi. Với case cố tình tạo dữ liệu sai để thử validation, snapshot được so sánh \textbf{ngay trước và sau lời gọi Lua}, không phải trước khi chuẩn bị fixture.
+
+\paragraph*{Trường hợp Checkout hợp lệ}
+
+Khi toàn bộ điều kiện được đáp ứng, dữ liệu được cập nhật như sau:
+
+\begin{table}[!htbp]
+\centering
+\caption{Trạng thái dữ liệu trước và sau Checkout hợp lệ trong C2.}\label{tab:tx-12}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.85\hsize\linewidth=\hsize}L|>{\hsize=0.75\hsize\linewidth=\hsize}L|>{\hsize=1.4\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Đối tượng} & \reportheader{Trước Checkout} & \reportheader{Sau Checkout} \\ \hline
+Order & Chưa tồn tại & Hash chứa Product ID, Quantity = 1 và \texttt{PENDING} \\ \hline
+Inventory on\_hand & 100 & 99 \\ \hline
+Inventory reserved & 0 & 0 \\ \hline
+Inventory version & 0 & 1 \\ \hline
+Cart Item của P1 & Quantity = 1 & Đã xóa \\ \hline
+Cart Item của P2/P3 & Quantity = 1 & Không thay đổi \\ \hline
+\end{tabularx}
+\end{table}
+Bộ thí nghiệm được thực hiện trong năm lượt kiểm chứng. Các transcript ghi nhận mỗi lượt đều có 14 case bị từ chối đúng điều kiện, một case Checkout thành công và kết quả kiểm tra snapshot phù hợp với kỳ vọng.
+
+C2 chứng minh các bất biến nghiệp vụ được bảo vệ trong \textbf{luồng Checkout đi qua Lua}: nhánh không hợp lệ dừng trước ghi, còn nhánh hợp lệ tạo các cập nhật đúng kỳ vọng. Phạm vi bảo vệ phụ thuộc vào việc những đường ghi liên quan đều tuân theo cơ chế validation này. Giới hạn rollback khi Lua gặp lỗi sau ghi đã được phân tích tại A5.
+
+\paragraph*{Đối chiếu kết quả Consistency}
+
+\paragraph*{Oracle}
+
+C1 và A2 chứng minh Oracle áp dụng constraint ngay tại schema và từ chối những câu SQL vi phạm trên các đường ghi thuộc phạm vi ràng buộc.
+
+\paragraph*{Redis}
+
+C2 bảo vệ bất biến bằng Lua: từ chối yêu cầu không hợp lệ trước ghi và cập nhật nhiều key khi đủ điều kiện. Quy tắc chỉ áp dụng cho \textbf{đường ghi đi qua script}, không tự áp dụng với mọi Redis client.
+
+\paragraph*{Nhận xét chung}
+
+Oracle đặt ràng buộc ở tầng DBMS; Redis trong thí nghiệm dựa vào validation ở tầng lệnh ghi. Cả hai đều cần khai báo hoặc lập trình rõ những quy tắc nghiệp vụ phải duy trì.
+
+\txsubsection{Isolation — Tính cô lập}\label{sec:tx-2-3}
+\paragraph*{Cơ sở lý thuyết}
+
+Isolation kiểm soát cách các transaction tương tác khi truy cập đồng thời. Những hiện tượng cần quan tâm gồm \emph{Dirty Read} (đọc chưa commit), \emph{Non-repeatable Read} (hai lần đọc cho giá trị khác nhau), \emph{Lost Update} (mất cập nhật) và \emph{Deadlock} (chờ khóa theo vòng).
+
+Các DBMS có thể dùng khóa hoặc phát hiện xung đột trước khi ghi để bảo vệ những thao tác phụ thuộc vào dữ liệu đang thay đổi.
+
+\paragraph*{Kết quả trên Oracle — B1, B2 và B3}
+
+Ở \texttt{READ COMMITTED}, Oracle dùng read consistency để SELECT đọc dữ liệu đã commit. B1 ghi nhận B đọc 100 khi A chưa commit và đọc 99 ở câu SELECT sau khi A commit. Vì vậy, không có Dirty Read trong tình huống này nhưng có thể xảy ra Non-repeatable Read.
+
+B2 tập trung vào thời điểm lấy khóa trong chuỗi \emph{đọc \(\rightarrow\) quyết định \(\rightarrow\) ghi}. Hai session cùng giảm tồn kho từ 100 xuống 98. Khi sử dụng SELECT thông thường, cả hai đều tính quyết định ưu đãi từ giá trị 100. Với \texttt{SELECT FOR UPDATE}, session B phải đợi A commit rồi mới đọc được giá trị 99, nhờ đó quyết định không còn dựa trên dữ liệu cũ. Thí nghiệm này không chứng minh Lost Update trong phép giảm tồn, mà chứng minh ý nghĩa của việc khóa trước thời điểm ra quyết định.
+
+B3 ghi nhận lỗi chờ khóa quá hạn \texttt{ORA-\allowbreak{}00054} và deadlock \texttt{ORA-\allowbreak{}00060}. Ứng dụng cần kết thúc hoặc rollback transaction phù hợp để giải phóng khóa.
+
+\paragraph*{Kết quả trên Redis — B4 và B5}
+
+Ở B4, hai lệnh \texttt{HINCRBY} đồng thời đều được ghi nhận, đưa Stock từ 100 xuống 98.
+
+Đối với chuỗi thao tác cần đọc dữ liệu, tính toán rồi ghi, Redis cung cấp \texttt{WATCH/\allowbreak{}MULTI/\allowbreak{}EXEC} để phát hiện xung đột. Trong B4, client A đọc tồn kho 100, nhưng client B đã giảm còn 99 trước khi A gọi EXEC. Redis hủy hàng đợi của A; A đọc lại giá trị 99, tính lại và retry thành công, đưa tồn kho xuống 98. \texttt{WATCH} không khóa key mà phát hiện key đã thay đổi.
+
+B5 dùng Lua giữ Quota: bốn client tranh hai suất, chỉ hai yêu cầu thành công; cuối cùng \texttt{remaining =\allowbreak{} 0}, \texttt{held =\allowbreak{} 2}.
+
+\paragraph*{Tổng hợp kết quả thực nghiệm}
+
+\begin{table}[!htbp]
+\centering
+\caption{Tổng hợp kết quả các thí nghiệm Isolation B1–B5.}\label{tab:tx-13}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.75\hsize\linewidth=\hsize}L|>{\hsize=1.05\hsize\linewidth=\hsize}L|>{\hsize=1.2\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Thí nghiệm} & \reportheader{Cơ chế được kiểm chứng} & \reportheader{Kết quả chính} \\ \hline
+\textbf{B1 — Oracle} & \texttt{READ COMMITTED} & Không Dirty Read; câu SELECT sau commit có thể đọc giá trị mới \\ \hline
+\textbf{B2 — Oracle} & SELECT thường / \texttt{SELECT FOR UPDATE} & Tồn cuối đều bằng 98, nhưng số quyết định ưu đãi hợp lệ lần lượt là 2 và 1 \\ \hline
+\textbf{B3 — Oracle} & Row lock, timeout, deadlock & Phát hiện chờ khóa quá hạn và deadlock qua các mã lỗi Oracle \\ \hline
+\textbf{B4 — Redis} & \texttt{HINCRBY}, \texttt{WATCH/\allowbreak{}MULTI/\allowbreak{}EXEC} & Giảm tồn nguyên tử; WATCH conflict làm EXEC bị hủy và có thể retry \\ \hline
+\textbf{B5 — Redis} & Lua kiểm soát Quota & Hai trong bốn client giữ thành công hai suất giới hạn \\ \hline
+\end{tabularx}
+\end{table}
+\paragraph*{Đối chiếu kết quả Isolation}
+
+\paragraph*{Oracle}
+
+Read consistency bảo vệ câu SELECT khỏi dữ liệu chưa commit. Khi quyết định cần dựa trên giá trị hiện hành, \texttt{SELECT FOR UPDATE} giúp lấy khóa trước bước quyết định.
+
+\paragraph*{Redis}
+
+Redis cung cấp \texttt{HINCRBY} cho phép tăng/giảm nguyên tử, \texttt{WATCH} để phát hiện xung đột và Lua để kiểm tra–ghi trong một lần thực thi.
+
+\paragraph*{Phạm vi kết luận}
+
+B1–B5 kiểm chứng hành vi concurrency trong các tình huống đã thiết kế. Cơ chế khóa, retry và đánh giá tranh chấp chi tiết thuộc topic \textbf{Concurrency Control (2.5)}.
+
+\txsubsection{Durability — Tính bền vững}\label{sec:tx-2-4}
+\paragraph*{Cơ sở lý thuyết}
+
+Durability là khả năng lưu giữ những thay đổi đã xác nhận theo chính sách lưu bền của DBMS. \textbf{Đọc lại dữ liệu sau COMMIT} chưa đủ để chứng minh dữ liệu sẽ được phục hồi sau khi tiến trình hoặc máy chủ gặp sự cố.
+
+\paragraph*{Oracle — Redo Log và cơ chế phục hồi}
+
+Oracle sử dụng \emph{Redo Log} để ghi nhận thay đổi phục vụ recovery. Với COMMIT đồng bộ mặc định, tiến trình LGWR ghi redo và thông tin commit vào Online Redo Log trước khi xác nhận thành công; các data block chưa nhất thiết được ghi ngay xuống datafile. Khi phục hồi, Redo hỗ trợ tái áp dụng thay đổi, còn Undo giúp xử lý transaction chưa hoàn tất.
+
+\paragraph*{Redis — RDB và AOF}
+
+Redis hỗ trợ \textbf{RDB} (snapshot dữ liệu) và \textbf{AOF} (ghi lại thao tác thay đổi) để phục hồi trạng thái. Audit môi trường xác nhận AOF đang bật với \texttt{appendfsync everysec}, đồng bộ định kỳ, thông thường mỗi giây. Do đó, một số thay đổi gần thời điểm sự cố có thể chưa được lưu bền.
+
+\paragraph*{Đối chiếu và phạm vi kiểm chứng}
+
+\textbf{Oracle:} Đã kiểm chứng trạng thái dữ liệu sau COMMIT qua kết nối độc lập; cơ chế lưu bền dựa trên Redo Log và chính sách commit.
+
+\textbf{Redis:} Đã xác minh cấu hình AOF \texttt{everysec}; khả năng lưu bền phụ thuộc chính sách persistence.
+
+\textbf{Giới hạn:} Nhóm chưa thực hiện crash-recovery test trong topic Transaction, nên không so sánh định lượng mức mất dữ liệu hay thời gian khôi phục. Nội dung này được nghiên cứu sâu hơn tại \textbf{Data Backup \& Recovery (2.6)}.
+
+\txsubsection{Transaction trong nghiệp vụ Checkout nhiều bước}\label{sec:tx-2-5}
+\paragraph*{Bài toán thực nghiệm}
+
+Để kiểm chứng transaction trong nghiệp vụ nhiều bước, nhóm thực hiện hai thí nghiệm Checkout liên quan đến Order, Order Items, Inventory, Cart và Quota.
+
+\textbf{D1} kiểm tra Oracle rollback khi lỗi xuất hiện \textbf{sau nhiều thao tác ghi}; \textbf{D2} kiểm tra Redis Lua từ chối yêu cầu \textbf{trước thao tác ghi} nếu dữ liệu không hợp lệ. Đây là hai tình huống khác nhau, không phải phép thử lỗi đối xứng.
+
+\paragraph*{Oracle — Multi-table Checkout và Full Rollback (D1)}
+
+D1 thực hiện Checkout P1 và P2 trong một Oracle transaction. Ban đầu Cart có P1–P3 (mỗi Quantity = 1), Stock P1/P2 = 100 và chưa có Order. Các bước trong cùng session gồm:
+
+\begin{enumerate}[leftmargin=*,itemsep=2pt,topsep=4pt]
+\item
+Tạo một Order có trạng thái \texttt{PENDING}.
+
+\item
+Thêm hai Order Item tương ứng P1 và P2.
+
+\item
+Giảm tồn kho của P1 và P2, mỗi sản phẩm một đơn vị.
+
+\item
+Xóa P1 và P2 khỏi Cart.
+
+\item
+Cố tình cập nhật Quantity của P3 thành 0 để gây lỗi CHECK constraint.
+
+\end{enumerate}
+Các lệnh giảm tồn và xóa Cart tuân theo nguyên tắc A1; chương trình kiểm tra số dòng bị ảnh hưởng. Sau các bước ghi thành công nhưng chưa COMMIT, script tạo lỗi:
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=OracleSQL,caption={Tạo lỗi CHECK, xử lý exception và thực hiện full rollback trong D1.},label={lst:tx-13},escapeinside={(*@}{@*)}]
+BEGIN
+  UPDATE cart_items
+  SET quantity = 0
+  WHERE cart_id = :fixture_cart_id
+    AND product_id = :p3_id;
+
+  RAISE_APPLICATION_ERROR(-20075, 'CHECK khong chan quantity=0');
+
+EXCEPTION
+  WHEN OTHERS THEN
+    IF SQLCODE <> -2290 THEN
+      RAISE;
+    END IF;
+
+    DBMS_OUTPUT.PUT_LINE(
+      'FAILED_STATEMENT=' || SQLCODE || ' ' || SQLERRM
+    );
+END;
+
+-- Ghi snapshot sau l(*@ỗ@*)i, ki(*@ể@*)m tra c(*@á@*)c gi(*@á@*) tr(*@ị@*) (l(*@ư@*)(*@ợ@*)c).
+
+ROLLBACK;
+\end{lstlisting}
+
+Lỗi \texttt{ORA-\allowbreak{}02290} xuất hiện khi Cart Item bị gán \texttt{quantity =\allowbreak{} 0}. Script ghi snapshot trong transaction trước khi rollback.
+
+Output chính:
+
+\reportblockspace{72pt}
+\begingroup
+\captionof{txresult}{Ba mốc trạng thái của Checkout Oracle trong D1; các dòng dài được ngắt để trình bày.}\label{result:tx-8}
+\nopagebreak[4]
+\begin{Verbatim}
+BEFORE ORDERS=0 ITEMS=0 CART_LINES=3
+P1_STOCK=100 P2_STOCK=100 P3_CART=1
+TRANSIENT_ORDER_ID=28461
+FAILED_STATEMENT=-2290 ORA-02290:
+check constraint (SHOP.CK_CART_ITEMS_QUANTITY) violated
+AFTER_FAILED_STATEMENT ORDERS=1 ITEMS=2 CART_LINES=1
+P1_STOCK=99 P2_STOCK=99 P3_CART=1
+AFTER_FULL_ROLLBACK ORDERS=0 ITEMS=0 CART_LINES=3
+P1_STOCK=100 P2_STOCK=100 P3_CART=1
+\end{Verbatim}
+\endgroup\par\smallskip
+\texttt{ORDERS} là số Order thuộc lần chạy; \texttt{ITEMS} là số Order Item liên quan; \texttt{CART\_\allowbreak{}LINES} là số dòng còn lại trong Cart; \texttt{P1\_\allowbreak{}STOCK}, \texttt{P2\_\allowbreak{}STOCK} là tồn kho của hai sản phẩm; \texttt{P3\_\allowbreak{}CART} là số lượng của P3 trong Cart.
+
+Giá trị \texttt{TRANSIENT\_\allowbreak{}ORDER\_\allowbreak{}ID =\allowbreak{} 28461} là ID được Oracle cấp cho Order tạm thời. Order này chưa được commit và sẽ không còn tồn tại sau full rollback. Việc rollback cũng không có nghĩa giá trị sequence/identity đã cấp nhất thiết được tái sử dụng.
+
+Snapshot sau lỗi được thực hiện trong chính session chứa các thay đổi chưa commit, vì vậy có thể nhìn thấy Order và Inventory đã được cập nhật. Điều này không có nghĩa transaction khác đã nhìn thấy những thay đổi đó.
+
+Sau full rollback, toàn bộ thay đổi chưa commit được khôi phục: Order và các Order Item không còn, Cart trở lại ba dòng và Inventory P1/P2 trở về 100. Snapshot độc lập sau khi script kết thúc cũng xác nhận kết quả phù hợp với baseline.
+
+D1 chứng minh Oracle có thể sử dụng một transaction để quản lý nhiều thao tác trên các bảng khác nhau và hoàn tác toàn bộ nếu nghiệp vụ không hoàn tất.
+
+\paragraph*{Redis — Multi-key Checkout và Pre-validation (D2)}
+
+D2 mô phỏng Checkout P1 và P2 bằng Lua trên năm Redis key:
+
+\begin{table}[!htbp]
+\centering
+\caption{Các key được sử dụng trong D2.}\label{tab:tx-14}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.85\hsize\linewidth=\hsize}L|>{\hsize=1.15\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Key} & \reportheader{Vai trò} \\ \hline
+\texttt{KEYS[1]} — Cart & Chứa Product ID và Quantity trong giỏ \\ \hline
+\texttt{KEYS[2]} — Order & Lưu thông tin đơn hàng được tạo \\ \hline
+\texttt{KEYS[3]} — Inventory P1 & Tồn kho của P1 \\ \hline
+\texttt{KEYS[4]} — Inventory P2 & Tồn kho của P2 \\ \hline
+\texttt{KEYS[5]} — Quota & Số suất còn lại và đã giữ \\ \hline
+\end{tabularx}
+\end{table}
+Lua nhận thêm \texttt{ARGV[1]} là User ID, \texttt{ARGV[2]} và \texttt{ARGV[3]} là Product ID của P1/P2, \texttt{ARGV[4]} và \texttt{ARGV[5]} là số lượng yêu cầu mua tương ứng.
+
+Khác với D1, D2 không tạo lỗi sau khi đã ghi. Thay vào đó, Lua kiểm tra trước các điều kiện: Quantity hợp lệ, Order chưa tồn tại, đủ tồn kho, Quota còn suất và Cart khớp với số lượng yêu cầu.
+
+Đoạn kiểm tra tồn kho P2:
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=TransactionLua,caption={Kiểm tra tồn kho P2 trước khi ghi trong D2.},label={lst:tx-14},escapeinside={(*@}{@*)}]
+local stock2 = tonumber(redis.call('HGET', KEYS[4], 'on_hand'))
+local reserved2 = tonumber(redis.call('HGET', KEYS[4], 'reserved'))
+
+if not stock2 or not reserved2
+   or stock2 - reserved2 < q2 then
+  return redis.error_reply('OUT_OF_STOCK_P2')
+end
+\end{lstlisting}
+
+\texttt{stock2 -\allowbreak{} reserved2} là tồn khả dụng P2; nếu nhỏ hơn \texttt{q2}, Lua trả lỗi trước ghi. Khi validation hợp lệ, script thực hiện:
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=TransactionLua,caption={Toàn bộ phần ghi dữ liệu sau validation trong D2.},label={lst:tx-15},escapeinside={(*@}{@*)}]
+redis.call('HSET', KEYS[2], 'user_id', ARGV[1],
+  'status', 'PENDING',
+  'product_1', ARGV[2], 'product_2', ARGV[3],
+  'quantity_1', q1, 'quantity_2', q2)
+
+redis.call('HINCRBY', KEYS[3], 'on_hand', -q1)
+redis.call('HINCRBY', KEYS[4], 'on_hand', -q2)
+redis.call('HDEL', KEYS[1], ARGV[2], ARGV[3])
+redis.call('HINCRBY', KEYS[5], 'remaining', -1)
+redis.call('HINCRBY', KEYS[5], 'held', 1)
+
+return 'OK'
+\end{lstlisting}
+
+Nhánh không hợp lệ yêu cầu P2 = 101 trong khi Stock chỉ bằng 100:
+
+Kết quả:
+
+\reportblockspace{72pt}
+\begingroup
+\captionof{txresult}{Checkout bị từ chối do không đủ tồn kho P2.}\label{result:tx-9}
+\nopagebreak[4]
+\begin{Verbatim}
+MODE=invalid RUN_ID=native01 QUANTITY_P1=1 QUANTITY_P2=101
+ERR OUT_OF_STOCK_P2
+\end{Verbatim}
+\endgroup\par\smallskip
+Snapshot xác nhận không tạo Order, không giảm Stock, không thay Cart hay Quota. Yêu cầu P2 = 101 cũng lệch Cart, nhưng script kiểm tra Stock trước nên trả \texttt{OUT\_\allowbreak{}OF\_\allowbreak{}STOCK\_\allowbreak{}P2} là \textbf{lỗi đầu tiên}, không suy ra các điều kiện sau đã hợp lệ.
+
+Ở nhánh hợp lệ, P1 và P2 đều có Quantity = 1. Lua trả:
+
+\reportblockspace{72pt}
+\begingroup
+\captionof{txresult}{Checkout hợp lệ được Lua xác nhận trong D2.}\label{result:tx-10}
+\nopagebreak[4]
+\begin{Verbatim}
+MODE=valid RUN_ID=native01 QUANTITY_P1=1 QUANTITY_P2=1
+OK
+\end{Verbatim}
+\endgroup\par\smallskip
+Snapshot sau thành công ghi nhận:
+
+\begin{table}[!htbp]
+\centering
+\caption{Trạng thái Redis sau Checkout hợp lệ trong D2.}\label{tab:tx-15}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.85\hsize\linewidth=\hsize}L|>{\hsize=0.75\hsize\linewidth=\hsize}L|>{\hsize=1.4\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Đối tượng} & \reportheader{Trước Checkout} & \reportheader{Sau Checkout} \\ \hline
+Order & Chưa tồn tại & Hash chứa User ID, P1, P2, Quantity và \texttt{PENDING} \\ \hline
+Inventory P1 & 100 & 99 \\ \hline
+Inventory P2 & 100 & 99 \\ \hline
+Inventory P3 & 100 & 100 \\ \hline
+Cart & P1, P2, P3 & Chỉ còn P3 \\ \hline
+Quota remaining & 2 & 1 \\ \hline
+Quota held & 0 & 1 \\ \hline
+\end{tabularx}
+\end{table}
+Quota chỉ giảm một suất dù Order có hai sản phẩm, bởi quy tắc được mô phỏng trong D2 là một Checkout giữ một suất Quota.
+
+Kết quả chứng minh rằng những điều kiện không hợp lệ được Lua phát hiện trước khi thực hiện ghi; còn khi validation thành công, các key liên quan được cập nhật theo đúng logic của script.
+
+Sau thí nghiệm, chương trình thực hiện cleanup và tạo lại fixture. Đây là thao tác khôi phục dữ liệu phục vụ nghiên cứu, không phải rollback của Redis.
+
+\paragraph*{Đối chiếu kết quả D1 và D2}
+
+Hai thí nghiệm cùng xử lý Checkout nhiều thao tác, nhưng điểm phát sinh lỗi khác nhau nên kết quả không thể dùng để so sánh khả năng rollback theo điều kiện hoàn toàn tương đương.
+
+\begin{table}[!htbp]
+\centering
+\caption{Đối chiếu kết quả hai thí nghiệm Checkout nhiều bước.}\label{tab:tx-16}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.65\hsize\linewidth=\hsize}L|>{\hsize=1.175\hsize\linewidth=\hsize}L|>{\hsize=1.175\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Tiêu chí} & \reportheader{D1 — Oracle} & \reportheader{D2 — Redis} \\ \hline
+Đối tượng dữ liệu & Nhiều bảng quan hệ & Nhiều Redis key \\ \hline
+Cách phối hợp & Transaction SQL & Một Lua EVAL \\ \hline
+Thời điểm tạo lỗi & Sau nhiều thao tác ghi thành công & Trong giai đoạn validation trước ghi \\ \hline
+Khi phát hiện lỗi & Ứng dụng gọi full ROLLBACK & Lua trả lỗi trước khi thực hiện ghi \\ \hline
+Kết quả & Dữ liệu được khôi phục về baseline & Nhánh invalid không làm thay đổi dữ liệu \\ \hline
+\end{tabularx}
+\end{table}
+\paragraph*{Oracle}
+
+D1 chứng minh khả năng hoàn tác các ghi trên Order, Order Items, Inventory và Cart sau khi một bước cuối thất bại.
+
+\paragraph*{Redis}
+
+D2 chứng minh Lua có thể từ chối yêu cầu trước ghi; nếu hợp lệ, nhiều key được cập nhật trong một lần \texttt{EVAL}.
+
+\paragraph*{Ý nghĩa đối chiếu}
+
+D1 kiểm chứng \textbf{rollback sau ghi}, còn D2 kiểm chứng \textbf{validation trước ghi}. Không thể dùng D2 để khẳng định Redis có rollback tương đương Oracle; giới hạn đó đã được minh họa ở A5.

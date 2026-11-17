@@ -1,9 +1,11 @@
-# 3.2. Indexing trên Oracle và Redis
+<a id="indexing-2-2"></a>
+
+## 2.2. Indexing
 
 Người thực hiện: TV2. Chức năng liên quan: F3 Tìm kiếm sản phẩm, F4 Lọc nâng cao.
 Số liệu thô, script chạy lại và ghi chú chi tiết: `report/indexing/` (`README.md`, `ket-qua.md`, `ket-luan.md`).
 
-## 3.2.1. Bối cảnh và câu hỏi nghiên cứu
+### 2.2.1. Bối cảnh và câu hỏi nghiên cứu
 
 Trang tìm kiếm của ShopFlash nhận bốn kiểu câu hỏi: tìm đúng một mã SKU; tìm sản phẩm có **từ khóa** trong tên ("tai nghe sony"); duyệt theo **danh mục** kèm **khoảng giá**, xếp theo giá và phân trang; và lọc theo tình trạng còn hàng. Khách hỏi liên tục, còn quản trị viên chỉ thêm hoặc sửa sản phẩm vài lần mỗi ngày, nên đây là tải **đọc nhiều, ghi ít**.
 
@@ -13,15 +15,15 @@ Phần này trả lời ba câu hỏi:
 2. Cái giá của index là gì: **ghi chậm hơn** bao nhiêu, **tốn thêm** bao nhiêu dung lượng, và index **được cập nhật lúc nào**?
 3. Từ đó, F3/F4 của ShopFlash nên dùng DBMS nào, loại index nào?
 
-## 3.2.2. Lý thuyết
+### 2.2.2. Lý thuyết
 
-### Index và chi phí truy vấn
+#### Index và chi phí truy vấn
 
 Oracle lưu bảng thành các block (mặc định 8 KB). Không có index phù hợp, tìm một dòng phải đọc mọi block (**full table scan**), chi phí tăng tuyến tính theo kích thước bảng. Index là một cấu trúc phụ, **đã sắp xếp** theo cột được đánh index, mỗi mục trỏ về vị trí dòng (ROWID); tìm qua index chỉ đọc vài block và chi phí tăng theo log n [1], [2].
 
 Index chỉ có lợi khi điều kiện lọc ra **ít dòng** (độ chọn lọc cao). Lấy phần lớn bảng thì đọc tuần tự toàn bảng rẻ hơn nhảy qua index đọc từng block lẻ, và optimizer tự chọn full scan [2]. Đổi lại, index tốn dung lượng và mỗi `INSERT`/`DELETE` phải cập nhật mọi index, mỗi `UPDATE` phải cập nhật các index chứa cột bị sửa.
 
-### Oracle
+#### Oracle
 
 | Loại index | Ý tưởng | Dùng cho F3/F4 |
 |---|---|---|
@@ -30,11 +32,11 @@ Index chỉ có lợi khi điều kiện lọc ra **ít dòng** (độ chọn l�
 | B-tree trên hàm | Index trên biểu thức, vd. `UPPER(name)` | Tìm tên theo tiền tố |
 | Bitmap | Mỗi giá trị một chuỗi bit; giỏi với cột ít giá trị, nhưng khi ghi khóa cả đoạn bitmap chứa nhiều dòng [1] | Bị loại: tồn kho thay đổi liên tục, nhiều người mua cùng lúc |
 | Oracle Text CONTEXT | **Inverted index** (từ → danh sách tài liệu), toán tử `CONTAINS`, có điểm liên quan `SCORE` [4] | Từ khóa trong tên |
-| Oracle Text CTXCAT | Inverted index cho văn bản ngắn, cập nhật ngay trong transaction, toán tử `CATSEARCH`; **deprecated từ Oracle AI Database 26ai** [4] | Bị loại (3.2.6) |
+| Oracle Text CTXCAT | Inverted index cho văn bản ngắn, cập nhật ngay trong transaction, toán tử `CATSEARCH`; **deprecated từ Oracle AI Database 26ai** [4] | Bị loại (2.2.6) |
 
 Oracle dùng **optimizer dựa trên chi phí** (CBO): ước lượng chi phí từng cách truy cập từ **thống kê** (số dòng, số giá trị khác nhau, histogram, clustering factor) rồi chọn cách rẻ nhất [2]. Kế hoạch thực thi xem được bằng `DBMS_XPLAN.DISPLAY_CURSOR`, gồm số dòng ước lượng (E-Rows), thực tế (A-Rows) và số block đã đọc (Buffers) [3]. B-tree được cập nhật **trong cùng transaction** với bảng: rollback thì cả hai cùng quay về, và mọi thay đổi trên index đều được ghi redo. Index CONTEXT thì cập nhật bằng **đồng bộ** (sync) riêng; từ Oracle AI Database 26ai, mặc định Oracle tự đồng bộ ở chế độ nền, kiểm tra mỗi 3 giây [5].
 
-### Redis
+#### Redis
 
 Redis là kho key–value trên RAM, tra theo **tên key** bằng bảng băm. Redis gốc không có `WHERE` và không có index phụ: muốn tìm theo giá trị bên trong document, ứng dụng phải tự dựng index bằng các kiểu dữ liệu (Set cho so sánh bằng, Sorted Set cho khoảng và sắp xếp, key riêng cho tra duy nhất) và **tự cập nhật** chúng mỗi lần ghi [8].
 
@@ -42,7 +44,7 @@ Redis là kho key–value trên RAM, tra theo **tên key** bằng bảng băm. R
 
 ShopFlash đã có sẵn index `idx:products` trên bản sao sản phẩm `product:{id}` mà module storage chép từ Oracle sang Redis.
 
-## 3.2.3. Phương pháp thí nghiệm
+### 2.2.3. Phương pháp thí nghiệm
 
 | Nội dung | Cách làm |
 |---|---|
@@ -67,9 +69,9 @@ Sáu thí nghiệm:
 | E5 | Dung lượng | Đo kèm E1–E3 | Đo kèm E1–E3 |
 | E6 | Index cập nhật lúc nào | B-tree, CONTEXT mặc định, `SYNC (ON COMMIT)` | RediSearch khi mới tạo và khi ghi; index tự làm khi ứng dụng dừng giữa chừng |
 
-## 3.2.4. Kết quả trên Oracle
+### 2.2.4. Kết quả trên Oracle
 
-### E1. Tìm theo SKU
+#### E1. Tìm theo SKU
 
 | | Không index | B-tree unique |
 |---|---|---|
@@ -80,7 +82,7 @@ Sáu thí nghiệm:
 
 Số block đọc giảm khoảng 438 lần, thời gian khoảng 530 lần. Cây index có `BLEVEL = 2` (3 tầng), khớp đúng 3 buffer trong index. Cái giá: index 5 MB (khoảng 36% bảng), tạo trong 0,20 s. Cùng một câu SQL, Oracle tự đổi kế hoạch khi có index mà không phải sửa câu truy vấn. `CLUSTERING_FACTOR = 192.848` (gần bằng số dòng) cho thấy các dòng xếp theo SKU nằm rải rác trong bảng; không ảnh hưởng tìm một SKU nhưng ảnh hưởng tìm theo khoảng (E3).
 
-### E2. Tìm từ trong tên
+#### E2. Tìm từ trong tên
 
 Mỗi lần tìm gồm câu lấy trang đầu 24 sản phẩm và câu đếm tổng số. Đơn vị: ms cho 1 lần tìm.
 
@@ -96,7 +98,7 @@ Mỗi lần tìm gồm câu lấy trang đầu 24 sản phẩm và câu đếm t
 - Từ điển của CONTEXT (`DR$...$I`) cho thấy "Tai nghe" bị tách thành hai token `TAI`, `NGHE`.
 - Dung lượng và thời gian tạo: CONTEXT 21,8 MB, 2,56 s; CTXCAT 73 MB (5,2 lần bảng), 3,41 s.
 
-### E3. Lọc + sắp xếp + phân trang
+#### E3. Lọc + sắp xếp + phân trang
 
 A: danh mục 5 và giá 1–5 triệu (321 kết quả); B: chỉ giá 1–5 triệu (15.218); C: chỉ danh mục 5 (4.000). Optimizer tự chọn, không ép hint. Đơn vị: ms cho 1 lần tìm (trang 24 + đếm).
 
@@ -114,7 +116,7 @@ A: danh mục 5 và giá 1–5 triệu (321 kết quả); B: chỉ giá 1–5 tr
 - Ước lượng sai vì thiếu histogram: E-Rows 160 so với A-Rows 321, do optimizer coi `status = 'ACTIVE'` lọc 50% (2 giá trị) trong khi thực tế 95%.
 - Mỗi index ghép 3 cột: 6 MB, tạo trong khoảng 0,17 s.
 
-### E4. Chi phí khi ghi (µs mỗi dòng; redo cho 10.000 dòng)
+#### E4. Chi phí khi ghi (µs mỗi dòng; redo cho 10.000 dòng)
 
 | Cấu hình | Thêm | redo | Sửa giá | redo |
 |---|---|---|---|---|
@@ -130,7 +132,7 @@ A: danh mục 5 và giá 1–5 triệu (321 kết quả); B: chỉ giá 1–5 tr
 - **Sửa giá không đụng index không chứa cột giá:** C1 sửa giá nhanh như C0, redo y hệt.
 - CTXCAT đắt nhất: thêm chậm 53 lần so với C2; sửa giá (không đổi tên) vẫn chậm 37 lần dù redo bằng C2. Giả thuyết: Oracle vẫn gọi thủ tục cập nhật của domain index cho mỗi dòng; chưa kiểm chứng thêm.
 
-### E6. Index cập nhật lúc nào
+#### E6. Index cập nhật lúc nào
 
 | Bước | Kết quả |
 |---|---|
@@ -143,9 +145,9 @@ A: danh mục 5 và giá 1–5 triệu (321 kết quả); B: chỉ giá 1–5 tr
 
 B-tree luôn khớp bảng theo đúng transaction. Oracle Text không theo transaction như B-tree: kể cả chính phiên vừa thêm cũng không tìm thấy trước khi index được đồng bộ.
 
-## 3.2.5. Kết quả trên Redis
+### 2.2.5. Kết quả trên Redis
 
-### E1. Tìm theo SKU
+#### E1. Tìm theo SKU
 
 | | `SCAN` (không index) | Key tự làm `idxlab:sku:{sku}` | RediSearch `TAG` |
 |---|---|---|---|
@@ -156,7 +158,7 @@ B-tree luôn khớp bảng theo đúng transaction. Oracle Text không theo tran
 
 `FT.INFO` của index chỉ có một trường `TAG`: inverted index 16,4 MB, nhưng bảng document 20,9 MB và bảng key 6,0 MB; hai bảng này là **chi phí cố định** cho mỗi document RediSearch quản lý. `FT.EXPLAIN` cho thấy giá trị TAG được lưu chữ thường, đúng mặc định của `TAG` [6].
 
-### E2. Tìm từ trong tên (ms cho 1 lần tìm; 1 lệnh `FT.SEARCH ... LIMIT 0 24` trả cả trang lẫn tổng số)
+#### E2. Tìm từ trong tên (ms cho 1 lần tìm; 1 lệnh `FT.SEARCH ... LIMIT 0 24` trả cả trang lẫn tổng số)
 
 | Từ khóa (số kết quả) | `SCAN` | RediSearch `TEXT` |
 |---|---|---|
@@ -166,7 +168,7 @@ B-tree luôn khớp bảng theo đúng transaction. Oracle Text không theo tran
 
 Index `TEXT` tốn 34,9 MB (trong đó 27 MB là phần cố định như E1), tạo trong 4,70 s. `FT.EXPLAIN` cho thấy stemming tiếng Anh mặc định mở rộng `sony` thành `soni` [6]; không làm sai kết quả ở đây nhưng có thể sinh khớp lạ với tên tiếng Việt.
 
-### E3. Lọc + sắp xếp + phân trang (ms cho 1 lần tìm)
+#### E3. Lọc + sắp xếp + phân trang (ms cho 1 lần tìm)
 
 | Cách | A (321) | B (15.218) | C (4.000) |
 |---|---|---|---|
@@ -178,7 +180,7 @@ Index `TEXT` tốn 34,9 MB (trong đó 27 MB là phần cố định như E1), t
 
 RediSearch không có index nhiều cột: `FT.EXPLAIN` cho thấy truy vấn là phép **giao** ba danh sách, trong đó `status:{active}` khớp 190.000 document, rồi còn phải sắp xếp và đếm toàn bộ kết quả trước khi trả trang đầu. Sorted Set tự làm nhanh nhất vì được dựng riêng cho đúng các câu hỏi này (điều kiện `status` "nướng sẵn" vào index), đổi lại tốn 31,7 MB và ứng dụng phải tự cập nhật.
 
-### E4. Chi phí khi ghi (µs mỗi document; AOF cho 10.000 document)
+#### E4. Chi phí khi ghi (µs mỗi document; AOF cho 10.000 document)
 
 | Cấu hình | Thêm | AOF | Sửa giá | AOF |
 |---|---|---|---|---|
@@ -191,7 +193,7 @@ RediSearch không có index nhiều cột: `FT.EXPLAIN` cho thấy truy vấn l�
 - **RediSearch index lại cả document dù chỉ sửa một trường:** R3 chỉ index `sku` nhưng sửa giá vẫn chậm 2,4 lần so với R0; R4 (có `name TEXT`) sửa giá chậm 6 lần, còn chậm hơn thêm mới. Ngược với Oracle (C1).
 - **AOF giống hệt nhau ở R0, R3, R4:** số đo cho thấy RediSearch không ghi index vào nhật ký; khi khởi động lại, Redis phải index lại toàn bộ document (vài giây với 200.000 document). Index tự làm là dữ liệu bình thường nên làm tăng AOF.
 
-### E6. Index cập nhật lúc nào
+#### E6. Index cập nhật lúc nào
 
 | Bước | Kết quả |
 |---|---|
@@ -203,7 +205,7 @@ RediSearch không có index nhiều cột: `FT.EXPLAIN` cho thấy truy vấn l�
 
 RediSearch thấy dữ liệu ngay sau lệnh ghi, nhưng trong lúc dựng index, tìm kiếm chỉ thấy **một phần** dữ liệu mà không báo lỗi. Index tự làm có thể lệch âm thầm, và `MULTI/EXEC` không cứu được.
 
-## 3.2.6. So sánh
+### 2.2.6. So sánh
 
 | Tiêu chí | Oracle | Redis + RediSearch | Bằng chứng |
 |---|---|---|---|
@@ -228,7 +230,7 @@ RediSearch thấy dữ liệu ngay sau lệnh ghi, nhưng trong lúc dựng inde
 - **Oracle mạnh về tính đúng và tự động:** index luôn khớp dữ liệu, optimizer tự chọn, dữ liệu là bản gốc. **Redis mạnh về tìm toàn văn trên RAM**, đổi lại tốn RAM, phải đồng bộ bản sao, và có khoảng thời gian kết quả chưa đầy đủ.
 - **Loại bỏ:** CTXCAT (dung lượng gấp 5 lần bảng, ghi chậm 37–53 lần, và đã deprecated từ 26ai [4]); bitmap (khóa nhiều dòng khi ghi đồng thời); Redis index tự làm (có thể lệch âm thầm).
 
-## 3.2.7. Kết luận trong bối cảnh ShopFlash
+### 2.2.7. Kết luận trong bối cảnh ShopFlash
 
 ShopFlash dùng **mỗi DBMS cho việc nó giỏi nhất**; mỗi yêu cầu tìm kiếm đi tới đúng một nguồn, không trộn kết quả:
 
@@ -253,7 +255,7 @@ Hiện thực trong ứng dụng (module `indexing`):
 - Chưa hỗ trợ tìm không dấu ("dien thoai" ra "điện thoại") và chưa tắt stemming tiếng Anh của `idx:products`.
 - Trường hợp từ khóa **kèm** bộ lọc trên RediSearch chưa được đo trên 200.000 sản phẩm (E2 chỉ đo từ khóa, E3 chỉ đo bộ lọc); trang Indexing Lab có thẻ so sánh cho trường hợp này.
 
-## Tài liệu tham khảo
+### Tài liệu tham khảo
 
 [1] Oracle, "Indexes and Index-Organized Tables," in *Oracle Database Concepts*. [Online]. Available: https://docs.oracle.com/database/122/CNCPT/indexes-and-index-organized-tables.htm (accessed Oct. 30, 2026).
 

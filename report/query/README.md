@@ -1,4 +1,4 @@
-# 3.3 Query processing: chạy lại demo và số đo
+# 2.3. Query Processing: chạy lại demo và số đo
 
 Module `query` (F5 báo cáo doanh thu, F6 top bán chạy / khách VIP / sản phẩm chưa bán) chạy cùng một báo cáo trên Oracle và Redis để so cách mỗi DBMS xử lý truy vấn. Contract API: `backend/src/main/java/com/shopflash/modules/query/AGENTS.md`.
 

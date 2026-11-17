@@ -126,12 +126,15 @@ class CartOracleIT {
         jdbc.update("UPDATE carts SET version = 7 WHERE user_id = :userId", Map.of("userId", userId(SECOND)));
         jdbc.update("UPDATE products SET base_price = :price WHERE product_id = :productId",
                 Map.of("price", new java.math.BigDecimal("125.50"), "productId", productId(SECOND, 2)));
+        jdbc.update("UPDATE products SET thumbnail_url = :image WHERE product_id = :productId",
+                Map.of("image", "https://example.test/cart-product.png", "productId", productId(FIRST, 1)));
 
         mvc.perform(get("/api/cart").header("Authorization", "Bearer " + firstToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.version").value(4))
                 .andExpect(jsonPath("$.items.length()").value(1))
                 .andExpect(jsonPath("$.items[0].quantity").value(1))
+                .andExpect(jsonPath("$.items[0].thumbnailUrl").value("https://example.test/cart-product.png"))
                 .andExpect(jsonPath("$.totalAmount").value(100.00));
 
         mvc.perform(get("/api/cart").header("Authorization", "Bearer " + secondToken))

@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "repeat": 5,
+  "B2": [
+    "plain: reads 100/100, eligible 2, stock 98",
+    "locked: reads 100/99, eligible 1, stock 98"
+  ],
+  "B4": [
+    "atomic replies {99,98}, final 98",
+    "WATCH nil, stock 99, retry HSET reply 0, stock 98"
+  ],
+  "C2": "14 rejected snapshots unchanged + 1 valid snapshot per repetition"
+}

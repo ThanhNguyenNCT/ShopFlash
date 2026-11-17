@@ -1,0 +1,7 @@
+txresearch:rev1109:cart
+txresearch:rev1109:inventory:13376
+txresearch:rev1109:inventory:13377
+txresearch:rev1109:inventory:13378
+txresearch:rev1109:quota
+txresearch:rev1109:order
+txresearch:rev1109:product:13376

@@ -1,0 +1,983 @@
+$ bash report/transaction/research/redis/experiments/C2.sh rev1109b 13379 13380 13381
+2026-11-09T17:22:47.219+07:00 CASE=missing_product
+1
+0
+0
+1
+1
+1
+1
+CLEANUP_DONE RUN_ID=rev1109b KEYS_LISTED=7
+RESULT=CREATED
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart
+KEY=txresearch:rev1109b:inventory:13379
+KEY=txresearch:rev1109b:inventory:13380
+KEY=txresearch:rev1109b:inventory:13381
+KEY=txresearch:rev1109b:quota
+2026-11-09T17:22:49.205+07:00 REDIS ('HSET', 'txresearch:rev1109b:product:13379', 'product_id', '13379', 'status', 'ACTIVE') => '2'
+2026-11-09T17:22:49.205+07:00 FIXTURE_INJECTION (không phải request Checkout)
+2026-11-09T17:22:49.271+07:00 REDIS ('DEL', 'txresearch:rev1109b:product:13379') => '1'
+2026-11-09T17:22:49.333+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:22:49.401+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:22:49.466+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:22:49.533+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:22:49.595+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:22:49.661+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:22:49.729+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:22:49.795+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:22:49.863+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:22:49.929+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:22:49.999+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:22:50.068+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:22:50.134+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:22:50.198+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:22:50.260+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:22:50.324+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'none'
+2026-11-09T17:22:50.388+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-2'
+2026-11-09T17:22:50.456+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:22:50.521+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:22:50.588+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:22:50.588+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:22:50.655+07:00 REDIS ('EVAL C2-validate.lua', 4, 'txresearch:rev1109b:cart', 'txresearch:rev1109b:order', 'txresearch:rev1109b:product:13379', 'txresearch:rev1109b:inventory:13379', 'txresearch:rev1109b:', '13379', '1') => 'ERR PRODUCT_NOT_FOUND'
+2026-11-09T17:22:50.724+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:22:50.793+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:22:50.861+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:22:50.933+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:22:51.000+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:22:51.063+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:22:51.126+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:22:51.200+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:22:51.265+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:22:51.331+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:22:51.396+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:22:51.462+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:22:51.527+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:22:51.590+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:22:51.656+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:22:51.722+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'none'
+2026-11-09T17:22:51.789+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-2'
+2026-11-09T17:22:51.855+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:22:51.920+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:22:51.990+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:22:51.990+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:22:51.990+07:00 ASSERT missing_product expected=PRODUCT_NOT_FOUND actual=ERR PRODUCT_NOT_FOUND snapshot_match=True PASS
+2026-11-09T17:22:51.990+07:00 CASE=mismatch
+1
+0
+0
+1
+1
+1
+1
+CLEANUP_DONE RUN_ID=rev1109b KEYS_LISTED=7
+RESULT=CREATED
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart
+KEY=txresearch:rev1109b:inventory:13379
+KEY=txresearch:rev1109b:inventory:13380
+KEY=txresearch:rev1109b:inventory:13381
+KEY=txresearch:rev1109b:quota
+2026-11-09T17:22:53.984+07:00 REDIS ('HSET', 'txresearch:rev1109b:product:13379', 'product_id', '13379', 'status', 'ACTIVE') => '2'
+2026-11-09T17:22:54.050+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:22:54.115+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:22:54.178+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:22:54.246+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:22:54.315+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:22:54.379+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:22:54.450+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:22:54.516+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:22:54.579+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:22:54.651+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:22:54.717+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:22:54.785+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:22:54.848+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:22:54.913+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:22:54.978+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:22:55.044+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:22:55.110+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:22:55.176+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:22:55.240+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:22:55.302+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:22:55.364+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:22:55.364+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:22:55.429+07:00 REDIS ('EVAL C2-validate.lua', 4, 'txresearch:rev1109b:cart', 'txresearch:rev1109b:order', 'txresearch:rev1109b:product:13379', 'txresearch:rev1109b:inventory:13380', 'txresearch:rev1109b:', '13379', '1') => 'ERR PRODUCT_INVENTORY_MISMATCH'
+2026-11-09T17:22:55.496+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:22:55.568+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:22:55.632+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:22:55.703+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:22:55.766+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:22:55.830+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:22:55.893+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:22:55.955+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:22:56.022+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:22:56.081+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:22:56.146+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:22:56.210+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:22:56.278+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:22:56.339+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:22:56.404+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:22:56.469+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:22:56.533+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:22:56.605+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:22:56.668+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:22:56.735+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:22:56.797+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:22:56.798+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:22:56.798+07:00 ASSERT mismatch expected=PRODUCT_INVENTORY_MISMATCH actual=ERR PRODUCT_INVENTORY_MISMATCH snapshot_match=True PASS
+2026-11-09T17:22:56.798+07:00 CASE=out_of_stock
+1
+0
+1
+1
+1
+1
+1
+CLEANUP_DONE RUN_ID=rev1109b KEYS_LISTED=7
+RESULT=CREATED
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart
+KEY=txresearch:rev1109b:inventory:13379
+KEY=txresearch:rev1109b:inventory:13380
+KEY=txresearch:rev1109b:inventory:13381
+KEY=txresearch:rev1109b:quota
+2026-11-09T17:22:58.757+07:00 REDIS ('HSET', 'txresearch:rev1109b:product:13379', 'product_id', '13379', 'status', 'ACTIVE') => '2'
+2026-11-09T17:22:58.819+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:22:58.887+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:22:58.948+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:22:59.011+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:22:59.075+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:22:59.139+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:22:59.203+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:22:59.269+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:22:59.334+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:22:59.400+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:22:59.465+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:22:59.531+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:22:59.600+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:22:59.668+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:22:59.730+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:22:59.793+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:22:59.855+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:22:59.939+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:00.001+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:00.060+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:00.135+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:00.135+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:00.194+07:00 REDIS ('EVAL C2-validate.lua', 4, 'txresearch:rev1109b:cart', 'txresearch:rev1109b:order', 'txresearch:rev1109b:product:13379', 'txresearch:rev1109b:inventory:13379', 'txresearch:rev1109b:', '13379', '101') => 'ERR OUT_OF_STOCK'
+2026-11-09T17:23:00.251+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:00.311+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:00.365+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:00.418+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:00.479+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:00.533+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:00.588+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:00.644+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:00.700+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:00.761+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:00.812+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:00.872+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:00.927+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:00.983+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:01.044+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:01.105+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:01.158+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:01.216+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:01.270+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:01.331+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:01.387+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:01.387+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:01.387+07:00 ASSERT out_of_stock expected=OUT_OF_STOCK actual=ERR OUT_OF_STOCK snapshot_match=True PASS
+2026-11-09T17:23:01.387+07:00 CASE=zero_quantity
+1
+0
+1
+1
+1
+1
+1
+CLEANUP_DONE RUN_ID=rev1109b KEYS_LISTED=7
+RESULT=CREATED
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart
+KEY=txresearch:rev1109b:inventory:13379
+KEY=txresearch:rev1109b:inventory:13380
+KEY=txresearch:rev1109b:inventory:13381
+KEY=txresearch:rev1109b:quota
+2026-11-09T17:23:03.307+07:00 REDIS ('HSET', 'txresearch:rev1109b:product:13379', 'product_id', '13379', 'status', 'ACTIVE') => '2'
+2026-11-09T17:23:03.372+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:03.437+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:03.502+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:03.575+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:03.637+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:03.705+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:03.772+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:03.836+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:03.898+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:03.968+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:04.030+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:04.095+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:04.162+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:04.225+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:04.289+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:04.351+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:04.416+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:04.481+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:04.541+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:04.598+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:04.659+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:04.660+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:04.725+07:00 REDIS ('EVAL C2-validate.lua', 4, 'txresearch:rev1109b:cart', 'txresearch:rev1109b:order', 'txresearch:rev1109b:product:13379', 'txresearch:rev1109b:inventory:13379', 'txresearch:rev1109b:', '13379', '0') => 'ERR INVALID_QUANTITY'
+2026-11-09T17:23:04.787+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:04.846+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:04.913+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:04.978+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:05.043+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:05.105+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:05.166+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:05.228+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:05.288+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:05.352+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:05.415+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:05.476+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:05.541+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:05.604+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:05.674+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:05.737+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:05.800+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:05.866+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:05.937+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:06.000+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:06.064+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:06.064+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:06.064+07:00 ASSERT zero_quantity expected=INVALID_QUANTITY actual=ERR INVALID_QUANTITY snapshot_match=True PASS
+2026-11-09T17:23:06.064+07:00 CASE=negative_quantity
+1
+0
+1
+1
+1
+1
+1
+CLEANUP_DONE RUN_ID=rev1109b KEYS_LISTED=7
+RESULT=CREATED
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart
+KEY=txresearch:rev1109b:inventory:13379
+KEY=txresearch:rev1109b:inventory:13380
+KEY=txresearch:rev1109b:inventory:13381
+KEY=txresearch:rev1109b:quota
+2026-11-09T17:23:08.040+07:00 REDIS ('HSET', 'txresearch:rev1109b:product:13379', 'product_id', '13379', 'status', 'ACTIVE') => '2'
+2026-11-09T17:23:08.103+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:08.168+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:08.234+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:08.302+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:08.364+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:08.431+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:08.498+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:08.560+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:08.627+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:08.691+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:08.758+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:08.825+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:08.889+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:08.957+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:09.019+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:09.085+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:09.153+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:09.219+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:09.284+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:09.348+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:09.413+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:09.413+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:09.479+07:00 REDIS ('EVAL C2-validate.lua', 4, 'txresearch:rev1109b:cart', 'txresearch:rev1109b:order', 'txresearch:rev1109b:product:13379', 'txresearch:rev1109b:inventory:13379', 'txresearch:rev1109b:', '13379', '-1') => 'ERR INVALID_QUANTITY'
+2026-11-09T17:23:09.543+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:09.609+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:09.676+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:09.745+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:09.808+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:09.873+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:09.939+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:10.002+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:10.071+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:10.135+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:10.202+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:10.266+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:10.332+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:10.401+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:10.467+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:10.535+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:10.603+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:10.670+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:10.733+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:10.797+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:10.858+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:10.858+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:10.858+07:00 ASSERT negative_quantity expected=INVALID_QUANTITY actual=ERR INVALID_QUANTITY snapshot_match=True PASS
+2026-11-09T17:23:10.858+07:00 CASE=fraction_quantity
+1
+0
+1
+1
+1
+1
+1
+CLEANUP_DONE RUN_ID=rev1109b KEYS_LISTED=7
+RESULT=CREATED
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart
+KEY=txresearch:rev1109b:inventory:13379
+KEY=txresearch:rev1109b:inventory:13380
+KEY=txresearch:rev1109b:inventory:13381
+KEY=txresearch:rev1109b:quota
+2026-11-09T17:23:12.855+07:00 REDIS ('HSET', 'txresearch:rev1109b:product:13379', 'product_id', '13379', 'status', 'ACTIVE') => '2'
+2026-11-09T17:23:12.919+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:12.982+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:13.046+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:13.110+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:13.174+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:13.240+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:13.306+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:13.373+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:13.444+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:13.509+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:13.577+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:13.641+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:13.715+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:13.778+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:13.848+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:13.915+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:13.978+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:14.042+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:14.108+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:14.171+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:14.238+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:14.238+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:14.301+07:00 REDIS ('EVAL C2-validate.lua', 4, 'txresearch:rev1109b:cart', 'txresearch:rev1109b:order', 'txresearch:rev1109b:product:13379', 'txresearch:rev1109b:inventory:13379', 'txresearch:rev1109b:', '13379', '1.5') => 'ERR INVALID_QUANTITY'
+2026-11-09T17:23:14.362+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:14.430+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:14.494+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:14.567+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:14.631+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:14.695+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:14.762+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:14.828+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:14.892+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:14.959+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:15.023+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:15.088+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:15.153+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:15.219+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:15.280+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:15.348+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:15.413+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:15.477+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:15.539+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:15.605+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:15.670+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:15.670+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:15.670+07:00 ASSERT fraction_quantity expected=INVALID_QUANTITY actual=ERR INVALID_QUANTITY snapshot_match=True PASS
+2026-11-09T17:23:15.670+07:00 CASE=negative_stock
+1
+0
+1
+1
+1
+1
+1
+CLEANUP_DONE RUN_ID=rev1109b KEYS_LISTED=7
+RESULT=CREATED
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart
+KEY=txresearch:rev1109b:inventory:13379
+KEY=txresearch:rev1109b:inventory:13380
+KEY=txresearch:rev1109b:inventory:13381
+KEY=txresearch:rev1109b:quota
+2026-11-09T17:23:17.650+07:00 REDIS ('HSET', 'txresearch:rev1109b:product:13379', 'product_id', '13379', 'status', 'ACTIVE') => '2'
+2026-11-09T17:23:17.650+07:00 FIXTURE_INJECTION (không phải request Checkout)
+2026-11-09T17:23:17.713+07:00 REDIS ('HSET', 'txresearch:rev1109b:inventory:13379', 'on_hand', '-5') => '0'
+2026-11-09T17:23:17.781+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:17.849+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:17.912+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:17.983+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:18.044+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:18.111+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:18.175+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n-5\nreserved\n0\nversion\n0'
+2026-11-09T17:23:18.240+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:18.302+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:18.368+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:18.435+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:18.497+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:18.560+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:18.624+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:18.689+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:18.754+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:18.817+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:18.884+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:18.950+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:19.018+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:19.086+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:19.086+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "-5", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:19.157+07:00 REDIS ('EVAL C2-validate.lua', 4, 'txresearch:rev1109b:cart', 'txresearch:rev1109b:order', 'txresearch:rev1109b:product:13379', 'txresearch:rev1109b:inventory:13379', 'txresearch:rev1109b:', '13379', '1') => 'ERR INVALID_INVENTORY'
+2026-11-09T17:23:19.222+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:19.287+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:19.353+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:19.416+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:19.482+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:19.547+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:19.609+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n-5\nreserved\n0\nversion\n0'
+2026-11-09T17:23:19.678+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:19.744+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:19.810+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:19.873+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:19.935+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:20.001+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:20.068+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:20.132+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:20.199+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:20.266+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:20.333+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:20.396+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:20.459+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:20.525+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:20.525+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "-5", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:20.525+07:00 ASSERT negative_stock expected=INVALID_INVENTORY actual=ERR INVALID_INVENTORY snapshot_match=True PASS
+2026-11-09T17:23:20.525+07:00 CASE=bad_version
+1
+0
+1
+1
+1
+1
+1
+CLEANUP_DONE RUN_ID=rev1109b KEYS_LISTED=7
+RESULT=CREATED
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart
+KEY=txresearch:rev1109b:inventory:13379
+KEY=txresearch:rev1109b:inventory:13380
+KEY=txresearch:rev1109b:inventory:13381
+KEY=txresearch:rev1109b:quota
+2026-11-09T17:23:22.514+07:00 REDIS ('HSET', 'txresearch:rev1109b:product:13379', 'product_id', '13379', 'status', 'ACTIVE') => '2'
+2026-11-09T17:23:22.514+07:00 FIXTURE_INJECTION (không phải request Checkout)
+2026-11-09T17:23:22.580+07:00 REDIS ('HSET', 'txresearch:rev1109b:inventory:13379', 'version', 'oops') => '0'
+2026-11-09T17:23:22.647+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:22.720+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:22.783+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:22.849+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:22.914+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:22.981+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:23.046+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\noops'
+2026-11-09T17:23:23.110+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:23.176+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:23.243+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:23.304+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:23.369+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:23.437+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:23.504+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:23.573+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:23.637+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:23.702+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:23.770+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:23.832+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:23.896+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:23.962+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:23.962+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "oops"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:24.026+07:00 REDIS ('EVAL C2-validate.lua', 4, 'txresearch:rev1109b:cart', 'txresearch:rev1109b:order', 'txresearch:rev1109b:product:13379', 'txresearch:rev1109b:inventory:13379', 'txresearch:rev1109b:', '13379', '1') => 'ERR INVALID_INVENTORY'
+2026-11-09T17:23:24.092+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:24.162+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:24.226+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:24.291+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:24.359+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:24.425+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:24.493+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\noops'
+2026-11-09T17:23:24.562+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:24.625+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:24.689+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:24.752+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:24.820+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:24.884+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:24.951+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:25.016+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:25.080+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:25.144+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:25.208+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:25.281+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:25.348+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:25.415+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:25.415+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "oops"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:25.415+07:00 ASSERT bad_version expected=INVALID_INVENTORY actual=ERR INVALID_INVENTORY snapshot_match=True PASS
+2026-11-09T17:23:25.415+07:00 CASE=reserved_gt_stock
+1
+0
+1
+1
+1
+1
+1
+CLEANUP_DONE RUN_ID=rev1109b KEYS_LISTED=7
+RESULT=CREATED
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart
+KEY=txresearch:rev1109b:inventory:13379
+KEY=txresearch:rev1109b:inventory:13380
+KEY=txresearch:rev1109b:inventory:13381
+KEY=txresearch:rev1109b:quota
+2026-11-09T17:23:27.401+07:00 REDIS ('HSET', 'txresearch:rev1109b:product:13379', 'product_id', '13379', 'status', 'ACTIVE') => '2'
+2026-11-09T17:23:27.401+07:00 FIXTURE_INJECTION (không phải request Checkout)
+2026-11-09T17:23:27.464+07:00 REDIS ('HSET', 'txresearch:rev1109b:inventory:13379', 'reserved', '101') => '0'
+2026-11-09T17:23:27.528+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:27.590+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:27.655+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:27.720+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:27.785+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:27.850+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:27.922+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n101\nversion\n0'
+2026-11-09T17:23:27.989+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:28.055+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:28.119+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:28.183+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:28.247+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:28.313+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:28.380+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:28.449+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:28.517+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:28.581+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:28.648+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:28.720+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:28.794+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:28.858+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:28.859+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "101", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:28.923+07:00 REDIS ('EVAL C2-validate.lua', 4, 'txresearch:rev1109b:cart', 'txresearch:rev1109b:order', 'txresearch:rev1109b:product:13379', 'txresearch:rev1109b:inventory:13379', 'txresearch:rev1109b:', '13379', '1') => 'ERR INVALID_INVENTORY'
+2026-11-09T17:23:28.988+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:29.053+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:29.119+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:29.184+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:29.251+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:29.318+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:29.385+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n101\nversion\n0'
+2026-11-09T17:23:29.450+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:29.516+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:29.588+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:29.667+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:29.736+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:29.802+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:29.866+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:29.949+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:30.016+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:30.084+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:30.165+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:30.228+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:30.287+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:30.343+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:30.343+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "101", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:30.343+07:00 ASSERT reserved_gt_stock expected=INVALID_INVENTORY actual=ERR INVALID_INVENTORY snapshot_match=True PASS
+2026-11-09T17:23:30.343+07:00 CASE=cart_mismatch
+1
+0
+1
+1
+1
+1
+1
+CLEANUP_DONE RUN_ID=rev1109b KEYS_LISTED=7
+RESULT=CREATED
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart
+KEY=txresearch:rev1109b:inventory:13379
+KEY=txresearch:rev1109b:inventory:13380
+KEY=txresearch:rev1109b:inventory:13381
+KEY=txresearch:rev1109b:quota
+2026-11-09T17:23:32.175+07:00 REDIS ('HSET', 'txresearch:rev1109b:product:13379', 'product_id', '13379', 'status', 'ACTIVE') => '2'
+2026-11-09T17:23:32.175+07:00 FIXTURE_INJECTION (không phải request Checkout)
+2026-11-09T17:23:32.243+07:00 REDIS ('HSET', 'txresearch:rev1109b:cart', '13379', '2') => '0'
+2026-11-09T17:23:32.310+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:32.374+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:32.439+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:32.505+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n2\n13380\n1\n13381\n1'
+2026-11-09T17:23:32.571+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:32.642+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:32.705+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:32.772+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:32.838+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:32.905+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:32.972+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:33.035+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:33.101+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:33.170+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:33.234+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:33.300+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:33.369+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:33.440+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:33.507+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:33.574+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:33.641+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:33.641+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "2", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:33.705+07:00 REDIS ('EVAL C2-validate.lua', 4, 'txresearch:rev1109b:cart', 'txresearch:rev1109b:order', 'txresearch:rev1109b:product:13379', 'txresearch:rev1109b:inventory:13379', 'txresearch:rev1109b:', '13379', '1') => 'ERR CART_MISMATCH'
+2026-11-09T17:23:33.777+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:33.844+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:33.910+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:33.973+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n2\n13380\n1\n13381\n1'
+2026-11-09T17:23:34.041+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:34.108+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:34.174+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:34.242+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:34.304+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:34.371+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:34.438+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:34.504+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:34.574+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:34.637+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:34.704+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:34.775+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:34.842+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:34.911+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:34.984+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:35.050+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:35.113+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:35.113+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "2", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:35.113+07:00 ASSERT cart_mismatch expected=CART_MISMATCH actual=ERR CART_MISMATCH snapshot_match=True PASS
+2026-11-09T17:23:35.114+07:00 CASE=wrong_inventory_type
+1
+0
+1
+1
+1
+1
+1
+CLEANUP_DONE RUN_ID=rev1109b KEYS_LISTED=7
+RESULT=CREATED
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart
+KEY=txresearch:rev1109b:inventory:13379
+KEY=txresearch:rev1109b:inventory:13380
+KEY=txresearch:rev1109b:inventory:13381
+KEY=txresearch:rev1109b:quota
+2026-11-09T17:23:37.104+07:00 REDIS ('HSET', 'txresearch:rev1109b:product:13379', 'product_id', '13379', 'status', 'ACTIVE') => '2'
+2026-11-09T17:23:37.104+07:00 FIXTURE_INJECTION (không phải request Checkout)
+2026-11-09T17:23:37.170+07:00 REDIS ('SET', 'txresearch:rev1109b:inventory:13379', 'wrongtype') => 'OK'
+2026-11-09T17:23:37.235+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:37.299+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:37.359+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:37.426+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:37.492+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'string'
+2026-11-09T17:23:37.560+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:37.628+07:00 REDIS ('GET', 'txresearch:rev1109b:inventory:13379') => 'wrongtype'
+2026-11-09T17:23:37.694+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:37.757+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:37.823+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:37.888+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:37.953+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:38.023+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:38.093+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:38.156+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:38.220+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:38.284+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:38.351+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:38.412+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:38.479+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:38.540+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:38.540+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "string", "value": "wrongtype"}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:38.603+07:00 REDIS ('EVAL C2-validate.lua', 4, 'txresearch:rev1109b:cart', 'txresearch:rev1109b:order', 'txresearch:rev1109b:product:13379', 'txresearch:rev1109b:inventory:13379', 'txresearch:rev1109b:', '13379', '1') => 'ERR INVALID_KEY_TYPE'
+2026-11-09T17:23:38.672+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:38.742+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:38.806+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:38.874+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:38.943+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'string'
+2026-11-09T17:23:39.011+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:39.076+07:00 REDIS ('GET', 'txresearch:rev1109b:inventory:13379') => 'wrongtype'
+2026-11-09T17:23:39.143+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:39.206+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:39.272+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:39.342+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:39.406+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:39.469+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:39.533+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:39.598+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:39.663+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:39.728+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:39.797+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:39.857+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:39.923+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:39.992+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:39.992+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "string", "value": "wrongtype"}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:39.993+07:00 ASSERT wrong_inventory_type expected=INVALID_KEY_TYPE actual=ERR INVALID_KEY_TYPE snapshot_match=True PASS
+2026-11-09T17:23:39.993+07:00 CASE=wrong_cart_type
+1
+0
+1
+1
+1
+1
+1
+CLEANUP_DONE RUN_ID=rev1109b KEYS_LISTED=7
+RESULT=CREATED
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart
+KEY=txresearch:rev1109b:inventory:13379
+KEY=txresearch:rev1109b:inventory:13380
+KEY=txresearch:rev1109b:inventory:13381
+KEY=txresearch:rev1109b:quota
+2026-11-09T17:23:41.993+07:00 REDIS ('HSET', 'txresearch:rev1109b:product:13379', 'product_id', '13379', 'status', 'ACTIVE') => '2'
+2026-11-09T17:23:41.993+07:00 FIXTURE_INJECTION (không phải request Checkout)
+2026-11-09T17:23:42.057+07:00 REDIS ('SET', 'txresearch:rev1109b:cart', 'wrongtype') => 'OK'
+2026-11-09T17:23:42.122+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:42.186+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'string'
+2026-11-09T17:23:42.252+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:42.316+07:00 REDIS ('GET', 'txresearch:rev1109b:cart') => 'wrongtype'
+2026-11-09T17:23:42.385+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:42.451+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:42.521+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:42.585+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:42.653+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:42.719+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:42.783+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:42.846+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:42.911+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:42.975+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:43.042+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:43.108+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:43.176+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:43.240+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:43.304+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:43.372+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:43.435+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:43.435+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "string", "value": "wrongtype"}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:43.500+07:00 REDIS ('EVAL C2-validate.lua', 4, 'txresearch:rev1109b:cart', 'txresearch:rev1109b:order', 'txresearch:rev1109b:product:13379', 'txresearch:rev1109b:inventory:13379', 'txresearch:rev1109b:', '13379', '1') => 'ERR INVALID_KEY_TYPE'
+2026-11-09T17:23:43.561+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:43.624+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'string'
+2026-11-09T17:23:43.688+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:43.756+07:00 REDIS ('GET', 'txresearch:rev1109b:cart') => 'wrongtype'
+2026-11-09T17:23:43.825+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:43.889+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:43.953+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:44.020+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:44.086+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:44.152+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:44.216+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:44.278+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:44.340+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:44.410+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:44.475+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:44.538+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:44.605+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:44.672+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:44.740+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:44.810+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:44.873+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:44.873+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "string", "value": "wrongtype"}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:44.873+07:00 ASSERT wrong_cart_type expected=INVALID_KEY_TYPE actual=ERR INVALID_KEY_TYPE snapshot_match=True PASS
+2026-11-09T17:23:44.873+07:00 CASE=wrong_product_type
+1
+0
+1
+1
+1
+1
+1
+CLEANUP_DONE RUN_ID=rev1109b KEYS_LISTED=7
+RESULT=CREATED
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart
+KEY=txresearch:rev1109b:inventory:13379
+KEY=txresearch:rev1109b:inventory:13380
+KEY=txresearch:rev1109b:inventory:13381
+KEY=txresearch:rev1109b:quota
+2026-11-09T17:23:46.860+07:00 REDIS ('HSET', 'txresearch:rev1109b:product:13379', 'product_id', '13379', 'status', 'ACTIVE') => '2'
+2026-11-09T17:23:46.861+07:00 FIXTURE_INJECTION (không phải request Checkout)
+2026-11-09T17:23:46.926+07:00 REDIS ('SET', 'txresearch:rev1109b:product:13379', 'wrongtype') => 'OK'
+2026-11-09T17:23:46.990+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:47.055+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:47.120+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:47.184+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:47.252+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:47.318+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:47.379+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:47.447+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:47.514+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:47.586+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:47.649+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:47.715+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:47.782+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:47.852+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:47.914+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:47.981+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'string'
+2026-11-09T17:23:48.044+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:48.109+07:00 REDIS ('GET', 'txresearch:rev1109b:product:13379') => 'wrongtype'
+2026-11-09T17:23:48.178+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:48.244+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:48.309+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:48.309+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "string", "value": "wrongtype"}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:48.373+07:00 REDIS ('EVAL C2-validate.lua', 4, 'txresearch:rev1109b:cart', 'txresearch:rev1109b:order', 'txresearch:rev1109b:product:13379', 'txresearch:rev1109b:inventory:13379', 'txresearch:rev1109b:', '13379', '1') => 'ERR INVALID_KEY_TYPE'
+2026-11-09T17:23:48.445+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:48.511+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:48.578+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:48.643+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:48.709+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:48.777+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:48.845+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:48.913+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:48.976+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:49.042+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:49.106+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:49.172+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:49.241+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:49.305+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:49.370+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:49.437+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'string'
+2026-11-09T17:23:49.500+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:49.565+07:00 REDIS ('GET', 'txresearch:rev1109b:product:13379') => 'wrongtype'
+2026-11-09T17:23:49.637+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:49.706+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:49.770+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:49.770+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "string", "value": "wrongtype"}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:49.770+07:00 ASSERT wrong_product_type expected=INVALID_KEY_TYPE actual=ERR INVALID_KEY_TYPE snapshot_match=True PASS
+2026-11-09T17:23:49.770+07:00 CASE=existing_order
+1
+0
+1
+1
+1
+1
+1
+CLEANUP_DONE RUN_ID=rev1109b KEYS_LISTED=7
+RESULT=CREATED
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart
+KEY=txresearch:rev1109b:inventory:13379
+KEY=txresearch:rev1109b:inventory:13380
+KEY=txresearch:rev1109b:inventory:13381
+KEY=txresearch:rev1109b:quota
+2026-11-09T17:23:51.772+07:00 REDIS ('HSET', 'txresearch:rev1109b:product:13379', 'product_id', '13379', 'status', 'ACTIVE') => '2'
+2026-11-09T17:23:51.772+07:00 FIXTURE_INJECTION (không phải request Checkout)
+2026-11-09T17:23:51.841+07:00 REDIS ('SET', 'txresearch:rev1109b:order', 'existing') => 'OK'
+2026-11-09T17:23:51.907+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:order\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:51.975+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:52.044+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:52.110+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:52.171+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:52.236+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:52.302+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:52.368+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:52.435+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:52.501+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:52.567+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:52.632+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:52.697+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:52.763+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'string'
+2026-11-09T17:23:52.829+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-1'
+2026-11-09T17:23:52.892+07:00 REDIS ('GET', 'txresearch:rev1109b:order') => 'existing'
+2026-11-09T17:23:52.960+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:53.024+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:53.089+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:53.150+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:53.221+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:53.282+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:53.282+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-1", "type": "string", "value": "existing"}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:53.346+07:00 REDIS ('EVAL C2-validate.lua', 4, 'txresearch:rev1109b:cart', 'txresearch:rev1109b:order', 'txresearch:rev1109b:product:13379', 'txresearch:rev1109b:inventory:13379', 'txresearch:rev1109b:', '13379', '1') => 'ERR ORDER_ALREADY_EXISTS'
+2026-11-09T17:23:53.413+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:order\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:53.479+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:53.543+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:53.607+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:53.674+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:53.745+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:53.811+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:53.875+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:53.941+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:54.008+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:54.080+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:54.146+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:54.213+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:54.279+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'string'
+2026-11-09T17:23:54.346+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-1'
+2026-11-09T17:23:54.411+07:00 REDIS ('GET', 'txresearch:rev1109b:order') => 'existing'
+2026-11-09T17:23:54.477+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:54.540+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:54.607+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:54.676+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:54.742+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:54.805+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:54.805+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-1", "type": "string", "value": "existing"}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:54.805+07:00 ASSERT existing_order expected=ORDER_ALREADY_EXISTS actual=ERR ORDER_ALREADY_EXISTS snapshot_match=True PASS
+2026-11-09T17:23:54.805+07:00 CASE=valid
+1
+1
+1
+1
+1
+1
+1
+CLEANUP_DONE RUN_ID=rev1109b KEYS_LISTED=7
+RESULT=CREATED
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart
+KEY=txresearch:rev1109b:inventory:13379
+KEY=txresearch:rev1109b:inventory:13380
+KEY=txresearch:rev1109b:inventory:13381
+KEY=txresearch:rev1109b:quota
+2026-11-09T17:23:56.755+07:00 REDIS ('HSET', 'txresearch:rev1109b:product:13379', 'product_id', '13379', 'status', 'ACTIVE') => '2'
+2026-11-09T17:23:56.817+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:56.882+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:56.945+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:57.015+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13379\n1\n13380\n1\n13381\n1'
+2026-11-09T17:23:57.081+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:57.146+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:57.211+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:57.276+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:57.341+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:57.406+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:57.479+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:57.541+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:57.618+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:57.681+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'none'
+2026-11-09T17:23:57.753+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-2'
+2026-11-09T17:23:57.816+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:57.881+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:57.947+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:58.012+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:58.077+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:58.142+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:58.142+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13379": "1", "13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-2", "type": "none", "value": null}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:58.209+07:00 REDIS ('EVAL C2-validate.lua', 4, 'txresearch:rev1109b:cart', 'txresearch:rev1109b:order', 'txresearch:rev1109b:product:13379', 'txresearch:rev1109b:inventory:13379', 'txresearch:rev1109b:', '13379', '1') => 'OK'
+2026-11-09T17:23:58.276+07:00 REDIS ('KEYS', 'txresearch:rev1109b:*') => 'txresearch:rev1109b:cart\ntxresearch:rev1109b:inventory:13381\ntxresearch:rev1109b:quota\ntxresearch:rev1109b:order\ntxresearch:rev1109b:inventory:13379\ntxresearch:rev1109b:product:13379\ntxresearch:rev1109b:inventory:13380'
+2026-11-09T17:23:58.339+07:00 REDIS ('TYPE', 'txresearch:rev1109b:cart') => 'hash'
+2026-11-09T17:23:58.404+07:00 REDIS ('PTTL', 'txresearch:rev1109b:cart') => '-1'
+2026-11-09T17:23:58.467+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:cart') => '13380\n1\n13381\n1'
+2026-11-09T17:23:58.532+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13379') => 'hash'
+2026-11-09T17:23:58.598+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13379') => '-1'
+2026-11-09T17:23:58.663+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13379') => 'on_hand\n99\nreserved\n0\nversion\n1'
+2026-11-09T17:23:58.726+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13380') => 'hash'
+2026-11-09T17:23:58.791+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13380') => '-1'
+2026-11-09T17:23:58.855+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13380') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:58.919+07:00 REDIS ('TYPE', 'txresearch:rev1109b:inventory:13381') => 'hash'
+2026-11-09T17:23:58.986+07:00 REDIS ('PTTL', 'txresearch:rev1109b:inventory:13381') => '-1'
+2026-11-09T17:23:59.050+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:inventory:13381') => 'on_hand\n100\nreserved\n0\nversion\n0'
+2026-11-09T17:23:59.114+07:00 REDIS ('TYPE', 'txresearch:rev1109b:order') => 'hash'
+2026-11-09T17:23:59.180+07:00 REDIS ('PTTL', 'txresearch:rev1109b:order') => '-1'
+2026-11-09T17:23:59.250+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:order') => 'product_id\n13379\nquantity\n1\nstatus\nPENDING'
+2026-11-09T17:23:59.313+07:00 REDIS ('TYPE', 'txresearch:rev1109b:product:13379') => 'hash'
+2026-11-09T17:23:59.379+07:00 REDIS ('PTTL', 'txresearch:rev1109b:product:13379') => '-1'
+2026-11-09T17:23:59.445+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:product:13379') => 'product_id\n13379\nstatus\nACTIVE'
+2026-11-09T17:23:59.512+07:00 REDIS ('TYPE', 'txresearch:rev1109b:quota') => 'hash'
+2026-11-09T17:23:59.576+07:00 REDIS ('PTTL', 'txresearch:rev1109b:quota') => '-1'
+2026-11-09T17:23:59.648+07:00 REDIS ('HGETALL', 'txresearch:rev1109b:quota') => 'limit\n2\nremaining\n2\nheld\n0'
+2026-11-09T17:23:59.648+07:00 SNAPSHOT {"txresearch:rev1109b:cart": {"ttl": "-1", "type": "hash", "value": {"13380": "1", "13381": "1"}}, "txresearch:rev1109b:inventory:13379": {"ttl": "-1", "type": "hash", "value": {"on_hand": "99", "reserved": "0", "version": "1"}}, "txresearch:rev1109b:inventory:13380": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:inventory:13381": {"ttl": "-1", "type": "hash", "value": {"on_hand": "100", "reserved": "0", "version": "0"}}, "txresearch:rev1109b:order": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "quantity": "1", "status": "PENDING"}}, "txresearch:rev1109b:product:13379": {"ttl": "-1", "type": "hash", "value": {"product_id": "13379", "status": "ACTIVE"}}, "txresearch:rev1109b:quota": {"ttl": "-1", "type": "hash", "value": {"held": "0", "limit": "2", "remaining": "2"}}}
+2026-11-09T17:23:59.648+07:00 ASSERT valid expected=OK actual=OK snapshot_match=True PASS
+1
+1
+1
+1
+1
+1
+1
+CLEANUP_DONE RUN_ID=rev1109b KEYS_LISTED=7
+RESULT=CREATED
+RUN_ID=rev1109b
+KEY=txresearch:rev1109b:cart
+KEY=txresearch:rev1109b:inventory:13379
+KEY=txresearch:rev1109b:inventory:13380
+KEY=txresearch:rev1109b:inventory:13381
+KEY=txresearch:rev1109b:quota
+2026-11-09T17:24:01.645+07:00 REDIS ('HSET', 'txresearch:rev1109b:product:13379', 'product_id', '13379', 'status', 'ACTIVE') => '2'
+2026-11-09T17:24:01.718+07:00 REDIS ('DEL', 'txresearch:rev1109b:product:13379') => '1'
+2026-11-09T17:24:01.718+07:00 C2 RESET=baseline; Product extension removed

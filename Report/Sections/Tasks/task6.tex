@@ -1,3 +1,157 @@
 % !TeX root = ../../main.tex
 \subsection{Data Backup \& Recovery}\label{sec:backup}
-% Nội dung do thành viên phụ trách Backup/recovery bổ sung.
+\begingroup
+% Đánh số bảng/hình theo mục (2.x.y), giống Transaction.
+\setcounter{table}{0}\setcounter{figure}{0}
+\renewcommand{\thetable}{\thesubsection.\arabic{table}}
+\renewcommand{\thefigure}{\thesubsection.\arabic{figure}}
+\renewcommand{\theHtable}{\thesubsection.\arabic{table}}
+\renewcommand{\theHfigure}{\thesubsection.\arabic{figure}}
+\subsubsection{Mục tiêu và phạm vi}
+
+Phân hệ sao lưu và phục hồi được thiết kế nhằm đảm bảo khả năng khôi phục toàn vẹn dữ liệu hệ thống ShopFlash khi xảy ra sự cố phần cứng hoặc thảm họa dữ liệu. Phạm vi thực nghiệm không chỉ dừng ở các bảng danh mục sản phẩm mà mở rộng ra toàn bộ dữ liệu nghiệp vụ của schema \texttt{SHOP} trên Oracle Database và toàn bộ keyspace trên Redis.
+
+Mục tiêu chính của thử nghiệm nhằm: (i) kiểm chứng tính toàn vẹn và khả năng phục hồi đồng thời của cả hai hệ quản trị cơ sở dữ liệu về trạng thái baseline chuẩn sau sự cố; (ii) đo đạc chi phí thời gian kỹ thuật thực tế cho thao tác backup và recovery; và (iii) đánh giá thực nghiệm tác động của các chế độ persistence trong Redis nhằm chọn ra cấu hình phù hợp nhất cho ShopFlash.
+
+\subsubsection{Cơ sở lý thuyết về sao lưu và phục hồi}
+
+\paragraph{Cơ chế sao lưu và phục hồi của Oracle Database}
+
+Oracle cung cấp các giải pháp sao lưu từ cấp độ vật lý (RMAN) đến cấp độ logic (Oracle Data Pump) \cite{oracleDataPump}. Trong mô hình ứng dụng quy mô vừa như ShopFlash, Oracle Data Pump (\texttt{expdp}/\texttt{impdp}) là công cụ sao lưu logic hiệu quả, cho phép trích xuất toàn bộ định nghĩa đối tượng (schema metadata) và dữ liệu dòng dưới dạng các tập tin dump đĩa cứng. Khi phục hồi, Data Pump tự động tái tạo lại cấu trúc bảng, chỉ mục, ràng buộc toàn vẹn và nạp lại dữ liệu với hiệu năng cao nhờ cơ chế Direct Path I/O \cite{oracleDataPump}.
+
+\paragraph{Cơ chế Persistence của Redis}
+
+Redis hỗ trợ hai cơ chế lưu trữ bền vững độc lập hoặc kết hợp \cite{redisPersistence}:
+\begin{itemize}[label=--]
+    \item \textbf{RDB (Redis Database Backup):} Tạo ảnh chụp snapshot toàn bộ bộ nhớ tại một thời điểm và ghi xuống đĩa dưới dạng file nhị phân nén. RDB có ưu điểm kích thước gọn, tốc độ nạp lại cực nhanh khi khởi động, nhưng có nguy cơ mất dữ liệu phát sinh giữa hai lần chụp snapshot \cite{redisPersistence}.
+    \item \textbf{AOF (Append-Only File):} Ghi lại toàn bộ các lệnh ghi (write operations) vào nhật ký theo thời gian thực. AOF cung cấp tính bền vững cao hơn thông qua các chính sách đồng bộ đĩa (\texttt{appendfsync}): \texttt{always} (fsync mỗi lệnh ghi), \texttt{everysec} (fsync mỗi giây) hoặc \texttt{no} (giao cho OS). Khi khởi động, Redis ưu tiên đọc file AOF để tái tạo trạng thái dữ liệu \cite{redisPersistence}.
+\end{itemize}
+
+\subsubsection{Thiết kế lưu trữ sao lưu trong ShopFlash}
+
+Nhằm đảm bảo tính đồng bộ giữa hai cơ sở dữ liệu, mỗi lượt backup tạo ra một gói sao lưu chứa Data Pump export cho schema \texttt{SHOP} và RDB snapshot cho Redis keyspace, kèm file manifest lưu mã SHA-256 để kiểm tra tính toàn vẹn.
+
+Khi thực hiện phục hồi, script điều phối tiến hành import Data Pump vào Oracle để đưa dữ liệu nghiệp vụ gốc về trạng thái chuẩn. Đối với Redis, do hệ thống bật AOF ở chế độ \texttt{appendfsync everysec}, file RDB snapshot sẽ được nạp trong một container cô lập tạm thời để khởi tạo lại file AOF trước khi đưa service vào vận hành, tránh việc file AOF cũ đè lên dữ liệu vừa phục hồi \cite{redisPersistence}.
+
+\begin{table}[H]
+    \centering
+    \caption{Tóm tắt cơ chế phục hồi dữ liệu trong ShopFlash}
+    \label{tab:bk-backup-artifacts}
+    \begin{tabularx}{\textwidth}{@{}p{0.18\textwidth}p{0.25\textwidth}XX@{}}
+        \toprule
+        Nguồn & Artifact & Cơ chế phục hồi & Mục tiêu bảo vệ \\
+        \midrule
+        Oracle & Data Pump export (\texttt{.dmp}) & Import logic qua Data Pump; giữ nguyên cấu trúc schema hiện có & Dữ liệu nghiệp vụ gốc, quan hệ và các ràng buộc toàn vẹn \\
+        Redis & RDB snapshot (\texttt{.rdb}) & Nạp RDB và tái tạo file AOF trước khi khởi chạy service & Product projection và trạng thái runtime \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\subsubsection{Đánh giá thực nghiệm}
+
+Thử nghiệm được thực hiện trên dataset chuẩn gồm 100 Category, 1\,000 Product, 1\,000 bản ghi ProductInventory và 1\,000 Redis document \texttt{product:*}.
+
+\paragraph{Thử nghiệm thời gian sao lưu và phục hồi}
+
+\noindent\textbf{Phương pháp}\par
+Quy trình thực nghiệm bao gồm 5 lượt tạo backup độc lập để đo thời gian xuất dữ liệu và kích thước artifact. Thời gian tạo backup được tính trực tiếp từ lúc khởi chạy xuất dữ liệu đến khi hoàn tất tính mã SHA-256.
+
+Sau đó, quy trình giả lập thảm họa được thực thi bằng cách xóa sạch toàn bộ dữ liệu nghiệp vụ của Oracle và toàn bộ keyspace Redis. Script phục hồi tiến hành kiểm tra checksum SHA-256, nạp lại dữ liệu cho hai hệ thống và đối chiếu số lượng bản ghi (checkpoint) so với baseline ban đầu.
+
+\noindent\textbf{Kết quả và phân tích}\par
+Kích thước file backup duy trì độ ổn định cao qua các lượt chạy (Oracle .dmp đạt 1\,355\,776 bytes, Redis .rdb đạt 190\,018 bytes). Thời gian hoàn thành thao tác sao lưu toàn hệ thống trung bình là 62.902 giây với độ lệch chuẩn 2.742 giây (Bảng~\ref{tab:bk-backup-duration}).
+
+\begin{table}[H]
+    \centering
+    \caption{Thời gian tạo backup toàn hệ thống (5 lượt thử nghiệm)}
+    \label{tab:bk-backup-duration}
+    \begin{tabular}{@{}crrr@{}}
+        \toprule
+        Lượt & Oracle Data Pump (bytes) & Redis RDB (bytes) & Thời gian tạo (s) \\
+        \midrule
+        1 & 1\,355\,776 & 190\,018 & 63.026 \\
+        2 & 1\,355\,776 & 190\,018 & 67.478 \\
+        3 & 1\,355\,776 & 190\,018 & 60.923 \\
+        4 & 1\,355\,776 & 190\,018 & 60.679 \\
+        5 & 1\,355\,776 & 190\,018 & 62.402 \\
+        \midrule
+        Trung bình & 1\,355\,776 & 190\,018 & 62.902 \\
+        Độ lệch chuẩn & 0 & 0 & 2.742 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Trước khi restore, mã SHA-256 của file \texttt{.dmp} và \texttt{dump.rdb} được đối chiếu và đều khớp tuyệt đối với manifest. Kết quả Bảng~\ref{tab:bk-recovery-duration} cho thấy 100\% các lượt thử nghiệm khôi phục thành công. Thời gian phục hồi trung bình của Oracle là 23.710 giây và Redis là 9.186 giây; tổng thời gian phục hồi kỹ thuật trung bình là 32.895 giây.
+
+\begin{table}[H]
+    \centering
+    \caption{Kết quả đo thời gian phục hồi dữ liệu (5 lượt thử nghiệm)}
+    \label{tab:bk-recovery-duration}
+    \begin{tabular}{@{}crrrcc@{}}
+        \toprule
+        Lượt & Oracle (s) & Redis (s) & Tổng thời gian (s) & Oracle khớp & Redis khớp \\
+        \midrule
+        1 & 25.901 & 8.946 & 34.847 & Có & Có \\
+        2 & 24.676 & 8.848 & 33.524 & Có & Có \\
+        3 & 23.539 & 9.246 & 32.785 & Có & Có \\
+        4 & 22.678 & 9.642 & 32.320 & Có & Có \\
+        5 & 21.755 & 9.246 & 31.001 & Có & Có \\
+        \midrule
+        Trung bình & 23.710 & 9.186 & 32.895 & Có & Có \\
+        Độ lệch chuẩn & 1.632 & 0.311 & 1.426 & -- & -- \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Cả hai hệ thống sau phục hồi đều khôi phục trọn vẹn số lượng bản ghi về đúng trạng thái baseline ban đầu (Bảng~\ref{tab:bk-recovery-checkpoint}).
+
+\begin{table}[H]
+    \centering
+    \caption{Trạng thái checkpoint bản ghi trong quy trình phục hồi dữ liệu}
+    \label{tab:bk-recovery-checkpoint}
+    \begin{tabularx}{\textwidth}{@{}Xrrrrr@{}}
+        \toprule
+        Trạng thái kiểm tra & Category & Product & Inventory & Redis key & \texttt{product:*} \\
+        \midrule
+        Trước khi mất dữ liệu (Baseline) & 100 & 1\,000 & 1\,000 & 1\,000 & 1\,000 \\
+        Sau khi giả lập sự cố & 0 & 0 & 0 & 0 & 0 \\
+        Sau khi restore Oracle & 100 & 1\,000 & 1\,000 & 0 & 0 \\
+        Sau khi restore Redis & 100 & 1\,000 & 1\,000 & 1\,000 & 1\,000 \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+\paragraph{Thử nghiệm đánh giá hiệu năng các chế độ Persistence của Redis}
+
+\noindent\textbf{Phương pháp}\par
+Sử dụng công cụ \texttt{redis-benchmark} \cite{redisBenchmark} thực thi 100\,000 lệnh \texttt{SET} và 100\,000 lệnh \texttt{GET} trên 50 client đồng thời (value size 256 bytes) nhằm đo lường throughput (ops/sec) và độ trễ p95 của Redis ở 3 cấu hình AOF khác nhau: tắt AOF, AOF \texttt{everysec} và AOF \texttt{always}.
+
+\noindent\textbf{Kết quả và phân tích}\par
+Số liệu thu được từ bảng~\ref{tab:bk-redis-persistence-benchmark} thể hiện rõ sự khác biệt về chi phí ghi giữa các chế độ đồng bộ đĩa.
+
+\begin{table}[H]
+    \centering
+    \caption{So sánh hiệu năng theo chế độ Persistence của Redis}
+    \label{tab:bk-redis-persistence-benchmark}
+    \begin{tabularx}{\textwidth}{@{}Xrrrr@{}}
+        \toprule
+        Chế độ AOF & SET (ops/s) & SET p95 (ms) & GET (ops/s) & GET p95 (ms) \\
+        \midrule
+        AOF tắt (\texttt{appendonly no}) & 205\,127.55 & 0.180 & 206\,017.96 & 0.172 \\
+        AOF \texttt{everysec} & 227\,426.15 & 0.186 & 202\,603.07 & 0.170 \\
+        AOF \texttt{always} & 8\,493.02 & 7.764 & 202\,353.34 & 0.183 \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+Chế độ \texttt{appendfsync always} ép Redis phải thực hiện fsync xuống đĩa ở mỗi lệnh ghi, khiến throughput ghi giảm mạnh xuống chỉ còn 8\,493 ops/s và độ trễ p95 tăng lên 7.764 ms (gấp hơn 40 lần). Ngược lại, chế độ \texttt{everysec} đạt throughput ghi tương đương với khi tắt AOF hoàn toàn, trong khi hiệu năng đọc (GET) không bị ảnh hưởng bởi chế độ AOF.
+
+\subsubsection{Đánh giá tổng hợp và định hướng sử dụng DBMS}
+
+Từ kết quả thực nghiệm sao lưu và phục hồi, kiến trúc ShopFlash rút ra các kết luận định hướng vận hành:
+
+\begin{itemize}[label=--]
+    \item \textbf{Khả năng phục hồi sự cố:} Sự kết hợp giữa Oracle Data Pump và Redis RDB snapshot đảm bảo khôi phục 100\% trạng thái hệ thống sau thảm họa dữ liệu với tổng thời gian kỹ thuật chỉ khoảng 33 giây trên tập dữ liệu thử nghiệm.
+    \item \textbf{Cấu hình Persistence tối ưu cho Redis:} Cấu hình \texttt{appendonly yes} kết hợp \texttt{appendfsync everysec} là lựa chọn tối ưu cho môi trường production của ShopFlash. Cấu hình này giúp cân bằng hoàn hảo giữa hiệu năng truy vấn cực cao của bộ nhớ trong và mức độ an toàn dữ liệu (giới hạn nguy cơ mất dữ liệu tối đa trong 1 giây khi xảy ra sự cố đột ngột), tránh được sụt giảm hiệu năng nghiêm trọng như chế độ \texttt{always}.
+\end{itemize}
+\endgroup

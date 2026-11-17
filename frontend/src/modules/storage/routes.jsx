@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { AppstoreOutlined, DatabaseOutlined, ShoppingOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, ShoppingOutlined } from '@ant-design/icons';
 
 // Module storage (TV1): F1 danh mục, F2 sản phẩm. Metadata route: xem frontend/AGENTS.md.
 const AdminCategoriesPage = lazy(() => import('./pages/AdminCategoriesPage'));
@@ -23,6 +23,7 @@ export default [
     path: '/admin/products/storage-lab',
     element: <StorageLabPage />,
     title: 'So sánh Oracle–Redis',
-    menu: { label: 'So sánh Oracle–Redis', icon: <DatabaseOutlined />, group: 'Catalog', order: 3, owner: 'TV1' },
+    // Ẩn khỏi sidebar nhưng vẫn truy cập được bằng URL. Bỏ comment dòng dưới (và import DatabaseOutlined) để hiện lại.
+    // menu: { label: 'So sánh Oracle–Redis', icon: <DatabaseOutlined />, group: 'Catalog', order: 3, owner: 'TV1' },
   },
 ];

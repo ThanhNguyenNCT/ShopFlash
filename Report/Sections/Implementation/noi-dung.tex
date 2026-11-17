@@ -118,7 +118,32 @@ Khác với Normal Checkout, luồng Flash Sale sử dụng Redis để quản l
 
 Ngoài các chức năng dành cho khách hàng, ShopFlash cung cấp giao diện quản trị nhằm quản lý dữ liệu và vận hành các nghiệp vụ của hệ thống. Phần này tập trung giới thiệu các nhóm chức năng tiêu biểu, không trình bày toàn bộ công cụ hỗ trợ thực nghiệm đã được phân tích tại Phần 2.
 
-\emph{[Thành viên phụ trách Admin bổ sung phần minh họa quản lý sản phẩm, quản lý Flash Sale và báo cáo/thống kê. Mỗi nhóm chỉ cần một đoạn mô tả ngắn cùng ảnh giao diện tiêu biểu.]}
+% Khung ảnh tạm: nếu chưa có file ảnh thì in ô chú thích thay vì làm hỏng bản dịch.
+\newcommand{\adminfigure}[3]{%
+\begin{figure}[!htbp]
+\centering
+\IfFileExists{Pictures/Section_3/#1.png}{\includegraphics[width=\linewidth]{Pictures/Section_3/#1.png}}{\fbox{\parbox{0.9\linewidth}{\centering [Chưa có ảnh #1.png]}}}
+\caption{#2}\label{#3}
+\end{figure}
+}
+
+\paragraph*{Nhóm chức năng quản lý danh mục và sản phẩm}
+
+Quản trị viên quản lý danh mục tại trang Danh mục. Trang hiển thị danh sách phân trang gồm tên, mô tả, số sản phẩm và trạng thái của từng danh mục, hỗ trợ tìm kiếm theo tên, lọc theo trạng thái và thực hiện các thao tác tạo, sửa, xóa ngay trên trang.
+
+\adminfigure{admin-categories}{Giao diện quản lý danh mục với tìm kiếm và lọc theo trạng thái.}{fig:impl-admin-categories}
+
+Một danh mục chỉ được xóa khi không còn sản phẩm thuộc về nó. Giao diện vô hiệu hóa nút xóa đối với các danh mục còn sản phẩm (Hình~\ref{fig:impl-admin-categories}), đồng thời tầng xử lý nghiệp vụ vẫn kiểm tra lại quy tắc này để từ chối mọi yêu cầu xóa không hợp lệ.
+
+\adminfigure{admin-products}{Giao diện quản lý sản phẩm với tìm kiếm, bộ lọc và phân trang.}{fig:impl-admin-products}
+
+Form tạo và chỉnh sửa sản phẩm kiểm tra dữ liệu ngay khi nhập: danh mục, SKU, tên và giá bán là bắt buộc, giá không được âm. Khi tạo sản phẩm, hệ thống tạo luôn bản ghi tồn kho trong cùng một transaction. Sản phẩm không bị xóa cứng mà chuyển sang trạng thái ngừng bán để giữ nguyên lịch sử đơn hàng.
+
+\adminfigure{admin-product-form}{Form tạo sản phẩm với kiểm tra dữ liệu đầu vào.}{fig:impl-admin-product-form}
+
+Các màn hình này cho thấy dữ liệu danh mục và sản phẩm được lưu trên Oracle làm nguồn chính; sau mỗi thay đổi thành công, hệ thống cập nhật bản chiếu sản phẩm trên Redis để phục vụ tìm kiếm phía khách hàng. Cơ chế lưu trữ và so sánh giữa hai DBMS được phân tích tại topic Data Storage \& Management.
+
+\emph{[Thành viên phụ trách Admin bổ sung phần minh họa quản lý Flash Sale và báo cáo/thống kê. Mỗi nhóm chỉ cần một đoạn mô tả ngắn cùng ảnh giao diện tiêu biểu.]}
 
 \subsubsection*{C. Đánh giá kết quả vận hành}
 

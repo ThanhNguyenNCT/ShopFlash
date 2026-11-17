@@ -1,0 +1,88 @@
+% !TeX root = ../../../main.tex
+% Mục 2.4.1 lấy từ bản đầy đủ 3.1 trong Bao_cao_Transaction_Muc_3_1-3_3_MD.
+% Các mục 2.4.2 và 2.4.3 tiếp tục giữ nội dung đã chốt.
+\txsection{Tổng quan và phương pháp nghiên cứu}\label{sec:tx-1}
+\txsubsection{Mục tiêu và phạm vi nghiên cứu}\label{sec:tx-1-1}
+Transaction là một trong những cơ chế quan trọng của hệ quản trị cơ sở dữ liệu (DBMS), cho phép tổ chức và kiểm soát nhiều thao tác dữ liệu trong một đơn vị xử lý logic. Việc bảo đảm tính đúng đắn của transaction không chỉ liên quan đến kết quả khi thực thi thành công mà còn bao gồm hành vi khi phát sinh lỗi, khả năng duy trì các ràng buộc dữ liệu và cách xử lý những thao tác truy cập đồng thời.
+
+Trong phần này, nhóm nghiên cứu và đối chiếu cơ chế Transaction của \textbf{Oracle Database} và \textbf{Redis}, hai hệ quản trị có mô hình lưu trữ và phương thức xử lý dữ liệu khác nhau. Nội dung nghiên cứu tập trung vào bốn tính chất ACID:
+
+\begin{itemize}[leftmargin=*,itemsep=2pt,topsep=4pt]
+\item
+\textbf{Atomicity (Tính nguyên tử):} Khả năng xác nhận hoặc hoàn tác các thao tác thuộc một transaction.
+
+\item
+\textbf{Consistency (Tính nhất quán):} Khả năng duy trì các ràng buộc và trạng thái dữ liệu hợp lệ.
+
+\item
+\textbf{Isolation (Tính cô lập):} Cách các transaction và client tương tác khi truy cập dữ liệu đồng thời.
+
+\item
+\textbf{Durability (Tính bền vững):} Khả năng duy trì những thay đổi đã được xác nhận.
+
+\end{itemize}
+Đối với mỗi tính chất, nhóm tìm hiểu cơ sở lý thuyết, phân tích cơ chế mà Oracle và Redis cung cấp, sau đó xây dựng các thí nghiệm để kiểm chứng hành vi thực tế. Việc so sánh tập trung vào \textbf{ngữ nghĩa, phạm vi bảo đảm và giới hạn của từng cơ chế}, thay vì chỉ đối chiếu kết quả thành công hoặc thất bại.
+
+Bên cạnh các thí nghiệm chức năng, nhóm thực hiện benchmark nhằm đánh giá thời gian xử lý và thông lượng của hai cách triển khai transaction dưới những mức tải xác định. Các kết quả được sử dụng để phân tích ảnh hưởng của số lượng thao tác và mức độ đồng thời đến hiệu năng.
+
+Một số kịch bản được xây dựng dựa trên nghiệp vụ quản lý giỏ hàng, tồn kho và đặt hàng của hệ thống thương mại điện tử ShopFlash. Đây là \textbf{ngữ cảnh ứng dụng được lựa chọn để minh họa và kiểm chứng kiến thức DBMS}, không phải đối tượng đánh giá chính của nghiên cứu.
+
+Phạm vi nghiên cứu gồm các thí nghiệm transaction trực tiếp trên Oracle và Redis, phép đo hiệu năng cấp cơ sở dữ liệu và một phép đo bổ trợ ở cấp ứng dụng. Nghiên cứu không triển khai transaction phân tán giữa hai DBMS và không thực hiện kiểm thử phục hồi dữ liệu sau sự cố hệ thống (crash recovery).
+
+\txsubsection{Môi trường, dữ liệu và phương pháp thực nghiệm}\label{sec:tx-1-2}
+\textbf{Môi trường thực nghiệm.} Oracle và Redis được triển khai trong môi trường local thông qua Docker Compose. Nhóm sử dụng SQL/PLSQL và SQL*Plus để thực hiện các thao tác trên Oracle; Redis CLI và Lua script để kiểm chứng các cơ chế của Redis. Những thí nghiệm có nhiều session hoặc client được điều phối bằng Bash/Python nhằm kiểm soát thứ tự thực thi và ghi nhận kết quả.
+
+Các thí nghiệm sử dụng một mô hình dữ liệu thu gọn từ nghiệp vụ đặt hàng. Những đối tượng chính và các trường dữ liệu liên quan được trình bày trong Bảng~\ref{tab:tx-1}.
+
+\begin{table}[!htbp]
+\centering
+\caption{Các đối tượng và trường dữ liệu chính trong thí nghiệm.}\label{tab:tx-1}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.65\hsize\linewidth=\hsize}L|>{\hsize=1.05\hsize\linewidth=\hsize}L|>{\hsize=1.3\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Đối tượng} & \reportheader{Biểu diễn trong Oracle/Redis} & \reportheader{Dữ liệu và ý nghĩa} \\ \hline
+Product & Bảng \texttt{PRODUCTS} / Product key & \texttt{product\_\allowbreak{}id} định danh sản phẩm; \texttt{status} thể hiện trạng thái kinh doanh \\ \hline
+Inventory & Bảng \texttt{PRODUCT\_\allowbreak{}INVENTORY} / Inventory Hash & \texttt{on\_\allowbreak{}hand\_\allowbreak{}quantity} hoặc \texttt{on\_\allowbreak{}hand} là tồn kho; \texttt{reserved\_\allowbreak{}flash\_\allowbreak{}quantity} hoặc \texttt{reserved} là số lượng đã giữ; \texttt{version} là phiên bản dữ liệu \\ \hline
+Cart & Bảng \texttt{CARTS}, \texttt{CART\_\allowbreak{}ITEMS} / Cart Hash & \texttt{cart\_\allowbreak{}id} xác định giỏ hàng; \texttt{product\_\allowbreak{}id} và \texttt{quantity} xác định sản phẩm cùng số lượng trong giỏ \\ \hline
+Order & Bảng \texttt{ORDERS}, \texttt{ORDER\_\allowbreak{}ITEMS} / Order key & Thông tin đơn hàng, sản phẩm được mua, số lượng và trạng thái xử lý \\ \hline
+Quota & Redis Quota Hash & \texttt{limit} là tổng số suất; \texttt{remaining} là số suất còn lại; \texttt{held} là số suất đã giữ \\ \hline
+\end{tabularx}
+\end{table}
+Các thí nghiệm chức năng sử dụng bộ dữ liệu khởi tạo (\emph{fixture}) gồm một người dùng, một giỏ hàng với ba sản phẩm P1, P2 và P3. Mỗi sản phẩm có tồn kho ban đầu là 100, lượng tồn đã giữ bằng 0 và số lượng trong giỏ hàng bằng 1. Đối với thí nghiệm quota, giới hạn ban đầu là hai suất (\texttt{limit =\allowbreak{} 2}, \texttt{remaining =\allowbreak{} 2}, \texttt{held =\allowbreak{} 0}).
+
+Các giá trị này được lựa chọn nhằm tạo điều kiện quan sát rõ sự thay đổi dữ liệu và kiểm tra kết quả. Tùy mục tiêu, từng thí nghiệm có thể điều chỉnh fixture hoặc sử dụng mô hình dữ liệu bổ sung; những thay đổi đó sẽ được nêu tại phần thực nghiệm tương ứng.
+
+\textbf{Phương pháp kiểm chứng.} Nhóm xây dựng tổng cộng 14 thí nghiệm, được phân thành bốn nhóm:
+
+\begin{table}[!htbp]
+\centering
+\caption{Phân nhóm các thí nghiệm Transaction.}\label{tab:tx-2}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.4\hsize\linewidth=\hsize}L|>{\hsize=0.65\hsize\linewidth=\hsize}L|>{\hsize=1.95\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Nhóm} & \reportheader{Thí nghiệm} & \reportheader{Nội dung kiểm chứng} \\ \hline
+A & A1–A5 & COMMIT, ROLLBACK, SAVEPOINT, MULTI/EXEC và xử lý lỗi \\ \hline
+B & B1–B5 & Isolation, locking, deadlock, WATCH và xử lý đồng thời bằng Lua \\ \hline
+C & C1–C2 & Ràng buộc toàn vẹn và cơ chế bảo vệ Consistency \\ \hline
+D & D1–D2 & Transaction gồm nhiều thao tác trong nghiệp vụ Checkout \\ \hline
+\end{tabularx}
+\end{table}
+Mỗi thí nghiệm được thực hiện theo quy trình: \textbf{khởi tạo dữ liệu \(\rightarrow\) ghi nhận trạng thái ban đầu \(\rightarrow\) thực thi kịch bản \(\rightarrow\) thu thập kết quả \(\rightarrow\) đối chiếu và khôi phục dữ liệu}.
+
+Kết quả được kiểm chứng thông qua phản hồi trực tiếp từ DBMS, mã lỗi, trạng thái dữ liệu trước/sau (\emph{snapshot}) và các điều kiện kiểm tra tự động (\emph{assertion}). Một thí nghiệm chỉ được xem là đạt khi kết quả quan sát phù hợp với hành vi dự kiến, không chỉ dựa trên việc chương trình thực thi kết thúc thành công.
+
+\textbf{Phương pháp đánh giá hiệu năng.} Nhóm sử dụng hai cấp độ benchmark:
+
+\begin{itemize}[leftmargin=*,itemsep=2pt,topsep=4pt]
+\item
+\textbf{Database-level:} Java sử dụng JDBC/Jedis để thực hiện transaction trực tiếp trên Oracle và Redis, đo thời gian thực thi và thông lượng.
+
+\item
+\textbf{Application-level:} k6 tạo tải HTTP lên các API nghiệp vụ của ShopFlash, dùng để đánh giá bổ trợ hiệu năng ở cấp ứng dụng.
+
+\end{itemize}
+Các phép đo khảo sát kích thước giỏ hàng và số lượng tác vụ đồng thời ở những mức cấu hình xác định. Những tham số workload, cách thu thập mẫu, công thức tính latency, p50, p95, throughput và kết quả đo được trình bày ở Mục~\ref{sec:tx-3}.
+
+Cách tổ chức này cho phép tách biệt hai mục tiêu: \textbf{kiểm chứng cơ chế Transaction ở Mục~\ref{sec:tx-2}} và \textbf{đánh giá chi phí thực thi trong những workload cụ thể ở Mục~\ref{sec:tx-3}}.

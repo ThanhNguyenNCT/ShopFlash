@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Card, Empty, Pagination, Select, Spin, Typography } from 'antd';
-import { Link } from 'react-router-dom';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/shared/auth';
 import { PriceTag, tokens } from '@/shared/design-system';
 import { getOrders } from '../api';
@@ -22,6 +22,7 @@ function placedAt(value) {
 
 export default function OrdersPage() {
   const { user, loading: authLoading } = useAuth();
+  const { pathname, search, hash } = useLocation();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState('');
   const [loaded, setLoaded] = useState(null);
@@ -29,7 +30,7 @@ export default function OrdersPage() {
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
   const requestSeq = useRef(0);
-  const orders = loaded?.userId === user?.userId ? loaded.data : null;
+  const orders = loaded && user && loaded.userId === user.userId ? loaded.data : null;
 
   useEffect(() => {
     const requestId = ++requestSeq.current;
@@ -44,7 +45,8 @@ export default function OrdersPage() {
   }, [user, page, status, reload]);
 
   if (authLoading) return <Spin description="Đang kiểm tra phiên đăng nhập"><div style={{ minHeight: tokens.space[8] }} /></Spin>;
-  if (!user || user.role !== 'CUSTOMER') {
+  if (!user) return <Navigate to={`/login?next=${encodeURIComponent(pathname + search + hash)}`} replace />;
+  if (user.role !== 'CUSTOMER') {
     return <Alert type="info" showIcon title="Cần tài khoản Khách"
       description={<Link to="/login?next=%2Forders">Đăng nhập bằng tài khoản Khách để xem đơn hàng</Link>} />;
   }

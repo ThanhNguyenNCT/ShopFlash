@@ -55,14 +55,16 @@ public class OrderRepository {
         OrderDetailResponse header = rows.getFirst();
         List<OrderDetailResponse.Line> items = jdbc.query("""
                 SELECT oi.order_item_id, oi.product_id, oi.product_name, oi.product_sku,
-                       oi.unit_price, oi.quantity, oi.line_total
+                       oi.unit_price, oi.quantity, oi.line_total, p.thumbnail_url
                   FROM order_items oi JOIN orders o ON o.order_id = oi.order_id
+                  LEFT JOIN products p ON p.product_id = oi.product_id
                  WHERE o.order_id = :orderId AND o.user_id = :userId
                  ORDER BY oi.order_item_id
                 """, new MapSqlParameterSource().addValue("orderId", orderId).addValue("userId", userId),
                 (rs, row) -> new OrderDetailResponse.Line(rs.getLong("order_item_id"),
                         rs.getLong("product_id"), rs.getString("product_name"), rs.getString("product_sku"),
-                        rs.getBigDecimal("unit_price"), rs.getInt("quantity"), rs.getBigDecimal("line_total")));
+                        rs.getBigDecimal("unit_price"), rs.getInt("quantity"), rs.getBigDecimal("line_total"),
+                        rs.getString("thumbnail_url")));
         return new OrderDetailResponse(header.orderId(), header.orderCode(), header.orderType(), header.status(),
                 header.recipientName(), header.recipientPhone(), header.shippingAddress(), header.subtotal(),
                 header.discountAmount(), header.totalAmount(), header.createdAt(), header.cancelledAt(), List.copyOf(items));

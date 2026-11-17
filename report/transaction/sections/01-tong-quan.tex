@@ -16,19 +16,17 @@ Phạm vi gồm các thí nghiệm thực thi trực tiếp trên từng DBMS, b
 \begin{table}[H]
 \centering
 \caption{Các đối tượng và trường dữ liệu chính trong thí nghiệm.}\label{tab:tx-1}
+\reporttablesetup
 \footnotesize
-\setlength{\tabcolsep}{3pt}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabularx}{\linewidth}{@{}>{\hsize=0.65\hsize\linewidth=\hsize}L>{\hsize=1.05\hsize\linewidth=\hsize}L>{\hsize=1.3\hsize\linewidth=\hsize}L@{}}
-\toprule
-\textbf{Đối tượng} & \textbf{Biểu diễn trong Oracle/Redis} & \textbf{Dữ liệu và ý nghĩa} \\
-\midrule
-Product & Bảng \texttt{PRODUCTS} / Product key & \texttt{product\_\allowbreak{}id} định danh sản phẩm; \texttt{status} thể hiện trạng thái kinh doanh \\
-Inventory & Bảng \texttt{PRODUCT\_\allowbreak{}INVENTORY} / Inventory Hash & \texttt{on\_\allowbreak{}hand\_\allowbreak{}quantity} hoặc \texttt{on\_\allowbreak{}hand} là tồn kho; \texttt{reserved\_\allowbreak{}flash\_\allowbreak{}quantity} hoặc \texttt{reserved} là số lượng đã giữ; \texttt{version} là phiên bản dữ liệu \\
-Cart & Bảng \texttt{CARTS}, \texttt{CART\_\allowbreak{}ITEMS} / Cart Hash & \texttt{cart\_\allowbreak{}id} xác định giỏ hàng; \texttt{product\_\allowbreak{}id} và \texttt{quantity} xác định sản phẩm cùng số lượng trong giỏ \\
-Order & Bảng \texttt{ORDERS}, \texttt{ORDER\_\allowbreak{}ITEMS} / Order key & Thông tin đơn hàng, sản phẩm được mua, số lượng và trạng thái xử lý \\
-Quota & Redis Quota Hash & \texttt{limit} là tổng số suất; \texttt{remaining} là số suất còn lại; \texttt{held} là số suất đã giữ \\
-\bottomrule
+\begin{tabularx}{\linewidth}{|>{\hsize=0.65\hsize\linewidth=\hsize}L|>{\hsize=1.05\hsize\linewidth=\hsize}L|>{\hsize=1.3\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Đối tượng} & \reportheader{Biểu diễn trong Oracle/Redis} & \reportheader{Dữ liệu và ý nghĩa} \\ \hline
+Product & Bảng \texttt{PRODUCTS} / Product key & \texttt{product\_\allowbreak{}id} định danh sản phẩm; \texttt{status} thể hiện trạng thái kinh doanh \\ \hline
+Inventory & Bảng \texttt{PRODUCT\_\allowbreak{}INVENTORY} / Inventory Hash & \texttt{on\_\allowbreak{}hand\_\allowbreak{}quantity} hoặc \texttt{on\_\allowbreak{}hand} là tồn kho; \texttt{reserved\_\allowbreak{}flash\_\allowbreak{}quantity} hoặc \texttt{reserved} là số lượng đã giữ; \texttt{version} là phiên bản dữ liệu \\ \hline
+Cart & Bảng \texttt{CARTS}, \texttt{CART\_\allowbreak{}ITEMS} / Cart Hash & \texttt{cart\_\allowbreak{}id} xác định giỏ hàng; \texttt{product\_\allowbreak{}id} và \texttt{quantity} xác định sản phẩm cùng số lượng trong giỏ \\ \hline
+Order & Bảng \texttt{ORDERS}, \texttt{ORDER\_\allowbreak{}ITEMS} / Order key & Thông tin đơn hàng, sản phẩm được mua, số lượng và trạng thái xử lý \\ \hline
+Quota & Redis Quota Hash & \texttt{limit} là tổng số suất; \texttt{remaining} là số suất còn lại; \texttt{held} là số suất đã giữ \\ \hline
 \end{tabularx}
 \end{table}
 Fixture mặc định gồm \textbf{một user}, \textbf{một Cart với P1–P3} (mỗi sản phẩm Quantity = 1), \textbf{Stock = 100}, \textbf{Reserved = 0} cho từng sản phẩm. Các phép thử quota khởi tạo \texttt{limit =\allowbreak{} 2}, \texttt{remaining =\allowbreak{} 2}, \texttt{held =\allowbreak{} 0}. Mỗi test có thể tạo trạng thái lỗi hoặc điều chỉnh dữ liệu riêng trước khi chạy.
@@ -38,18 +36,16 @@ Fixture mặc định gồm \textbf{một user}, \textbf{một Cart với P1–P
 \begin{table}[H]
 \centering
 \caption{Phân nhóm các thí nghiệm Transaction.}\label{tab:tx-2}
+\reporttablesetup
 \footnotesize
-\setlength{\tabcolsep}{3pt}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabularx}{\linewidth}{@{}>{\hsize=0.4\hsize\linewidth=\hsize}L>{\hsize=0.65\hsize\linewidth=\hsize}L>{\hsize=1.95\hsize\linewidth=\hsize}L@{}}
-\toprule
-\textbf{Nhóm} & \textbf{Thí nghiệm} & \textbf{Nội dung kiểm chứng} \\
-\midrule
-A & A1–A5 & COMMIT, ROLLBACK, SAVEPOINT, MULTI/EXEC và xử lý lỗi \\
-B & B1–B5 & Isolation, locking, deadlock, WATCH và xử lý đồng thời bằng Lua \\
-C & C1–C2 & Ràng buộc toàn vẹn và cơ chế bảo vệ Consistency \\
-D & D1–D2 & Transaction gồm nhiều thao tác trong nghiệp vụ Checkout \\
-\bottomrule
+\begin{tabularx}{\linewidth}{|>{\hsize=0.4\hsize\linewidth=\hsize}L|>{\hsize=0.65\hsize\linewidth=\hsize}L|>{\hsize=1.95\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Nhóm} & \reportheader{Thí nghiệm} & \reportheader{Nội dung kiểm chứng} \\ \hline
+A & A1–A5 & COMMIT, ROLLBACK, SAVEPOINT, MULTI/EXEC và xử lý lỗi \\ \hline
+B & B1–B5 & Isolation, locking, deadlock, WATCH và xử lý đồng thời bằng Lua \\ \hline
+C & C1–C2 & Ràng buộc toàn vẹn và cơ chế bảo vệ Consistency \\ \hline
+D & D1–D2 & Transaction gồm nhiều thao tác trong nghiệp vụ Checkout \\ \hline
 \end{tabularx}
 \end{table}
 Mỗi test tuân theo quy trình \textbf{tạo fixture \(\rightarrow\) chụp snapshot trước \(\rightarrow\) thực thi \(\rightarrow\) thu phản hồi/mã lỗi \(\rightarrow\) so sánh snapshot và assertion \(\rightarrow\) khôi phục fixture}. Kết luận dựa trên cả hành vi DBMS và biến đổi dữ liệu, không chỉ trạng thái kết thúc của script. Các trường hợp nhiều nhánh được đối chiếu trong cùng điều kiện khởi tạo.

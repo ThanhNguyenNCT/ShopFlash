@@ -9,5 +9,5 @@ public record OrderDetailResponse(long orderId, String orderCode, String orderTy
                                   BigDecimal subtotal, BigDecimal discountAmount, BigDecimal totalAmount,
                                   OffsetDateTime createdAt, OffsetDateTime cancelledAt, List<Line> items) {
     public record Line(long orderItemId, long productId, String productName, String productSku,
-                       BigDecimal unitPrice, int quantity, BigDecimal lineTotal) {}
+                       BigDecimal unitPrice, int quantity, BigDecimal lineTotal, String thumbnailUrl) {}
 }

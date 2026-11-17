@@ -20,6 +20,7 @@ final class CheckoutNormalizer {
     private static final Pattern UUID_KEY = Pattern.compile(
             "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
     private static final BigDecimal MAX_MONEY = new BigDecimal("9999999999999.99");
+    private static final Pattern RECIPIENT_PHONE = Pattern.compile("(?:0|\\+84)[35789][0-9]{8}");
 
     private CheckoutNormalizer() {}
 
@@ -31,6 +32,10 @@ final class CheckoutNormalizer {
         if (request.cartVersion() < 0) throw ApiException.badRequest("cartVersion", "Phiên bản giỏ không hợp lệ");
         String name = text(request.recipientName(), "recipientName", 150);
         String phone = text(request.recipientPhone(), "recipientPhone", 30);
+        if (!RECIPIENT_PHONE.matcher(phone).matches()) {
+            throw ApiException.badRequest("recipientPhone",
+                    "Nhập số di động Việt Nam hợp lệ, ví dụ 0912345678 hoặc +84912345678.");
+        }
         String address = text(request.shippingAddress(), "shippingAddress", 500);
         if (request.expectedLines() == null || request.expectedLines().isEmpty()) {
             throw ApiException.badRequest("expectedLines", "Danh sách sản phẩm không được rỗng");

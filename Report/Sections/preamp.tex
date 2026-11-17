@@ -1,0 +1,136 @@
+% !TeX program = xelatex
+% !TeX root = ../main.tex
+% Preamble tập trung theo cấu trúc mẫu local_docs/Report/Sections/preamp.tex.
+% Dùng XeLaTeX để giữ Unicode tiếng Việt trong nội dung và mã nguồn.
+\documentclass[a4paper,oneside]{article}
+\usepackage{fix-cm}
+\usepackage{fontspec}
+% Latin Modern giữ dáng Computer Modern/VNR của mẫu, hỗ trợ Unicode tiếng Việt.
+% Chỉ định file để máy local và Docker chọn cùng một bộ font.
+\setmainfont{lmroman12-regular.otf}[
+  BoldFont=lmroman12-bold.otf,ItalicFont=lmroman12-italic.otf,
+  BoldItalicFont=lmroman10-bolditalic.otf]
+\setmonofont{lmmono10-regular.otf}[
+  BoldFont=lmmonolt10-bold.otf,ItalicFont=lmmono10-italic.otf,
+  BoldItalicFont=lmmonolt10-boldoblique.otf]
+\usepackage[a4paper,total={160mm,240mm},left=30mm,top=30mm,
+  headheight=40pt,headsep=10pt,footskip=26pt]{geometry}
+\usepackage{setspace,indentfirst}
+\setlength{\parindent}{1cm}
+\hyphenpenalty=10000
+\exhyphenpenalty=10000
+\emergencystretch=3em
+\raggedbottom
+
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem,graphicx,array,tabularx,multirow,booktabs,float}
+\usepackage[table,dvipsnames]{xcolor}
+\usepackage{caption,subcaption,listings,fvextra}
+\usepackage{tikz,eso-pic}
+\usetikzlibrary{calc,positioning,arrows.meta,shapes.geometric}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{fancyhdr,titlesec}
+\usepackage[backend=biber,style=ieee]{biblatex}
+\addbibresource{references.bib}
+\newif\ifreportcitations
+\AtEveryCitekey{\global\reportcitationstrue}
+\usepackage{xurl,hyperref}
+
+\newcommand{\khoa}{KHOA KHOA HỌC VÀ KỸ THUẬT MÁY TÍNH}
+\newcommand{\monhoc}{HỆ QUẢN TRỊ CƠ SỞ DỮ LIỆU}
+\newcommand{\detai}{Oracle vs Redis}
+\newcommand{\lop}{L01}
+\newcommand{\nhom}{L01\_02}
+\newcommand{\hocky}{261}
+\newcommand{\giangvien}{Lê Thị Bảo Thu}
+\newcommand{\sinhvien}{Đặng Hải Sơn}
+\newcommand{\mssv}{2312955}
+
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+\input{Sections/styles}
+\input{Sections/transaction-format}
+\graphicspath{{Pictures/}{Pictures/Task_4/}}
+
+% Ba phần lớn; topic là subsection (2.1–2.6), nội dung Transaction đến cấp 4.
+\setcounter{secnumdepth}{4}
+\setcounter{tocdepth}{3}
+\renewcommand{\thesection}{\arabic{section}}
+\renewcommand{\thesubsection}{\arabic{section}.\arabic{subsection}}
+\titleformat{\section}{\LARGE\bfseries}{Phần \thesection.}{0.7em}{}
+\titleformat{\subsection}{\Large\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\fontsize{14}{16}\selectfont\bfseries}{\thesubsubsection}{1em}{}
+\renewcommand{\theparagraph}{\thesubsubsection.\arabic{paragraph}}
+\titleformat{\paragraph}[block]{\fontsize{13}{15}\selectfont\bfseries}{\theparagraph}{0.7em}{}
+\titlespacing*{\section}{0pt}{16pt}{9pt}
+\titlespacing*{\subsection}{0pt}{12pt}{6pt}
+\titlespacing*{\subsubsection}{0pt}{10pt}{5pt}
+\titlespacing*{\paragraph}{0pt}{10pt}{5pt}
+\counterwithin{table}{section}
+\counterwithin{figure}{section}
+\counterwithin{txresult}{section}
+\renewcommand{\thetable}{\arabic{section}.\arabic{table}}
+\renewcommand{\thefigure}{\arabic{section}.\arabic{figure}}
+\renewcommand{\thetxresult}{\arabic{section}.\arabic{txresult}}
+\AtBeginDocument{%
+  \counterwithin{lstlisting}{section}%
+  \renewcommand{\thelstlisting}{\arabic{section}.\arabic{lstlisting}}}
+\renewcommand{\contentsname}{Mục lục}
+\renewcommand{\figurename}{Hình}
+\renewcommand{\tablename}{Bảng}
+\renewcommand{\lstlistingname}{Mã nguồn}
+\DeclareCaptionFont{reportcaption}{\fontsize{11}{13}\selectfont}
+\captionsetup{font=reportcaption,labelfont=bf,textfont=it}
+\captionsetup[table]{position=top,skip=5pt}
+\captionsetup[figure]{position=bottom,skip=5pt}
+\hypersetup{unicode=true,colorlinks=true,linkcolor=black,citecolor=black,
+  urlcolor=ReportAccent,pdftitle={Oracle vs Redis -- Báo cáo Hệ quản trị Cơ sở dữ liệu},
+  pdfauthor={Đặng Hải Sơn -- 2312955 -- L01 -- Nhóm \nhom}}
+
+% Header/footer của mẫu, thay thông tin môn học và người thực hiện.
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{%
+  \begin{tabular}{rl}
+    \begin{picture}(25,15)(0,0)
+      \put(0,-8){\includegraphics[width=8mm,height=8mm]{Pictures/hcmut.png}}
+    \end{picture} &
+    \begin{tabular}{l}
+      \fontsize{10}{12}\selectfont\bfseries\ttfamily Trường Đại học Bách khoa -- ĐHQG-HCM\\
+      \fontsize{10}{12}\selectfont\bfseries\ttfamily Khoa Khoa học và Kỹ thuật Máy tính
+    \end{tabular}
+  \end{tabular}}
+\fancyfoot[L]{\footnotesize\ttfamily Báo cáo Hệ quản trị Cơ sở dữ liệu\\Học kỳ 261 -- Lớp L01 -- Nhóm \nhom}
+\fancyfoot[R]{\footnotesize\ttfamily Trang {\color{red}\thepage/\pageref*{LastPage}}}
+\renewcommand{\headrulewidth}{0.3pt}
+\renewcommand{\footrulewidth}{0.3pt}
+
+% Khung đôi bìa theo đúng cơ chế PageFrameSetup của template.
+\pgfkeys{
+  /pageframe/.is family,/pageframe,
+  outer left/.initial=1.5cm,outer right/.initial=1.5cm,
+  outer top/.initial=2cm,outer bottom/.initial=2cm,
+  inner left/.initial=1.7cm,inner right/.initial=1.7cm,
+  inner top/.initial=2.2cm,inner bottom/.initial=2.2cm,
+  outer width/.initial=3pt,inner width/.initial=1.9pt,
+  outer color/.initial=black,inner color/.initial=black,
+  corner radius/.initial=0pt
+}
+\newcommand{\PageFrameSetup}[1]{\pgfkeys{/pageframe,#1}}
+\newcommand{\PageFrameDraw}{%
+  \begin{tikzpicture}[overlay,remember picture]
+    \draw[line width=\pgfkeysvalueof{/pageframe/outer width},
+      color=\pgfkeysvalueof{/pageframe/outer color},
+      rounded corners=\pgfkeysvalueof{/pageframe/corner radius}]
+      ($(current page.north west)+(\pgfkeysvalueof{/pageframe/outer left},-\pgfkeysvalueof{/pageframe/outer top})$)
+      rectangle
+      ($(current page.south east)+(-\pgfkeysvalueof{/pageframe/outer right},\pgfkeysvalueof{/pageframe/outer bottom})$);
+    \draw[line width=\pgfkeysvalueof{/pageframe/inner width},
+      color=\pgfkeysvalueof{/pageframe/inner color},
+      rounded corners=\pgfkeysvalueof{/pageframe/corner radius}]
+      ($(current page.north west)+(\pgfkeysvalueof{/pageframe/inner left},-\pgfkeysvalueof{/pageframe/inner top})$)
+      rectangle
+      ($(current page.south east)+(-\pgfkeysvalueof{/pageframe/inner right},\pgfkeysvalueof{/pageframe/inner bottom})$);
+  \end{tikzpicture}}
+\newcommand{\PageFrameThisPage}{\AddToShipoutPictureBG*{\PageFrameDraw}}

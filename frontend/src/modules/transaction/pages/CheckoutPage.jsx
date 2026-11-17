@@ -97,7 +97,7 @@ export default function CheckoutPage() {
     const body = {
       cartVersion: preview.cartVersion,
       recipientName: values.recipientName,
-      recipientPhone: values.recipientPhone,
+      recipientPhone: values.recipientPhone.trim(),
       shippingAddress: values.shippingAddress,
       expectedLines: preview.lines.map((line) => ({
         productId: line.productId,
@@ -194,8 +194,12 @@ export default function CheckoutPage() {
                 <Input maxLength={150} autoComplete="name" />
               </Form.Item>
               <Form.Item name="recipientPhone" label="Số điện thoại"
-                rules={[{ required: true, whitespace: true, message: 'Nhập số điện thoại.' }]}>
-                <Input maxLength={30} autoComplete="tel" />
+                rules={[
+                  { required: true, whitespace: true, message: 'Nhập số điện thoại.' },
+                  { pattern: /^(?:0|\+84)[35789][0-9]{8}$/, transform: (value) => value?.trim(),
+                    message: 'Nhập số di động Việt Nam hợp lệ, ví dụ 0912345678 hoặc +84912345678.' },
+                ]}>
+                <Input type="tel" inputMode="tel" maxLength={30} autoComplete="tel" placeholder="0912345678 hoặc +84912345678" />
               </Form.Item>
               <Form.Item name="shippingAddress" label="Địa chỉ giao hàng"
                 rules={[{ required: true, whitespace: true, message: 'Nhập địa chỉ giao hàng.' }]}>

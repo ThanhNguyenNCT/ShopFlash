@@ -9,6 +9,12 @@ Chạy Oracle/Redis bằng Docker, backend profile `dev` và Vite trên host nh�
 5. Khi còn yêu cầu đang chờ, đăng xuất hoặc đăng nhập khách khác: trang không gửi lại bằng danh tính mới. Đăng nhập lại đúng khách để giải quyết yêu cầu. Không lưu JWT, mật khẩu hoặc body đang chờ vào `localStorage`, URL hay log.
 6. Sau `LOCK_TIMEOUT`/`DEADLOCK`/lỗi mạng, giữ nguyên yêu cầu đang chờ để gửi lại. Sau lỗi nghiệp vụ xác định chưa commit (`CART_CHANGED`, `PRICE_CHANGED`, `OUT_OF_STOCK`, `PRODUCT_UNAVAILABLE`, `CART_EMPTY`), xóa bản ghi chờ, tải lại xem trước rồi mới cho xác nhận nội dung mới.
 
+Số điện thoại: thử để trống, nhập chữ, thiếu/thừa chữ số, đầu `01`, hoặc `+840...`;
+form phải báo lỗi ở ô điện thoại và không gửi `POST /api/orders`. `0912345678` và
+`+84912345678` được chấp nhận; khoảng trắng hai đầu được bỏ khi gửi. Gọi API trực
+tiếp với số sai phải trả `400 VALIDATION_ERROR`, trường `recipientPhone`, không
+tạo đơn, đổi giỏ hoặc trừ tồn. Kiểm tra lỗi không tràn ngang trên màn 375 px.
+
 Để đối chiếu, truy vấn bằng biến bind `:email` và `:productId` trên **kết nối Oracle khác** sau từng bước:
 
 ```sql

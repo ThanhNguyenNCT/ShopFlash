@@ -1,15 +1,14 @@
-% 3.5 Concurrency control. Người viết: TV5.
+% 5. Concurrency control. Người viết: TV5.
 % File này chỉ chứa nội dung, được \input vào report/main.tex. Nhãn có tiền tố cc-, tài liệu ở concurrency.bib.
 % Số đo chỉ điền sau khi chạy (xem README.md cùng thư mục); giả thuyết ghi trước khi đo.
 
-\subsection{Concurrency control}\label{sec:cc}
 
 \noindent\textit{Người viết: Họ tên TV5}
 
 Mục này so sánh cách Oracle và Redis xử lý nhiều yêu cầu cùng ghi vào một chỗ, qua chức năng F9 (Flash sale) của ShopFlash: một số suất giá rẻ có hạn, rất nhiều khách cùng bấm mua trong vài giây. Câu hỏi cần trả lời: khi nhiều người cùng tranh một số suất có hạn, DBMS nào giữ được đúng số lượng (không bán vượt, không mất cập nhật), với chi phí hiệu năng và độ phức tạp ra sao, và trong ShopFlash nên giao việc nào cho DBMS nào.
 
 % -----------------------------------------------------------------------------
-\subsubsection{Lý thuyết}\label{sec:cc-ly-thuyet}
+\subsection{Lý thuyết}\label{sec:cc-ly-thuyet}
 
 \paragraph{Vì sao cần điều khiển đồng thời.} Một DBMS phục vụ nhiều transaction cùng lúc. Nếu các thao tác của chúng đan xen tùy ý, kết quả có thể sai dù từng transaction tự nó đúng. Điều khiển đồng thời đảm bảo chữ I (Isolation) trong ACID: kết quả của nhiều transaction chạy đan xen phải giống kết quả của một thứ tự chạy tuần tự nào đó (tính khả tuần tự, \emph{serializability}) \cite{cc-silberschatz2019}.
 
@@ -18,17 +17,16 @@ Mục này so sánh cách Oracle và Redis xử lý nhiều yêu cầu cùng ghi
 \begin{table}[H]
 \centering
 \caption{Các hiện tượng bất thường và ví dụ trong ShopFlash}\label{tab:cc-hien-tuong}
-\small
-\begin{tabularx}{\linewidth}{@{}P{0.2\linewidth}L@{}}
-\toprule
-Hiện tượng & Ví dụ trong ShopFlash \\
-\midrule
-Mất cập nhật (lost update) & Hai khách cùng đọc \texttt{sold = 99} của sản phẩm có 100 suất, cùng ghi \texttt{sold = 100}. Cả hai được báo mua thành công nhưng bộ đếm chỉ tăng 1, thực tế bán 101 suất. \\
-Đọc dữ liệu chưa commit (dirty read) & Trang flash sale hiện số suất mà một transaction khác đã trừ nhưng sau đó rollback. \\
-Đọc không lặp lại (non-repeatable read) & Trong cùng một transaction, hai lần đọc số suất còn lại cho hai kết quả khác nhau. \\
-Bóng ma (phantom) & Đếm số đơn của một chương trình hai lần, lần sau thấy thêm đơn vừa được chèn. \\
-Lệch ghi (write skew) & Hai admin cùng kiểm tra tổng suất đã phân bổ còn dưới tồn kho rồi mỗi người thêm một sản phẩm; mỗi bên ghi một dòng khác nhau nhưng tổng cuối cùng vượt tồn kho. \\
-\bottomrule
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|P{0.28\linewidth}|L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Hiện tượng} & \reportheader{Ví dụ trong ShopFlash} \\ \hline
+Mất cập nhật (lost update) & Hai khách cùng đọc \texttt{sold = 99} của sản phẩm có 100 suất, cùng ghi \texttt{sold = 100}. Cả hai được báo mua thành công nhưng bộ đếm chỉ tăng 1, thực tế bán 101 suất. \\ \hline
+Đọc dữ liệu chưa commit (dirty read) & Trang flash sale hiện số suất mà một transaction khác đã trừ nhưng sau đó rollback. \\ \hline
+Đọc không lặp lại (non-repeatable read) & Trong cùng một transaction, hai lần đọc số suất còn lại cho hai kết quả khác nhau. \\ \hline
+Bóng ma (phantom) & Đếm số đơn của một chương trình hai lần, lần sau thấy thêm đơn vừa được chèn. \\ \hline
+Lệch ghi (write skew) & Hai admin cùng kiểm tra tổng suất đã phân bổ còn dưới tồn kho rồi mỗi người thêm một sản phẩm; mỗi bên ghi một dòng khác nhau nhưng tổng cuối cùng vượt tồn kho. \\ \hline
 \end{tabularx}
 \end{table}
 
@@ -37,16 +35,15 @@ Lệch ghi (write skew) & Hai admin cùng kiểm tra tổng suất đã phân b�
 \begin{table}[H]
 \centering
 \caption{Mức cô lập theo chuẩn SQL (\checkmark: có thể xảy ra)}\label{tab:cc-muc-co-lap}
-\small
-\begin{tabular}{@{}lccc@{}}
-\toprule
-Mức cô lập & Dirty read & Non-repeatable read & Phantom \\
-\midrule
-READ UNCOMMITTED & \checkmark & \checkmark & \checkmark \\
-READ COMMITTED & & \checkmark & \checkmark \\
-REPEATABLE READ & & & \checkmark \\
-SERIALIZABLE & & & \\
-\bottomrule
+\reporttablesetup
+\begin{tabular}{|l|c|c|c|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Mức cô lập} & \reportheader{Dirty read} & \reportheader{Non-repeatable read} & \reportheader{Phantom} \\ \hline
+READ UNCOMMITTED & \checkmark & \checkmark & \checkmark \\ \hline
+READ COMMITTED & & \checkmark & \checkmark \\ \hline
+REPEATABLE READ & & & \checkmark \\ \hline
+SERIALIZABLE & & & \\ \hline
 \end{tabular}
 \end{table}
 
@@ -65,22 +62,21 @@ Saga thường được gọi là ``ACD'': có A, C, D nhưng không có I \cite
 \begin{table}[H]
 \centering
 \caption{Hiện tượng do saga thiếu cô lập và biện pháp trong ShopFlash}\label{tab:cc-saga}
-\small
-\begin{tabularx}{\linewidth}{@{}P{0.2\linewidth}LP{0.27\linewidth}@{}}
-\toprule
-Hiện tượng & Tình huống trong ShopFlash & Biện pháp \cite{cc-richardson2018} \\
-\midrule
-Đọc dữ liệu dở dang & Khách khác thấy \texttt{remaining} đã bị trừ bởi một reservation còn \texttt{PENDING}, có thể sẽ được trả lại & Khóa ngữ nghĩa (\emph{semantic lock}): trạng thái \texttt{PENDING}/\texttt{CLAIMED} \\
-Mất cập nhật & Khi trả suất mà ghi đè \texttt{remaining} bằng một số tính sẵn thì làm mất lượt giữ suất của người khác & Cập nhật giao hoán (\emph{commutative update}): \texttt{HINCRBY +q}, \texttt{sold = sold + q} \\
-Bù trừ hai lần & Hook rollback của lệnh đặt đơn và job dọn reservation cùng trả một suất & Kiểm tra trạng thái ngay trong Lua, chỉ chuyển sang \texttt{RELEASED} một lần \\
-Quyết định trên giá trị cũ & Redis báo còn suất nhưng dữ liệu Redis vừa mất rồi được dựng lại & Kiểm tra lại (\emph{reread value}): Oracle chặn bằng \texttt{sold + q <= allocated} \\
-Gửi lại yêu cầu & Mất phản hồi, khách bấm đặt đơn lần nữa & Khóa idempotency \texttt{'FS-' || reservationId} \\
-\bottomrule
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|P{0.22\linewidth}|L|P{0.29\linewidth}|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Hiện tượng} & \reportheader{Tình huống trong ShopFlash} & \reportheader{Biện pháp \cite{cc-richardson2018}} \\ \hline
+Đọc dữ liệu dở dang & Khách khác thấy \texttt{remaining} đã bị trừ bởi một reservation còn \texttt{PENDING}, có thể sẽ được trả lại & Khóa ngữ nghĩa (\emph{semantic lock}): trạng thái \texttt{PENDING}/\texttt{CLAIMED} \\ \hline
+Mất cập nhật & Khi trả suất mà ghi đè \texttt{remaining} bằng một số tính sẵn thì làm mất lượt giữ suất của người khác & Cập nhật giao hoán (\emph{commutative update}): \texttt{HINCRBY +q}, \texttt{sold = sold + q} \\ \hline
+Bù trừ hai lần & Hook rollback của lệnh đặt đơn và job dọn reservation cùng trả một suất & Kiểm tra trạng thái ngay trong Lua, chỉ chuyển sang \texttt{RELEASED} một lần \\ \hline
+Quyết định trên giá trị cũ & Redis báo còn suất nhưng dữ liệu Redis vừa mất rồi được dựng lại & Kiểm tra lại (\emph{reread value}): Oracle chặn bằng \texttt{sold + q <= allocated} \\ \hline
+Gửi lại yêu cầu & Mất phản hồi, khách bấm đặt đơn lần nữa & Khóa idempotency \texttt{'FS-' || reservationId} \\ \hline
 \end{tabularx}
 \end{table}
 
 % -----------------------------------------------------------------------------
-\subsubsection{Cơ chế trên Oracle}\label{sec:cc-oracle}
+\subsection{Cơ chế trên Oracle}\label{sec:cc-oracle}
 
 \begin{itemize}
   \item \textbf{MVCC dựa trên undo.} Ở READ COMMITTED (mặc định), mỗi câu truy vấn thấy dữ liệu đã commit tại thời điểm câu lệnh bắt đầu. Ở SERIALIZABLE, cả transaction thấy dữ liệu tại thời điểm transaction bắt đầu cộng với thay đổi của chính nó. Oracle không có READ UNCOMMITTED nên không bao giờ có dirty read; ngoài ra có chế độ READ ONLY \cite{cc-oracle-concepts, cc-oracle-set-transaction}.
@@ -95,7 +91,7 @@ Gửi lại yêu cầu & Mất phản hồi, khách bấm đặt đơn lần n�
 Thí nghiệm hai phiên về lost update, lock timeout và deadlock đã có ở mục Transaction (thí nghiệm B1--B3); mục này không lặp lại mà đo các chiến lược dưới tải (E1, E2) và minh họa ORA-08177 (E3).
 
 % -----------------------------------------------------------------------------
-\subsubsection{Cơ chế trên Redis}\label{sec:cc-redis}
+\subsection{Cơ chế trên Redis}\label{sec:cc-redis}
 
 \begin{itemize}
   \item \textbf{Mỗi lệnh chạy nguyên tử} vì luồng chính thực thi lệnh lần lượt từng cái; các I/O thread (từ Redis 6) chỉ lo đọc, ghi mạng. Vì vậy \texttt{INCR}, \texttt{HINCRBY} tự nó đã nguyên tử. Nhưng một quy trình nhiều lệnh (\texttt{HGET} rồi \texttt{HSET}) thì không: giữa hai lệnh vẫn có client khác chen vào.
@@ -107,29 +103,28 @@ Thí nghiệm hai phiên về lost update, lock timeout và deadlock đã có �
 \end{itemize}
 
 % -----------------------------------------------------------------------------
-\subsubsection{Thiết kế thí nghiệm}\label{sec:cc-thi-nghiem}
+\subsection{Thiết kế thí nghiệm}\label{sec:cc-thi-nghiem}
 
 Concurrency Lab là trang quản trị trong ShopFlash, chạy cùng một kịch bản ``N người tranh M suất'' bằng mười chiến lược (Bảng~\ref{tab:cc-chien-luoc}). Backend chạy N lượt mua trên đúng C thread (tối đa C lượt đồng thời), có cổng xuất phát chung để mọi lượt bắt đầu cùng lúc. Lab ghi vào bảng \texttt{cc\_lab\_items} và key \texttt{cclab:item} riêng, không đụng dữ liệu bán hàng.
 
 \begin{table}[H]
 \centering
 \caption{Các chiến lược trong Concurrency Lab và giả thuyết (ghi trước khi đo)}\label{tab:cc-chien-luoc}
-\small
-\begin{tabularx}{\linewidth}{@{}lLL@{}}
-\toprule
-Chiến lược & Cách làm & Giả thuyết \\
-\midrule
-\texttt{ORACLE\_NAIVE} & \texttt{SELECT sold}, Java kiểm tra, \texttt{UPDATE SET sold = :sold + 1} & Bán vượt, mất cập nhật; \texttt{CHECK} không báo lỗi \\
-\texttt{ORACLE\_PESSIMISTIC} & \texttt{SELECT \ldots{} FOR UPDATE}, kiểm tra, \texttt{UPDATE} & Đúng; các lượt xếp hàng chờ khóa \\
-\texttt{ORACLE\_NOWAIT} & \texttt{SELECT \ldots{} FOR UPDATE NOWAIT} & Không bán vượt, nhưng nhiều lượt bị từ chối (ORA-00054) dù còn hàng \\
-\texttt{ORACLE\_OPTIMISTIC} & Đọc \texttt{version}, \texttt{UPDATE \ldots{} WHERE version = :v}, thử lại tối đa 5 lần & Không bán vượt; thử lại nhiều; có thể bán thiếu khi hết lượt thử \\
-\texttt{ORACLE\_ATOMIC} & Một câu \texttt{UPDATE \ldots{} WHERE sold + 1 <= allocated} & Đúng, không thử lại, 1 round-trip \\
-\texttt{ORACLE\_SERIALIZABLE} & Như \texttt{NAIVE} nhưng ở SERIALIZABLE & Không bán vượt; nhiều ORA-08177 \\
-\texttt{REDIS\_NAIVE} & \texttt{HGET remaining}, Java kiểm tra, \texttt{HSET remaining} & Bán vượt \\
-\texttt{REDIS\_WATCH} & \texttt{WATCH}, \texttt{MULTI}, \texttt{HINCRBY -1}, \texttt{EXEC}; null thì thử lại & Không bán vượt; thử lại nhiều \\
-\texttt{REDIS\_DECR} & \texttt{HINCRBY -1}, âm thì \texttt{HINCRBY +1} & Đúng số bán; bộ đếm có lúc âm \\
-\texttt{REDIS\_LUA} & Kiểm tra và trừ trong một Lua script & Đúng, không thử lại, 1 round-trip \\
-\bottomrule
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|P{0.27\linewidth}|L|L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Chiến lược} & \reportheader{Cách làm} & \reportheader{Giả thuyết} \\ \hline
+\texttt{ORACLE\_NAIVE} & \texttt{SELECT sold}, Java kiểm tra, \texttt{UPDATE SET sold = :sold + 1} & Bán vượt, mất cập nhật; \texttt{CHECK} không báo lỗi \\ \hline
+\texttt{ORACLE\_PESSIMISTIC} & \texttt{SELECT \ldots{} FOR UPDATE}, kiểm tra, \texttt{UPDATE} & Đúng; các lượt xếp hàng chờ khóa \\ \hline
+\texttt{ORACLE\_NOWAIT} & \texttt{SELECT \ldots{} FOR UPDATE NOWAIT} & Không bán vượt, nhưng nhiều lượt bị từ chối (ORA-00054) dù còn hàng \\ \hline
+\texttt{ORACLE\_OPTIMISTIC} & Đọc \texttt{version}, \texttt{UPDATE \ldots{} WHERE version = :v}, thử lại tối đa 5 lần & Không bán vượt; thử lại nhiều; có thể bán thiếu khi hết lượt thử \\ \hline
+\texttt{ORACLE\_ATOMIC} & Một câu \texttt{UPDATE \ldots{} WHERE sold + 1 <= allocated} & Đúng, không thử lại, 1 round-trip \\ \hline
+\texttt{ORACLE\_SERIALIZABLE} & Như \texttt{NAIVE} nhưng ở SERIALIZABLE & Không bán vượt; nhiều ORA-08177 \\ \hline
+\texttt{REDIS\_NAIVE} & \texttt{HGET remaining}, Java kiểm tra, \texttt{HSET remaining} & Bán vượt \\ \hline
+\texttt{REDIS\_WATCH} & \texttt{WATCH}, \texttt{MULTI}, \texttt{HINCRBY -1}, \texttt{EXEC}; null thì thử lại & Không bán vượt; thử lại nhiều \\ \hline
+\texttt{REDIS\_DECR} & \texttt{HINCRBY -1}, âm thì \texttt{HINCRBY +1} & Đúng số bán; bộ đếm có lúc âm \\ \hline
+\texttt{REDIS\_LUA} & Kiểm tra và trừ trong một Lua script & Đúng, không thử lại, 1 round-trip \\ \hline
 \end{tabularx}
 \end{table}
 
@@ -151,7 +146,7 @@ Mỗi cấu hình chạy 1 lần khởi động không tính rồi 5 lần đo; 
   \item[E5. Luồng giữ suất qua HTTP] (nếu còn thời gian). 500 khách cùng giữ 100 suất qua API bằng k6.
 \end{description}
 
-\subsubsection{Kết quả}\label{sec:cc-ket-qua}
+\subsection{Kết quả}\label{sec:cc-ket-qua}
 
 \paragraph{Môi trường đo.}
 \chuaviet{Máy, hệ điều hành, Docker; phiên bản Oracle, Redis (AOF); JDK, Spring Boot; kích thước pool kết nối Oracle và Redis.}
@@ -166,32 +161,31 @@ Mỗi cấu hình chạy 1 lần khởi động không tính rồi 5 lần đo; 
 \chuaviet{Các bước kèm ảnh chụp; trạng thái runtime và view bất biến sau mỗi bước.}
 
 % -----------------------------------------------------------------------------
-\subsubsection{So sánh}\label{sec:cc-so-sanh}
+\subsection{So sánh}\label{sec:cc-so-sanh}
 
 \begin{table}[H]
 \centering
 \caption{So sánh điều khiển đồng thời trên Oracle và Redis}\label{tab:cc-so-sanh}
-\small
-\begin{tabularx}{\linewidth}{@{}P{0.24\linewidth}LL@{}}
-\toprule
-Tiêu chí & Oracle & Redis \\
-\midrule
-Đơn vị tranh chấp & Dòng (khóa dòng), không leo thang khóa & Cả server: mỗi lệnh hoặc script chạy một mình \\
-Đọc và ghi & MVCC, đọc không chặn ghi & Không cần, mọi lệnh đã tuần tự \\
-Mức cô lập & READ COMMITTED (mặc định), SERIALIZABLE (snapshot isolation), READ ONLY & Không có khái niệm mức cô lập; \texttt{MULTI}/\texttt{EXEC} chỉ đảm bảo không bị chen ngang \\
-Rollback & Có, theo câu lệnh và theo transaction & Không (cả \texttt{MULTI}/\texttt{EXEC} lẫn Lua) \\
-Khóa bi quan & \texttt{SELECT \ldots{} FOR UPDATE [NOWAIT | WAIT n | SKIP LOCKED]} & Không có sẵn; tự dựng khóa phân tán \\
-Khóa lạc quan & Cột \texttt{version}, \texttt{UPDATE \ldots{} WHERE version = :v} & \texttt{WATCH} \\
-Kiểm tra rồi ghi nguyên tử & Một câu \texttt{UPDATE \ldots{} WHERE} có điều kiện & Lua script hoặc Function \\
-Deadlock & Có thể xảy ra; tự phát hiện (ORA-00060) & Không có \\
-Độ bền sau khi ghi & Redo log & Tùy cấu hình AOF, RDB \\
-Throughput khi tranh một dòng hoặc key (E2) & \chuaviet{} & \chuaviet{} \\
-Bán vượt khi viết theo cách ngây thơ (E1) & \chuaviet{} & \chuaviet{} \\
-\bottomrule
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|P{0.24\linewidth}|L|L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Tiêu chí} & \reportheader{Oracle} & \reportheader{Redis} \\ \hline
+Đơn vị tranh chấp & Dòng (khóa dòng), không leo thang khóa & Cả server: mỗi lệnh hoặc script chạy một mình \\ \hline
+Đọc và ghi & MVCC, đọc không chặn ghi & Không cần, mọi lệnh đã tuần tự \\ \hline
+Mức cô lập & READ COMMITTED (mặc định), SERIALIZABLE (snapshot isolation), READ ONLY & Không có khái niệm mức cô lập; \texttt{MULTI}/\texttt{EXEC} chỉ đảm bảo không bị chen ngang \\ \hline
+Rollback & Có, theo câu lệnh và theo transaction & Không (cả \texttt{MULTI}/\texttt{EXEC} lẫn Lua) \\ \hline
+Khóa bi quan & \texttt{SELECT \ldots{} FOR UPDATE [NOWAIT | WAIT n | SKIP LOCKED]} & Không có sẵn; tự dựng khóa phân tán \\ \hline
+Khóa lạc quan & Cột \texttt{version}, \texttt{UPDATE \ldots{} WHERE version = :v} & \texttt{WATCH} \\ \hline
+Kiểm tra rồi ghi nguyên tử & Một câu \texttt{UPDATE \ldots{} WHERE} có điều kiện & Lua script hoặc Function \\ \hline
+Deadlock & Có thể xảy ra; tự phát hiện (ORA-00060) & Không có \\ \hline
+Độ bền sau khi ghi & Redo log & Tùy cấu hình AOF, RDB \\ \hline
+Throughput khi tranh một dòng hoặc key (E2) & \chuaviet{} & \chuaviet{} \\ \hline
+Bán vượt khi viết theo cách ngây thơ (E1) & \chuaviet{} & \chuaviet{} \\ \hline
 \end{tabularx}
 \end{table}
 
 % -----------------------------------------------------------------------------
-\subsubsection{Kết luận trong bối cảnh ShopFlash}\label{sec:cc-ket-luan}
+\subsection{Kết luận trong bối cảnh ShopFlash}\label{sec:cc-ket-luan}
 
 \chuaviet{Viết sau khi có số đo; chỉ giữ những ý được số đo ủng hộ. Hướng dự kiến: giữ suất flash sale dùng Redis với Lua (E1, E2); ghi đơn, trừ kho dùng Oracle với UPDATE có điều kiện (E1); ranh giới giữa hai hệ là reservation có hạn kèm bù trừ, Oracle là chốt chặn cuối (E4); giới hạn của phép đo: một máy, Docker, một backend.}

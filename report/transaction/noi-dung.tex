@@ -1,16 +1,10 @@
 % Mục 4. Three supplied Markdown chapters, in their original reading order.
 % !TeX root = ../main.tex
 \begingroup
-\edef\txsavedtable{\number\value{table}}
-\edef\txsavedfigure{\number\value{figure}}
-\edef\txsavedlisting{\number\value{lstlisting}}
 \txnumbering
 \let\txsection\subsection
 \let\txsubsection\subsubsection
 \input{transaction/sections/01-tong-quan}
 \input{transaction/sections/02-thuc-nghiem-acid}
 \input{transaction/sections/03-hieu-nang}
-\setcounter{table}{\txsavedtable}
-\setcounter{figure}{\txsavedfigure}
-\setcounter{lstlisting}{\txsavedlisting}
 \endgroup

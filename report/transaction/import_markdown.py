@@ -145,19 +145,18 @@ class Converter:
             "9": [1.4, 0.8, 0.8], "10": [0.9, 0.45, 1.65],
             "11": [0.7, 1.15, 1.15], "12": [0.8, 1.05, 0.85, 1.1, 1.1, 1.1],
             "13": [0.65, 0.85, 1.25, 1.25],
-            "14": [0.65, 0.9, 1.1, 1.1, 1.15, 1.15, 0.95],
+            "14": [0.6, 1.05, 1.1, 1.1, 1.1, 1.1, 0.95],
             "15": [0.65, 1.175, 1.175],
         }.get(number, [1] * cols)
         assert len(widths) == cols and abs(sum(widths) - cols) < 0.001, (number, widths)
-        spec = "@{}" + "".join(r">{\hsize=" + str(w) + r"\hsize\linewidth=\hsize}L" for w in widths) + "@{}"
+        spec = "|" + "|".join(r">{\hsize=" + str(w) + r"\hsize\linewidth=\hsize}L" for w in widths) + "|"
         size = r"\scriptsize" if cols >= 5 else r"\footnotesize"
         result = [r"\begin{table}[H]", r"\centering", r"\caption{" + caption + "}" + self.add_label(kind, number),
-                  size, r"\setlength{\tabcolsep}{3pt}", r"\renewcommand{\arraystretch}{1.2}",
-                  r"\begin{tabularx}{\linewidth}{" + spec + "}", r"\toprule"]
-        result.append(" & ".join(r"\textbf{" + c + "}" for c in rows[0]) + r" \\")
-        result.append(r"\midrule")
-        result.extend(" & ".join(row) + r" \\" for row in rows[1:])
-        result.extend([r"\bottomrule", r"\end{tabularx}", r"\end{table}"])
+                  r"\reporttablesetup", size,
+                  r"\begin{tabularx}{\linewidth}{" + spec + "}", r"\hline", r"\rowcolor{ReportTableHead}"]
+        result.append(" & ".join(r"\reportheader{" + c + "}" for c in rows[0]) + r" \\ \hline")
+        result.extend(" & ".join(row) + r" \\ \hline" for row in rows[1:])
+        result.extend([r"\end{tabularx}", r"\end{table}"])
         return "\n".join(result), end + 4
 
     def figure(self, number, caption):
@@ -200,14 +199,17 @@ class Converter:
                     assert "(*@" not in t.content and "@*)" not in t.content
                     code = "".join("(*@" + c + "@*)" if ord(c) > 127 else c for c in t.content)
                     assert code.replace("(*@", "").replace("@*)", "") == t.content
-                    output = (r"\noindent\begin{minipage}{\linewidth}" + "\n" +
-                              r"\begin{lstlisting}[language=" + language + ",caption={" + caption + "},label={" + label(kind, number) + "},basicstyle=\\ttfamily\\footnotesize,escapeinside={(*@}{@*)}]\n" +
-                              code + r"\end{lstlisting}" + "\n" + r"\end{minipage}\par\medskip")
+                    output = (r"\reportblockspace{5\baselineskip}" + "\n" +
+                              r"\begin{lstlisting}[language=" + language + ",caption={" + caption + "},label={" + label(kind, number) + "},escapeinside={(*@}{@*)}]\n" +
+                              code + r"\end{lstlisting}" + "\n")
                 else:
-                    output = (r"\noindent\begin{minipage}{\linewidth}" + "\n" +
+                    # Keep every output line, removing only empty spacer lines.
+                    # Verbatim can flow across pages instead of leaving large gaps.
+                    log = "\n".join(line for line in t.content.splitlines() if line.strip()) + "\n"
+                    output = (r"\reportblockspace{6\baselineskip}" + "\n" + r"\begingroup" + "\n" +
                               r"\captionof{txresult}{" + caption + "}" + identifier + "\n" +
-                              r"\begin{Verbatim}[fontsize=\footnotesize,breakanywhere=true]" + "\n" + t.content +
-                              r"\end{Verbatim}" + "\n" + r"\end{minipage}\par\medskip")
+                              r"\nopagebreak[4]" + "\n" + r"\begin{Verbatim}" + "\n" + log +
+                              r"\end{Verbatim}" + "\n" + r"\endgroup\par\smallskip")
                 result.append(output)
                 i += 4
             elif t.type == "paragraph_open":

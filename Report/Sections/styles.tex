@@ -1,0 +1,93 @@
+% Kiểu chèn code dùng chung, được \input trong main.tex.
+% Dùng: \begin{lstlisting}[language=OracleSQL, caption={...}, label={lst:cc-...}] ... \end{lstlisting}
+% Ngôn ngữ có sẵn: OracleSQL, Redis, Lua, Java, Python, bash. Đoạn chỉ là văn bản thì dùng Verbatim (fvextra).
+% Nền code xám ấm theo mystyle của mẫu; log xám theo RResultStyle.
+% Bảng dùng nền trắng, header xám trung tính để in đen trắng vẫn rõ.
+\definecolor{ReportInk}{HTML}{202020}
+\definecolor{ReportAccent}{HTML}{303030}
+\definecolor{ReportBorder}{HTML}{707070}
+\definecolor{ReportTableHead}{HTML}{EAEAEA}
+\definecolor{ReportCodeBg}{rgb}{0.95,0.95,0.92}
+\definecolor{ReportLogBg}{rgb}{0.94,0.94,0.94}
+\colorlet{codebg}{ReportCodeBg}
+\definecolor{codecomment}{HTML}{356858}
+\definecolor{codekeyword}{HTML}{6E287A}
+\definecolor{codestring}{HTML}{943D24}
+\definecolor{codenumber}{HTML}{686868}
+
+\newcommand{\reporttablesetup}{%
+  \setstretch{1}\fontsize{11}{13}\selectfont%
+  \setlength{\tabcolsep}{5pt}%
+  \setlength{\arrayrulewidth}{0.5pt}%
+  \setlength{\extrarowheight}{2pt}%
+  \renewcommand{\arraystretch}{1.15}%
+  \arrayrulecolor{ReportBorder}%
+}
+\newcommand{\reportheader}[1]{\textbf{\color{ReportInk}#1}}
+% Cho bộ dàn trang chọn điểm ngắt trước caption. Không kiểm tra pagegoal rồi
+% ép newpage: pagegoal có thể còn giá trị cũ khi đoạn vừa sang trang mới.
+% Khoảng co giãn và penalty giữ caption cùng đầu khối, khối dài vẫn ngắt được.
+\newcommand{\reportblockspace}[1]{%
+  \par\begingroup
+  \vskip 0pt plus #1\relax
+  \penalty -100
+  \vskip 0pt plus -#1\relax
+  \vskip #1\relax
+  \penalty 9999
+  \vskip -#1\relax
+  \endgroup
+}
+\setlength{\intextsep}{9pt plus 2pt minus 2pt}
+\setlength{\textfloatsep}{10pt plus 2pt minus 2pt}
+\setlength{\floatsep}{9pt plus 2pt minus 2pt}
+% Bảng và hình là float nguyên khối; có thể lấp phần trống bằng đoạn văn kế tiếp.
+\renewcommand{\topfraction}{0.95}
+\renewcommand{\bottomfraction}{0.85}
+\renewcommand{\textfraction}{0.05}
+\renewcommand{\floatpagefraction}{0.85}
+\setcounter{topnumber}{3}
+\setcounter{bottomnumber}{2}
+\setcounter{totalnumber}{5}
+\newcommand{\reportmonosize}{\fontsize{10}{12}\selectfont}
+\fvset{fontsize=\reportmonosize,baselinestretch=1,breaklines=true,
+  breakanywhere=true,frame=single,framerule=0.5pt,framesep=6pt,
+  rulecolor=ReportBorder,fillcolor=ReportLogBg,backgroundcolor=ReportLogBg,
+  formatcom=\color{ReportInk},xleftmargin=6pt,xrightmargin=6pt,
+  listparameters={\setlength{\topsep}{4pt}\setlength{\partopsep}{0pt}}}
+
+\lstdefinestyle{shopflash}{
+  basicstyle=\ttfamily\linespread{1}\fontsize{10}{12}\selectfont,
+  backgroundcolor=\color{codebg},
+  commentstyle=\itshape\color{codecomment},
+  keywordstyle=\bfseries\color{codekeyword},
+  stringstyle=\color{codestring},
+  numbers=left, numberstyle=\tiny\color{codenumber}, numbersep=6pt,
+  frame=single, rulecolor=\color{ReportBorder},framesep=5pt,
+  xleftmargin=16pt,xrightmargin=5pt,
+  breaklines=true, columns=fullflexible, keepspaces=true,
+  showstringspaces=false, upquote=true, tabsize=2,
+  captionpos=t, aboveskip=5pt, belowskip=5pt
+}
+\lstset{style=shopflash}
+
+% SQL của Oracle: thêm các từ khóa SQL chuẩn của listings chưa có.
+\lstdefinelanguage{OracleSQL}[]{SQL}{
+  sensitive=false,
+  morekeywords={MERGE,USING,MATCHED,NOWAIT,SKIP,LOCKED,WAIT,SERIALIZABLE,ISOLATION,LEVEL,
+    SAVEPOINT,RETURNING,FETCH,FIRST,ROWS,ONLY,OFFSET,NVL,COALESCE,SYSTIMESTAMP,IDENTITY,
+    GENERATED,PURGE,EXPLAIN,PLAN,OVER,PARTITION,WITH,EXISTS},
+  morecomment=[l]{--}
+}
+
+% Lệnh redis-cli.
+\lstdefinelanguage{Redis}{
+  sensitive=false,
+  alsoletter={.},
+  morekeywords={GET,SET,DEL,UNLINK,EXISTS,EXPIRE,TTL,INCR,DECR,INCRBY,DECRBY,
+    HGET,HSET,HMGET,HGETALL,HDEL,HINCRBY,HEXISTS,ZADD,ZREM,ZRANGE,ZRANGEBYSCORE,
+    MULTI,EXEC,DISCARD,WATCH,UNWATCH,EVAL,EVALSHA,SCRIPT,FCALL,FUNCTION,TIME,
+    JSON.SET,JSON.GET,FT.CREATE,FT.SEARCH,FT.AGGREGATE,FT.PROFILE,FT.INFO,
+    SCAN,INFO,CONFIG,BGSAVE,BGREWRITEAOF,FLUSHDB},
+  morecomment=[l]{\#},
+  morestring=[b]"
+}

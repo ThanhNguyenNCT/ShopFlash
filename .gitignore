@@ -32,6 +32,12 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# ===== Python / kiểm thử local =====
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.playwright-cli/
+
 # ===== Dữ liệu sinh ra khi chạy =====
 # File sao lưu (Data Pump .dmp, Redis .rdb/.aof), dữ liệu seed lớn
 *.dmp

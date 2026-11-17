@@ -26,6 +26,13 @@ FROM product_inventory WHERE product_id = :productId;
 
 Cart chỉ cộng/trừ hoặc đặt `CART_ITEMS.quantity`; tồn kho không đổi trong F10. Khi F7 xác nhận đơn `NORMAL`, phép tính cần kiểm chứng là tồn kho mới = tồn kho cũ − số lượng đặt; khi F8 hủy đơn hợp lệ, tồn kho mới = tồn kho trước khi hủy + số lượng hoàn. Những thay đổi tồn kho đó phải nằm trong giao dịch đặt/hủy đơn, không sửa tay `PRODUCT_INVENTORY` để giả lập một lần Checkout thành công. Khi lệnh cộng bị mất phản hồi, tải lại `/cart` trước khi bấm lại để tránh cộng đôi.
 
+## Chọn tất cả sản phẩm
+
+- Giỏ có sản phẩm: bấm **Chọn tất cả**, toàn bộ checkbox được chọn, số dòng và tổng đã chọn khớp giỏ; nút đổi thành **Bỏ chọn tất cả**.
+- Bỏ chọn riêng một dòng rồi bấm **Chọn tất cả**: chọn đủ mọi dòng. Bấm **Bỏ chọn tất cả**: tổng về 0 và nút đặt hàng bị khóa.
+- Tải lại cùng tab vẫn giữ lựa chọn. Thao tác chọn không gửi request sửa giỏ. Giỏ trống không hiển thị nút chọn tất cả.
+- Kiểm tra nút và số lượng đã chọn ở desktop và mobile 375 px, không cuộn ngang.
+
 ## Rà soát hình thức cuối change
 
 Sau khi F0/F10/F7/F8 đã hoạt động đúng, mở DevTools với viewport **375 × 812** và rà soát `/login`, `/register`, `/cart`, `/checkout`, `/orders`, `/orders/:orderId`: không cuộn ngang, không cắt tiêu đề, giá, ô nhập hoặc nút thao tác. Ghi các góp ý về bố cục, màu sắc và khoảng cách để chỉnh trong một lượt cuối. Nếu lỗi hiển thị làm không thể thao tác chức năng, xử lý ngay ở mốc đang kiểm thử.

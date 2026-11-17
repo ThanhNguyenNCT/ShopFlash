@@ -1,0 +1,47 @@
+% !TeX root = ../../main.tex
+% Chuyển sơ đồ Mermaid trong section_1.md sang TikZ để xuất PDF vector.
+% Giữ nguyên các thành phần và năm kết nối nghiệp vụ tới Oracle/Redis.
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  font=\fontsize{9}{11}\selectfont,
+  app/.style={draw=ReportBorder,rounded corners=2pt,fill=white,
+    align=center,minimum height=0.55cm,text width=4cm,inner sep=4pt},
+  store/.style={draw=ReportBorder,rounded corners=3pt,fill=ReportTableHead!35,
+    align=center,text width=6.4cm,minimum height=2.05cm,inner sep=6pt},
+  wire/.style={-{Stealth[length=2mm]},draw=ReportInk,line width=0.55pt},
+  note/.style={fill=white,inner sep=2pt,font=\fontsize{8}{9}\selectfont,align=center}
+]
+\node[app] (u) at (0,0) {Người dùng};
+\node[app] (fe) at (0,-0.9) {Frontend: React + Vite};
+\node[app] (be) at (0,-1.9) {Spring Boot Backend};
+\node[app,text width=3.6cm] (t) at (-5,-3.1) {Cart / Checkout\\Order Management};
+\node[app,text width=3.6cm] (q) at (0,-3.1) {Product Search\\Reports};
+\node[app,text width=3.6cm] (f) at (5,-3.1) {Flash Sale};
+\node[store] (o) at (-3.7,-6.0) {\textbf{ORACLE DATABASE}\\Source of Truth\\[3pt]
+  User / Product / Inventory\\Cart / Order / Order Item\\Flash Sale Config};
+\node[store] (r) at (3.7,-6.0) {\textbf{REDIS}\\Runtime / Read Model\\[3pt]
+  Product Search / Cache\\Analytics Projection\\Flash Sale Quota / Reservation};
+\draw[ReportBorder,dashed] (-7.3,-4.6) rectangle (7.3,-7.3);
+\node[fill=white,inner sep=3pt,font=\bfseries\fontsize{9}{11}\selectfont]
+  at (0,-7.3) {TẦNG DỮ LIỆU};
+\draw[wire] (u) -- (fe);
+\draw[wire] (fe) -- node[note,right]{REST API / JSON} (be);
+\draw[wire] (be.south) -- ++(0,-0.25) -| (t.north);
+\draw[wire] (be) -- (q);
+\draw[wire] (be.south) -- ++(0,-0.25) -| (f.north);
+\draw[wire] (t.south) -- node[note,left]{JDBC} (-5,-4.9);
+\draw[wire] (q.south west) -- node[note,left,pos=0.5]{JDBC} (-2.2,-4.9);
+\draw[wire] (q.south east) -- node[note,right,pos=0.55]{Jedis} (2.2,-4.9);
+\draw[wire] (f.south west) -- (3.6,-4.25) --
+  node[note,above,pos=0.7]{JDBC} (-0.6,-4.25) -- (-0.6,-4.9);
+\draw[wire] (f.south) -- node[note,right]{Jedis / Lua} (5,-4.9);
+% Nhãn đầy đủ đặt dưới sơ đồ để tránh chồng chữ tại các đường nối chéo.
+\node[anchor=north west,align=left,text width=14.6cm,
+  font=\fontsize{8}{10}\selectfont] at (-7.3,-7.65) {%
+  Cart/Checkout $\rightarrow$ Oracle: JDBC · Transaction.\\
+  Product Search/Reports $\rightarrow$ Oracle: JDBC · Dữ liệu gốc;
+  $\rightarrow$ Redis: Jedis · Search / Read Model.\\
+  Flash Sale $\rightarrow$ Oracle: JDBC · Ghi giao dịch;
+  $\rightarrow$ Redis: Jedis / Lua · Giữ suất.};
+\end{tikzpicture}%
+}

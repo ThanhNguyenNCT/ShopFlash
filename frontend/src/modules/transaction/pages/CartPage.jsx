@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Button, Card, Checkbox, Empty, InputNumber, Popconfirm, Spin, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, ConfigProvider, Empty, InputNumber, Popconfirm, Spin, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/shared/auth';
 import { PriceTag, formatVND, tokens } from '@/shared/design-system';
 import { clearCart, getCart, removeCartItem, setCartItemQuantity } from '../api';
 import { readCheckoutSelection, saveCheckoutSelection } from '../checkoutSelection';
+import ProductThumbnail from '../components/ProductThumbnail';
+
+const cartSelectionTheme = {
+  components: {
+    Checkbox: { colorPrimary: tokens.color.success, colorPrimaryHover: tokens.color.success },
+  },
+};
 
 export default function CartPage() {
   const { user, loading: authLoading } = useAuth();
@@ -136,8 +143,7 @@ export default function CartPage() {
     timerRef.current = setTimeout(flushQuantity, 180);
   };
 
-  const changeSelection = (productId, checked) => {
-    const next = checked ? [...selectedIds, productId] : selectedIds.filter((id) => id !== productId);
+  const updateSelection = (next) => {
     try {
       saveCheckoutSelection(user.userId, next);
       setSelectedIds(next);
@@ -145,6 +151,10 @@ export default function CartPage() {
     } catch {
       setError('Không lưu được lựa chọn sản phẩm trong tab này. Hãy kiểm tra bộ nhớ trình duyệt.');
     }
+  };
+
+  const changeSelection = (productId, checked) => {
+    updateSelection(checked ? [...selectedIds, productId] : selectedIds.filter((id) => id !== productId));
   };
 
   const mutate = async (request, successMessage) => {
@@ -190,6 +200,7 @@ export default function CartPage() {
   const selectedTotal = cart?.items.reduce((sum, item) =>
     sum + (selectedIds.includes(item.productId)
       ? Number(item.unitPrice) * (draft[item.productId] ?? item.quantity) : 0), 0) ?? 0;
+  const allSelected = cart?.items.length > 0 && cart.items.every((item) => selectedIds.includes(item.productId));
 
   return (
     <div className="sf-tx-page">
@@ -205,6 +216,15 @@ export default function CartPage() {
         <div className="sf-tx-grid__main">
           {cart.items.length === 0 ? <Card className="sf-tx-card"><Empty description="Giỏ hàng đang trống. Thêm sản phẩm để bắt đầu đặt hàng." /></Card>
             : <section className="sf-tx-stack" aria-label="Sản phẩm trong giỏ">
+              <div className="sf-tx-selection-toolbar">
+                <Button disabled={busy}
+                  onClick={() => updateSelection(allSelected ? [] : cart.items.map((item) => item.productId))}>
+                  {allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                </Button>
+                <span className="sf-tx-muted" role="status" aria-live="polite">
+                  Đã chọn {selectedIds.length}/{cart.items.length} sản phẩm
+                </span>
+              </div>
               {cart.items.map((item) => {
                 const quantity = Object.prototype.hasOwnProperty.call(draft, item.productId)
                   ? draft[item.productId] : item.quantity;
@@ -213,12 +233,17 @@ export default function CartPage() {
                   className={`sf-tx-cart-item${selected ? ' sf-tx-cart-item--selected' : ''}`}>
                   <div className="sf-tx-cart-item__body">
                     <div className="sf-tx-cart-item__top">
-                      <div className="sf-tx-cart-item__identity">
-                        <Checkbox checked={selected}
-                          onChange={(event) => changeSelection(item.productId, event.target.checked)}>
-                          <Typography.Text strong>{item.name}</Typography.Text>
-                        </Checkbox>
-                        <span className="sf-code">{item.sku} · ID {item.productId}</span>
+                      <div className="sf-tx-product-identity">
+                        <ProductThumbnail thumbnailUrl={item.thumbnailUrl} name={item.name} />
+                        <div className="sf-tx-cart-item__identity">
+                          <ConfigProvider theme={cartSelectionTheme}>
+                            <Checkbox checked={selected}
+                              onChange={(event) => changeSelection(item.productId, event.target.checked)}>
+                              <Typography.Text strong>{item.name}</Typography.Text>
+                            </Checkbox>
+                          </ConfigProvider>
+                          <span className="sf-code">{item.sku} · ID {item.productId}</span>
+                        </div>
                       </div>
                       <span className="sf-tx-unit-price sf-num">{formatVND(item.unitPrice)} / sản phẩm</span>
                     </div>

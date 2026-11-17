@@ -13,7 +13,7 @@ import com.shopflash.modules.transaction.dto.CartResponse;
 @Repository
 public class CartRepository {
     private static final String READ_CART = """
-            SELECT c.version, ci.product_id, ci.quantity, p.name, p.sku, p.base_price
+            SELECT c.version, ci.product_id, ci.quantity, p.name, p.sku, p.base_price, p.thumbnail_url
               FROM carts c
               LEFT JOIN cart_items ci ON ci.cart_id = c.cart_id
               LEFT JOIN products p ON p.product_id = ci.product_id
@@ -45,7 +45,7 @@ public class CartRepository {
                 BigDecimal unitPrice = rs.getBigDecimal("base_price");
                 BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(quantity));
                 items.add(new CartResponse.Item(productId, rs.getString("name"), rs.getString("sku"),
-                        quantity, unitPrice, lineTotal));
+                        quantity, unitPrice, lineTotal, rs.getString("thumbnail_url")));
                 total = total.add(lineTotal);
             }
             return new CartResponse(version, List.copyOf(items), total);

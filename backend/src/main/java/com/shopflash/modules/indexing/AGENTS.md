@@ -7,9 +7,10 @@ Chủ đề: Indexing. Người phụ trách: TV2.
 - F3 Tìm kiếm sản phẩm theo từ khóa trong tên.
 - F4 Lọc nâng cao: danh mục, khoảng giá, còn hàng; sắp xếp; phân trang.
 - Trang chi tiết sản phẩm, danh sách danh mục cho bộ lọc.
-- Phòng thí nghiệm Indexing (admin): chạy cùng một yêu cầu trên Oracle và Redis, có và không có index, xem kế hoạch thực thi, dung lượng index.
 
 Nghiên cứu, số đo và lý do lựa chọn: `report/indexing/` (`ket-qua.md` E1–E6, `ket-luan.md`).
+
+**Không có trang Indexing Lab.** Đã bỏ vì trên dữ liệu thật của ứng dụng (khoảng 200 sản phẩm), thời gian đo qua ứng dụng bị chi phối bởi số lượt gọi DB và chi phí driver, mạng, không phản ánh hiệu quả index: Oracle ép quét toàn bảng ngang Oracle có index, còn Oracle (2 lượt gọi) luôn chậm hơn `FT.SEARCH` (1 lượt gọi), trái với E3 trên 200.000 dòng. So sánh hai DBMS dựa vào E1–E6 (đo trong DB, `report/indexing/`). Nguồn, thời gian và câu lệnh của mỗi lần tìm vẫn có trong `meta` của response và được frontend in ra console để demo.
 
 ## Quyết định đã chốt
 
@@ -31,7 +32,7 @@ Nghiên cứu, số đo và lý do lựa chọn: `report/indexing/` (`ket-qua.md
   - Không bao giờ nối chuỗi người dùng vào SQL hay câu lệnh Redis.
 - **`FT.SEARCH` luôn kèm `TIMEOUT 0`** (Redis đặt `TIMEOUT 500` + `ON_TIMEOUT return`: quá giờ trả một phần kết quả mà không báo lỗi).
 - **Phân trang:** `page * size ≤ 10.000` ở mọi nguồn (RediSearch không trả quá `MAXSEARCHRESULTS` = 10.000).
-- **Truy cập Oracle:** `NamedParameterJdbcTemplate`, luôn bind variable. Hint của trang Lab (`FULL`) lấy từ enum cố định, không nhận chuỗi từ client.
+- **Truy cập Oracle:** `NamedParameterJdbcTemplate`, luôn bind variable.
 - **Index thí nghiệm** (so có/không index, chi phí ghi) chỉ tạo trên bảng lab `IDXLAB_*` bằng script trong `report/indexing/`, không vào migration.
 
 ## Dữ liệu
@@ -115,25 +116,6 @@ Lỗi: `400 VALIDATION_ERROR` (tham số sai, `minPrice > maxPrice`, vượt 10.
 
 **3. `GET /api/products/categories`**: danh mục `ACTIVE` kèm số sản phẩm `ACTIVE` của mỗi danh mục, cho bộ lọc. Oracle `JOIN` + `GROUP BY`.
 
-### Quản trị (phòng thí nghiệm, `/api/admin/indexing/**`, đã có quyền ADMIN)
-
-**4. `GET /api/admin/indexing/search`**: như API 1, thêm tham số chọn nguồn và biến thể:
-
-| Tham số | Giá trị | Ý nghĩa |
-|---|---|---|
-| `source` | `auto` (mặc định) \| `oracle` \| `redis` | `auto` = định tuyến như API 1 |
-| `oracleVariant` | `AUTO` | Optimizer tự chọn (Oracle Text / B-tree) |
-| | `LIKE` | Tìm tên bằng `UPPER(name) LIKE :pattern` (`%KW%`), không dùng Oracle Text |
-| | `FULL` | Hint `/*+ FULL(p) */`: ép quét toàn bảng, giả lập "không có index" |
-| `redisVariant` | `SEARCH` | `FT.SEARCH` trên `idx:products` |
-| | `SCAN` | Không dùng index: `SCAN product:*` + `JSON.GET`, lọc và sắp xếp trong Java; đếm round-trip |
-
-**5. `GET /api/admin/indexing/compare`**: chạy cùng tham số trên cả hai nguồn, so `total` và tập `productId` của trang đầu. Trả `{ oracle, redis, match, mismatches }` như module query. Dùng để kiểm tra trường hợp từ khóa kèm bộ lọc (chưa đo trong E1–E6).
-
-**6. `GET /api/admin/indexing/explain`**: Oracle `DBMS_XPLAN.DISPLAY_CURSOR` của câu vừa chạy (`DOMAIN INDEX`, `INDEX RANGE SCAN`, `TABLE ACCESS FULL`); Redis `FT.EXPLAIN` / `FT.PROFILE`.
-
-**7. `GET /api/admin/indexing/index-info`**: dung lượng index. Oracle `USER_SEGMENTS` của `ix_products_*` và bảng `DR$...`; Redis `FT.INFO idx:products`.
-
 ## Phụ thuộc và việc với thành viên khác
 
 - **TV4 (common/security):** dòng `permitAll` ở trên do TV2 thêm; cần TV4 xem và review trong PR.
@@ -151,13 +133,13 @@ Lỗi: `400 VALIDATION_ERROR` (tham số sai, `minPrice > maxPrice`, vượt 10.
 
 ```text
 modules/indexing/
-├── controller/   ProductController (/api/products), IndexingLabController (/api/admin/indexing)
-├── service/      SearchQueryFactory (kiểm tra tham số), ProductSearchService (định tuyến, dự phòng, so sánh),
-│                 ProductCatalogService (chi tiết, danh mục, dung lượng index)
+├── controller/   ProductController (/api/products)
+├── service/      SearchQueryFactory (kiểm tra tham số), ProductSearchService (định tuyến, dự phòng),
+│                 ProductCatalogService (chi tiết, danh mục)
 ├── repository/   OracleProductSearch, RedisProductSearch (interface, để test bằng bản giả)
 │   ├── oracle/   OracleSearchSql (dựng SQL, bind), OracleProductSearchRepository, OracleCatalogRepository
 │   └── redis/    RedisSearchCommand (dựng FT.SEARCH, đọc reply), RedisProductSearchRepository, IndexingRedis
-├── model/        SearchQuery, Keywords, SortOrder, Route, SearchSource, OracleVariant, RedisVariant, SearchResult
+├── model/        SearchQuery, Keywords, SortOrder, Route, SearchSource, SearchResult
 └── dto/response/ SearchResponse (data + meta), ProductItem, ProductDetailResponse, CategoryOption, ...
 ```
 

@@ -55,29 +55,6 @@ export async function getCategories() {
   return data;
 }
 
-// --- Phòng thí nghiệm (admin) ---
-
-/** Thêm source (auto|oracle|redis), oracleVariant (AUTO|LIKE|FULL), redisVariant (SEARCH|SCAN). */
-export async function labSearch(params) {
-  const { data } = await apiClient.get('/admin/indexing/search', { params: clean(params), timeout: 0 });
-  return data;
-}
-
-export async function labCompare(params) {
-  const { data } = await apiClient.get('/admin/indexing/compare', { params: clean(params), timeout: 0 });
-  return data;
-}
-
-export async function labExplain(params) {
-  const { data } = await apiClient.get('/admin/indexing/explain', { params: clean(params), timeout: 0 });
-  return data;
-}
-
-export async function labIndexInfo() {
-  const { data } = await apiClient.get('/admin/indexing/index-info');
-  return data;
-}
-
 export function formatMs(ms) {
   if (ms === null || ms === undefined) return '–';
   return `${ms < 10 ? ms.toFixed(2) : ms.toFixed(1)} ms`;

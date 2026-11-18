@@ -4,14 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.shopflash.common.web.ApiException;
-import com.shopflash.modules.indexing.dto.response.CompareResponse;
 import com.shopflash.modules.indexing.dto.response.ProductItem;
 import com.shopflash.modules.indexing.dto.response.SearchResponse;
-import com.shopflash.modules.indexing.model.OracleVariant;
-import com.shopflash.modules.indexing.model.RedisVariant;
 import com.shopflash.modules.indexing.model.SearchQuery;
 import com.shopflash.modules.indexing.model.SearchResult;
-import com.shopflash.modules.indexing.model.SearchSource;
 import com.shopflash.modules.indexing.model.SortOrder;
 import com.shopflash.modules.indexing.repository.OracleProductSearch;
 import com.shopflash.modules.indexing.repository.RedisProductSearch;
@@ -22,7 +18,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
@@ -48,24 +43,24 @@ class ProductSearchServiceCoreTest {
     }
 
     static final class FakeOracle implements OracleProductSearch {
-        final List<OracleVariant> calls = new ArrayList<>();
+        int calls;
         SearchResult next = result("AUTO", 2, 1, 2);
 
         @Override
-        public SearchResult search(SearchQuery query, OracleVariant variant) {
-            calls.add(variant);
+        public SearchResult search(SearchQuery query) {
+            calls++;
             return next;
         }
     }
 
     static final class FakeRedis implements RedisProductSearch {
-        final List<RedisVariant> calls = new ArrayList<>();
+        int calls;
         SearchResult next = result("SEARCH", 2, 1, 2);
         RuntimeException error;
 
         @Override
-        public SearchResult search(SearchQuery query, RedisVariant variant) {
-            calls.add(variant);
+        public SearchResult search(SearchQuery query) {
+            calls++;
             if (error != null) {
                 throw error;
             }
@@ -80,8 +75,8 @@ class ProductSearchServiceCoreTest {
     @Test
     void keywordGoesToRedis() {
         SearchResponse res = service.search(KEYWORD);
-        assertThat(redis.calls).containsExactly(RedisVariant.SEARCH);
-        assertThat(oracle.calls).isEmpty();
+        assertThat(redis.calls).isEqualTo(1);
+        assertThat(oracle.calls).isZero();
         assertThat(res.meta().source()).isEqualTo("redis");
         assertThat(res.meta().route()).isEqualTo("KEYWORD");
         assertThat(res.meta().note()).isNull();
@@ -94,8 +89,8 @@ class ProductSearchServiceCoreTest {
     @Test
     void browseGoesToOracle() {
         SearchResponse res = service.search(BROWSE);
-        assertThat(oracle.calls).containsExactly(OracleVariant.AUTO);
-        assertThat(redis.calls).isEmpty();
+        assertThat(oracle.calls).isEqualTo(1);
+        assertThat(redis.calls).isZero();
         assertThat(res.meta().source()).isEqualTo("oracle");
         assertThat(res.meta().route()).isEqualTo("BROWSE");
     }
@@ -104,7 +99,7 @@ class ProductSearchServiceCoreTest {
     void keywordFallsBackToOracleTextWhenRedisIsDown() {
         redis.error = new ApiException(HttpStatus.SERVICE_UNAVAILABLE, IndexingRedis.UNAVAILABLE, "down");
         SearchResponse res = service.search(KEYWORD);
-        assertThat(oracle.calls).containsExactly(OracleVariant.AUTO);
+        assertThat(oracle.calls).isEqualTo(1);
         assertThat(res.meta().source()).isEqualTo("oracle");
         assertThat(res.meta().route()).isEqualTo("KEYWORD");
         assertThat(res.meta().note()).isEqualTo(ProductSearchService.FALLBACK_NOTE);
@@ -117,31 +112,6 @@ class ProductSearchServiceCoreTest {
     void otherRedisErrorsAreNotHidden() {
         redis.error = new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "REDIS_ERROR", "bad");
         assertThatThrownBy(() -> service.search(KEYWORD)).isSameAs(redis.error);
-        assertThat(oracle.calls).isEmpty();
-    }
-
-    @Test
-    void labSearchUsesChosenSourceAndVariant() {
-        service.labSearch(KEYWORD, Optional.of(SearchSource.ORACLE), OracleVariant.FULL, RedisVariant.SCAN);
-        assertThat(oracle.calls).containsExactly(OracleVariant.FULL);
-        service.labSearch(BROWSE, Optional.of(SearchSource.REDIS), OracleVariant.AUTO, RedisVariant.SCAN);
-        assertThat(redis.calls).containsExactly(RedisVariant.SCAN);
-        service.labSearch(BROWSE, Optional.empty(), OracleVariant.FULL, RedisVariant.SCAN);
-        assertThat(oracle.calls).containsExactly(OracleVariant.FULL, OracleVariant.AUTO);
-    }
-
-    @Test
-    void compareMatchesSameSetIgnoringOrder() {
-        oracle.next = result("AUTO", 3, 1, 2);
-        redis.next = result("SEARCH", 3, 2, 1);
-        CompareResponse same = service.compare(KEYWORD);
-        assertThat(same.match()).isTrue();
-        assertThat(same.mismatches()).isEmpty();
-
-        redis.next = result("SEARCH", 4, 2, 9);
-        CompareResponse diff = service.compare(KEYWORD);
-        assertThat(diff.match()).isFalse();
-        assertThat(diff.mismatches()).hasSize(3);
-        assertThat(diff.mismatches().get(0)).contains("Oracle 3", "Redis 4");
+        assertThat(oracle.calls).isZero();
     }
 }

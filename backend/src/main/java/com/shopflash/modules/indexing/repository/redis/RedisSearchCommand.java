@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Dựng lệnh FT.SEARCH / FT.PROFILE / FT.EXPLAIN trên idx:products và đọc reply.
+ * Dựng lệnh FT.SEARCH trên idx:products và đọc reply.
  * Từ khóa chỉ gồm chữ và số (Keywords) nên không cần escape; số được in dạng thường (không dạng mũ).
  * Luôn kèm TIMEOUT 0: Redis Stack mặc định TIMEOUT 500 + ON_TIMEOUT return (trả kết quả dở mà không báo lỗi).
  */
@@ -47,16 +47,6 @@ public final class RedisSearchCommand {
         List<String> args = new ArrayList<>(List.of("FT.SEARCH", INDEX, query(q)));
         args.addAll(tail(q));
         return args.toArray(String[]::new);
-    }
-
-    public static String[] profile(SearchQuery q) {
-        List<String> args = new ArrayList<>(List.of("FT.PROFILE", INDEX, "SEARCH", "QUERY", query(q)));
-        args.addAll(tail(q));
-        return args.toArray(String[]::new);
-    }
-
-    public static String[] explain(SearchQuery q) {
-        return new String[] {"FT.EXPLAIN", INDEX, query(q)};
     }
 
     private static List<String> tail(SearchQuery q) {

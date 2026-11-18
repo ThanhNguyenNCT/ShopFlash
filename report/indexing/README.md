@@ -89,11 +89,7 @@ docker compose exec -T redis sh /tmp/indexing-redis/99_cleanup.sh
 
 Lưu vào `report/indexing/images/` (tạo thư mục khi chụp), đặt tên `3.2-xx-*.png` như cách TV3 làm:
 
-1. `3.2-01-tim-kiem-redis.png`: trang `/search?q=tai`, thấy nhãn **RediSearch**.
-2. `3.2-02-loc-oracle.png`: trang `/search` lọc danh mục + giá, thấy nhãn **Oracle**.
-3. `3.2-03-lab-so-sanh.png`: Indexing Lab, thẻ 2 "So sánh hai nguồn", báo hai nguồn cho cùng kết quả.
-4. `3.2-04-lab-co-khong-index.png`: Indexing Lab, thẻ 3, bảng 5 cách chạy.
-5. `3.2-05-lab-ke-hoach.png`: Indexing Lab, thẻ 4, kế hoạch Oracle có `INDEX RANGE SCAN` (mẫu "Danh mục + giá").
-6. `3.2-06-lab-dung-luong.png`: Indexing Lab, thẻ 5.
+1. `3.2-01-tim-kiem-redis.png`: trang `/search?q=tai` cùng Console (F12) mở nhóm `[ShopFlash search]`, thấy nguồn **RediSearch** và lệnh `FT.SEARCH`.
+2. `3.2-02-loc-oracle.png`: trang `/search` lọc danh mục + giá cùng Console, thấy nguồn **Oracle** và câu SQL.
 
 Ảnh kế hoạch thực thi của E1–E3 trên 200.000 sản phẩm lấy từ các file trong `results/oracle/`.

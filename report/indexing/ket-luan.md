@@ -54,4 +54,4 @@ Sắp xếp hỗ trợ: độ liên quan (khi có từ khóa), giá tăng, giá 
 - Khi `idx:products` được tạo lại hoặc Redis khởi động lại, trong vài giây tìm kiếm chỉ thấy một phần sản phẩm (E6).
 - Mỗi lần storage cập nhật tồn kho hoặc giá, RediSearch index lại cả document, kể cả tách từ lại tên (E4).
 - `idx:products` dùng stemming tiếng Anh mặc định (`sony` → `soni`, E2); chưa gây sai với dữ liệu thí nghiệm, nhưng với tên tiếng Việt nên cân nhắc `NOSTEM` (thay đổi `init.lua`, file chung).
-- Chưa đo trường hợp **từ khóa kèm bộ lọc** trên RediSearch (E2 chỉ đo từ khóa, E3 chỉ đo bộ lọc). Sẽ kiểm tra bằng trang so sánh của module khi hiện thực.
+- Chưa đo trường hợp **từ khóa kèm bộ lọc** trên RediSearch (E2 chỉ đo từ khóa, E3 chỉ đo bộ lọc). Đây là một hạn chế của báo cáo, chưa được kiểm tra riêng.

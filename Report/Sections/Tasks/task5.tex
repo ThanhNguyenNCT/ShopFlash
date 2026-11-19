@@ -1,3 +1,12 @@
 % !TeX root = ../../main.tex
 \subsection{Concurrency Control}\label{sec:cc}
-% Nội dung do thành viên phụ trách Concurrency control bổ sung.
+\begingroup
+\txnumbering
+% Preamble đặt \exhyphenpenalty=10000 nên listings không ngắt được dòng dài;
+% chỉ nới bên trong code của mục này, văn bản thường giữ nguyên.
+\lstset{basicstyle={\ttfamily\linespread{1}\fontsize{10}{12}\selectfont\exhyphenpenalty=50\relax}}
+\input{Sections/Tasks/Concurrency/01-co-so-ly-thuyet}
+\input{Sections/Tasks/Concurrency/02-thiet-ke-flash-sale}
+\input{Sections/Tasks/Concurrency/03-thuc-nghiem}
+\input{Sections/Tasks/Concurrency/04-so-sanh-ket-luan}
+\endgroup

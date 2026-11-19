@@ -1,0 +1,108 @@
+% !TeX root = ../../../main.tex
+% 2.5.1–2.5.3: lý thuyết, cơ chế trên Oracle và Redis. Nhãn có tiền tố cc-.
+% Số liệu, script và nhật ký thí nghiệm: report/concurrency/ (xem README.md ở đó).
+
+Mục này so sánh cách Oracle và Redis xử lý nhiều yêu cầu cùng ghi vào một chỗ, qua chức năng Flash Sale của ShopFlash: một số suất giá rẻ có hạn, rất nhiều khách cùng bấm mua trong vài giây. Câu hỏi cần trả lời: khi nhiều người cùng tranh một số suất có hạn, DBMS nào giữ được đúng số lượng (không bán vượt, không mất cập nhật), với chi phí hiệu năng và độ phức tạp ra sao, và trong ShopFlash nên giao việc nào cho DBMS nào.
+
+Các tình huống hai phiên về cô lập (B1--B5) đã được kiểm chứng ở mục~\ref{sec:tx-2-3}; mục này dẫn lại, không làm lại, mà tập trung vào các chiến lược điều khiển đồng thời dưới tải, cơ chế giữ suất (reservation) và cách phối hợp hai DBMS trong Flash Sale.
+
+% -----------------------------------------------------------------------------
+\subsubsection{Cơ sở lý thuyết}\label{sec:cc-ly-thuyet}
+
+\paragraph{Vì sao cần điều khiển đồng thời}
+Một DBMS phục vụ nhiều transaction cùng lúc. Nếu các thao tác của chúng đan xen tùy ý, kết quả có thể sai dù từng transaction tự nó đúng. Điều khiển đồng thời đảm bảo chữ I (Isolation) trong ACID: kết quả của nhiều transaction chạy đan xen phải giống kết quả của một thứ tự chạy tuần tự nào đó (tính khả tuần tự, \emph{serializability}) \cite{cc-silberschatz2019}.
+
+\paragraph{Các hiện tượng bất thường}
+Bảng~\ref{tab:cc-hien-tuong} liệt kê các hiện tượng thường gặp khi không cô lập đủ, kèm ví dụ trong ShopFlash.
+
+\begin{table}[!htbp]
+\centering
+\caption{Các hiện tượng bất thường và ví dụ trong ShopFlash.}\label{tab:cc-hien-tuong}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|P{0.28\linewidth}|L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Hiện tượng} & \reportheader{Ví dụ trong ShopFlash} \\ \hline
+Mất cập nhật (lost update) & Hai khách cùng đọc \texttt{sold = 99} của sản phẩm có 100 suất, cùng ghi \texttt{sold = 100}. Cả hai được báo mua thành công nhưng bộ đếm chỉ tăng 1, thực tế bán 101 suất. \\ \hline
+Đọc dữ liệu chưa commit (dirty read) & Trang Flash Sale hiện số suất mà một transaction khác đã trừ nhưng sau đó rollback. \\ \hline
+Đọc không lặp lại (non-repeatable read) & Trong cùng một transaction, hai lần đọc số suất còn lại cho hai kết quả khác nhau. \\ \hline
+Bóng ma (phantom) & Đếm số đơn của một chương trình hai lần, lần sau thấy thêm đơn vừa được chèn. \\ \hline
+Lệch ghi (write skew) & Hai quản trị viên cùng kiểm tra tổng suất đã phân bổ còn dưới tồn kho rồi mỗi người thêm một sản phẩm; mỗi bên ghi một dòng khác nhau nhưng tổng cuối cùng vượt tồn kho. \\ \hline
+\end{tabularx}
+\end{table}
+
+\paragraph{Mức cô lập}
+Chuẩn SQL định nghĩa bốn mức cô lập theo ba hiện tượng đầu (Bảng~\ref{tab:cc-muc-co-lap}). Berenson và cộng sự chỉ ra định nghĩa này chưa đủ: cần xét thêm mất cập nhật và lệch ghi, và mức \emph{snapshot isolation} mà nhiều DBMS dùng chặn được ba hiện tượng của chuẩn nhưng vẫn để lọt lệch ghi \cite{cc-berenson1995}.
+
+\begin{table}[!htbp]
+\centering
+\caption{Mức cô lập theo chuẩn SQL (\checkmark: có thể xảy ra).}\label{tab:cc-muc-co-lap}
+\reporttablesetup
+\begin{tabular}{|l|c|c|c|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Mức cô lập} & \reportheader{Dirty read} & \reportheader{Non-repeatable read} & \reportheader{Phantom} \\ \hline
+READ UNCOMMITTED & \checkmark & \checkmark & \checkmark \\ \hline
+READ COMMITTED & & \checkmark & \checkmark \\ \hline
+REPEATABLE READ & & & \checkmark \\ \hline
+SERIALIZABLE & & & \\ \hline
+\end{tabular}
+\end{table}
+
+\paragraph{Các nhóm cơ chế}
+\begin{description}[style=nextline, leftmargin=1.25cm]
+  \item[Khóa bi quan.] Khóa dữ liệu trước khi đọc để ghi, người đến sau phải chờ. Khóa hai pha (2PL) cho tính khả tuần tự nhưng có thể gây bế tắc (\emph{deadlock}): hai transaction mỗi bên giữ một khóa và chờ khóa của bên kia.
+  \item[Kiểm soát lạc quan.] Không khóa khi đọc; lúc ghi mới kiểm tra dữ liệu có bị người khác đổi chưa (so sánh cột \texttt{version} hoặc giá trị cũ). Bị đổi thì thử lại. Rẻ khi ít tranh chấp, tốn kém khi tranh chấp cao vì thử lại nhiều.
+  \item[MVCC.] Lưu nhiều phiên bản của dữ liệu để người đọc thấy một bản chụp nhất quán; đọc không chặn ghi và ghi không chặn đọc.
+  \item[Thao tác nguyên tử.] Gom ``kiểm tra rồi ghi'' vào một lệnh duy nhất, ví dụ \texttt{UPDATE \ldots{} SET sold = sold + 1 WHERE sold + 1 <= allocated}. Không còn khoảng hở giữa lúc đọc và lúc ghi nên không còn race condition.
+\end{description}
+
+\paragraph{Khi dữ liệu nằm ở hai DBMS: Saga và TCC}\label{sec:cc-saga}
+Trong ShopFlash, Redis giữ suất còn Oracle ghi đơn. Không có transaction chung cho hai hệ: commit hai pha (2PC/XA) cần cả hai DBMS tham gia, trong khi Redis không hỗ trợ XA. Giải pháp là \emph{saga} \cite{cc-garcia1987}: chia việc thành chuỗi transaction cục bộ, mỗi bước có một bước bù trừ (\emph{compensating transaction}) để hoàn lại khi bước sau thất bại. Luồng mua của ShopFlash là biến thể Try--Confirm--Cancel (TCC): bước đầu chỉ giữ chỗ (reservation có hạn), sau đó xác nhận hoặc hủy.
+
+Saga thường được gọi là ``ACD'': có A, C, D nhưng không có I \cite{cc-richardson2018}. A ở đây là tính nguyên tử theo ngữ nghĩa (bù trừ chứ không rollback thật, trạng thái dở dang vẫn lộ ra), C chỉ đúng trong từng DBMS và đúng ``sau cùng'' trên cả hai hệ, D phụ thuộc độ bền của từng DBMS. Thiếu I nên các saga chạy cùng lúc có thể gặp chính các hiện tượng ở Bảng~\ref{tab:cc-hien-tuong}. Bảng~\ref{tab:cc-saga} cho thấy cách ShopFlash dựng lại chữ I bằng chính các kỹ thuật điều khiển đồng thời.
+
+\begin{table}[!htbp]
+\centering
+\caption{Hiện tượng do saga thiếu cô lập và biện pháp trong ShopFlash.}\label{tab:cc-saga}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|P{0.22\linewidth}|L|P{0.29\linewidth}|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Hiện tượng} & \reportheader{Tình huống trong ShopFlash} & \reportheader{Biện pháp \cite{cc-richardson2018}} \\ \hline
+Đọc dữ liệu dở dang & Khách khác thấy \texttt{remaining} đã bị trừ bởi một reservation còn \texttt{PENDING}, có thể sẽ được trả lại & Khóa ngữ nghĩa (\emph{semantic lock}): trạng thái \texttt{PENDING}/\texttt{CLAIMED} \\ \hline
+Mất cập nhật & Khi trả suất mà ghi đè \texttt{remaining} bằng một số tính sẵn thì làm mất lượt giữ suất của người khác & Cập nhật giao hoán (\emph{commutative update}): \texttt{HINCRBY +q}, \texttt{sold = sold + q} \\ \hline
+Bù trừ hai lần & Hook rollback của lệnh đặt đơn và job dọn reservation cùng trả một suất & Kiểm tra trạng thái ngay trong Lua, chỉ chuyển sang \texttt{RELEASED} một lần \\ \hline
+Quyết định trên giá trị cũ & Redis báo còn suất nhưng dữ liệu Redis vừa mất rồi được dựng lại & Kiểm tra lại (\emph{reread value}): Oracle chặn bằng \texttt{sold + q <= allocated} \\ \hline
+Gửi lại yêu cầu & Mất phản hồi, khách bấm đặt đơn lần nữa & Khóa idempotency \texttt{'FS-' || reservationId} \\ \hline
+\end{tabularx}
+\end{table}
+
+% -----------------------------------------------------------------------------
+\subsubsection{Cơ chế trên Oracle}\label{sec:cc-oracle}
+
+\begin{itemize}
+  \item \textbf{MVCC dựa trên undo.} Ở READ COMMITTED (mặc định), mỗi câu truy vấn thấy dữ liệu đã commit tại thời điểm câu lệnh bắt đầu. Ở SERIALIZABLE, cả transaction thấy dữ liệu tại thời điểm transaction bắt đầu cộng với thay đổi của chính nó. Oracle không có READ UNCOMMITTED nên không bao giờ có dirty read; ngoài ra có chế độ READ ONLY \cite{cc-oracle-concepts, cc-oracle-set-transaction}.
+  \item \textbf{Khóa dòng ghi ngay trong block dữ liệu}, không leo thang thành khóa bảng. Câu DML đặt khóa bảng ở mức vẫn cho nhiều phiên cùng ghi các dòng khác nhau. Đọc không chặn ghi, ghi không chặn đọc; chỉ ghi chặn ghi trên cùng một dòng \cite{cc-oracle-concepts}.
+  \item \textbf{\texttt{SELECT \ldots{} FOR UPDATE}} khóa trước các dòng sẽ sửa, có thêm \texttt{NOWAIT} (gặp khóa thì báo ORA-00054 ngay), \texttt{WAIT n} và \texttt{SKIP LOCKED} \cite{cc-oracle-select}.
+  \item \textbf{Tính nhất quán khi ghi.} Một câu \texttt{UPDATE} phải chờ khóa sẽ kiểm tra lại điều kiện \texttt{WHERE} trên phiên bản mới nhất của dòng sau khi lấy được khóa, và chạy lại câu lệnh nếu cần \cite{cc-oracle-concepts}. Nhờ vậy \texttt{UPDATE \ldots{} WHERE sold + 1 <= allocated} vẫn đúng ở READ COMMITTED.
+  \item \textbf{SERIALIZABLE của Oracle là snapshot isolation.} Khi transaction định sửa một dòng mà transaction khác đã sửa và commit sau khi nó bắt đầu, Oracle báo ORA-08177 thay vì chờ; ứng dụng phải thử lại. Mức này chặn mất cập nhật nhưng vẫn để lọt lệch ghi \cite{cc-berenson1995}.
+  \item \textbf{Deadlock} được tự phát hiện: Oracle rollback \emph{câu lệnh} (không phải cả transaction) của một phiên và báo ORA-00060. Cách phòng là mọi module khóa theo cùng một thứ tự; trong ShopFlash, \texttt{PRODUCT\_INVENTORY} luôn khóa sau cùng, nhiều dòng thì theo \texttt{product\_id} tăng dần.
+  \item \textbf{Ràng buộc \texttt{CHECK} không thay được điều khiển đồng thời.} Khi mất cập nhật, giá trị ghi xuống vẫn hợp lệ (\texttt{sold = 100 <= allocated}) nên \texttt{CHECK} không phát hiện ra.
+\end{itemize}
+
+Các tình huống hai phiên trên Oracle (đọc dữ liệu đã commit, quyết định dựa trên giá trị đọc trước khi ghi, chờ khóa quá hạn và deadlock) đã có ở thí nghiệm B1--B3 của mục~\ref{sec:tx-2-3} (Bảng~\ref{tab:tx-13}). Mục này không lặp lại mà đo các chiến lược dưới tải (E1, E2) và minh họa ORA-08177 (E3).
+
+% -----------------------------------------------------------------------------
+\subsubsection{Cơ chế trên Redis}\label{sec:cc-redis}
+
+\begin{itemize}
+  \item \textbf{Mỗi lệnh chạy nguyên tử} vì luồng chính thực thi lệnh lần lượt từng cái; các I/O thread (từ Redis 6) chỉ lo đọc, ghi mạng. Vì vậy \texttt{INCR}, \texttt{HINCRBY} tự nó đã nguyên tử. Nhưng một quy trình nhiều lệnh (\texttt{HGET} rồi \texttt{HSET}) thì không: giữa hai lệnh vẫn có client khác chen vào.
+  \item \textbf{\texttt{MULTI}/\texttt{EXEC}} xếp hàng các lệnh rồi chạy liền một mạch, không lệnh nào của client khác chen vào, nhưng \textbf{không có rollback}: lỗi lúc xếp hàng làm \texttt{EXEC} bị hủy (\texttt{EXECABORT}); lỗi lúc chạy (ví dụ sai kiểu) thì các lệnh khác trong khối vẫn được thực hiện \cite{cc-redis-transactions}.
+  \item \textbf{\texttt{WATCH}} là kiểm soát lạc quan: key đang theo dõi bị đổi trước \texttt{EXEC} thì \texttt{EXEC} trả về null và client phải thử lại \cite{cc-redis-transactions}.
+  \item \textbf{Lua script và Redis Functions} chạy nguyên tử: server không phục vụ lệnh nào khác trong lúc script chạy \cite{cc-redis-eval, cc-redis-functions}. Hệ quả: script phải ngắn (quá \texttt{busy-reply-threshold}, mặc định 5 giây, client khác nhận lỗi \texttt{BUSY}); và script cũng không rollback, nên script giữ suất phải kiểm tra hết điều kiện rồi mới ghi.
+  \item \textbf{Không có khóa nên không có deadlock.} Khóa phân tán (\texttt{SET key value NX PX}, Redlock) là mẫu do ứng dụng tự dựng \cite{cc-redis-distlock}. Kleppmann chỉ ra tiến trình giữ khóa có thể bị dừng lâu (ví dụ do GC) tới mức khóa hết hạn mà nó không biết, nên cần thêm fencing token \cite{cc-kleppmann2016, cc-kleppmann2017}. ShopFlash không dùng khóa phân tán cho việc giữ suất.
+  \item \textbf{Độ bền ảnh hưởng tới reservation.} Với AOF \texttt{everysec}, khi sập máy có thể mất khoảng 1 giây ghi đã xác nhận (xem mục~\ref{sec:backup}). Vì vậy trạng thái Flash Sale trên Redis phải dựng lại được từ Oracle.
+\end{itemize}
+
+Tình huống \texttt{WATCH} với hai client và Lua giữ hai suất khi bốn client cùng tranh đã có ở thí nghiệm B4, B5 của mục~\ref{sec:tx-2-3}; mục này đo chi phí của các cách làm đó khi số lượt đồng thời tăng.

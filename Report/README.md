@@ -53,8 +53,13 @@ Report/
 │       ├── task2.tex                 2.2 Indexing
 │       ├── task3.tex                 2.3 Query Processing
 │       ├── task4.tex                 2.4 Transaction, ghép ba tiểu mục bên dưới
-│       ├── task5.tex                 2.5 Concurrency Control
+│       ├── task5.tex                 2.5 Concurrency Control, ghép bốn file bên dưới
 │       ├── task6.tex                 2.6 Data Backup & Recovery
+│       ├── Concurrency/
+│       │   ├── 01-co-so-ly-thuyet.tex   2.5.1–2.5.3 Lý thuyết, cơ chế Oracle và Redis
+│       │   ├── 02-thiet-ke-flash-sale.tex 2.5.4 Flash Sale trên hai DBMS
+│       │   ├── 03-thuc-nghiem.tex       2.5.5–2.5.6 Thiết kế thí nghiệm, kết quả E1–E5
+│       │   └── 04-so-sanh-ket-luan.tex  2.5.7 So sánh và lựa chọn DBMS
 │       └── Transaction/
 │           ├── noi-dung.md           Markdown hiện hành: 2.4.1–2.4.3
 │           ├── 01-tong-quan.tex       2.4.1 Tổng quan và phương pháp nghiên cứu
@@ -63,8 +68,9 @@ Report/
 ├── Pictures/
 │   ├── hcmut.png                     logo từ template
 │   ├── image.png                     sơ đồ kiến trúc Hình 1.1
-│   ├── Section_3/                    sáu ảnh Client, tên client-*.png
-│   └── Task_4/                       ba biểu đồ benchmark dạng PDF vector
+│   ├── Section_3/                    ảnh Client (client-*.png) và Admin (admin-*.png)
+│   ├── Task_4/                       ba biểu đồ benchmark dạng PDF vector
+│   └── Task_5/                       biểu đồ E1, E2 và ảnh Concurrency Lab, đối chiếu runtime
 ├── references.bib                    tài liệu tham khảo khi có trích dẫn
 ├── build.sh, .latexmkrc              cấu hình biên dịch XeLaTeX + biber
 └── build/main.pdf                    kết quả build, không commit
@@ -178,3 +184,10 @@ Cập nhật mục 2.4.3.4: thay nội dung đối chiếu/lựa chọn DBMS the
 trong nguồn rút gọn. Giữ nguyên bảng tổng hợp và toàn bộ benchmark phía trước;
 chuẩn hóa số bảng nguồn 3.32 thành 2.4.22. PDF sau cập nhật có **49 trang**,
 không có cảnh báo LaTeX hoặc trang trắng.
+
+Cập nhật mục 2.5 ngày 19/11/2026: ghép Concurrency Control từ bản đã viết của
+người phụ trách (`report/concurrency/`), gồm 2.5.1–2.5.7, 9 bảng, 7 mã nguồn và
+4 hình; dẫn lại B1–B5 của 2.4.2.3 thay vì làm lại. Số đo E1–E5 giữ nguyên từ
+`report/concurrency/results/`, không đo lại. Phần 3 thêm Hình 3.7, 3.8 (Flash
+Sale phía khách) và Hình 3.12 (quản lý Flash Sale). Build Docker: PDF **90 trang**,
+không có lỗi, tham chiếu chưa xác định hoặc dòng tràn lề.

@@ -26,9 +26,14 @@ Thư mục này có chữ **R hoa**, là bộ báo cáo mới theo cấu trúc
   giữ nguyên văn; Hình 1.1 dùng ảnh `Pictures/image.png` do người dùng cung cấp.
   Phần 3 chuyển từ `../section_3.md` sang `Sections/Implementation/noi-dung.tex`;
   sáu ảnh Client tại `Pictures/Section_3/client-*.png` ứng với Hình 3.1–3.6.
-  Chỗ bổ sung minh họa Flash Sale và Admin giữ rõ là chưa hoàn thiện.
+  Flash Sale đã có ảnh (`client-flash-*.png`, `admin-flash-sales.png`); chỗ bổ sung
+  minh họa báo cáo/thống kê phía Admin giữ rõ là chưa hoàn thiện.
+- Concurrency (2.5) nằm ở `Sections/Tasks/Concurrency/`, ghép bằng `task5.tex` với
+  `\txnumbering` (bảng/hình/mã đánh số 2.5.x). Nhãn có tiền tố `cc-`, trích dẫn
+  `cc-*` trong `references.bib`; số đo, script và nhật ký gốc ở `report/concurrency/`.
 - Phần chưa viết chỉ có tiêu đề, không tạo số liệu hoặc ghi tên thành viên chưa cung cấp.
-- Hình nghiên cứu đặt ở `Pictures/Task_<số>/`, nhãn Transaction có tiền tố `tx-`;
+- Hình nghiên cứu đặt ở `Pictures/Task_<số>/`, nhãn Transaction có tiền tố `tx-`,
+  Concurrency có tiền tố `cc-`;
   ảnh giao diện Phần 3 đặt ở `Pictures/Section_3/`, nhãn có tiền tố `impl-`.
 - Không thêm `\usepackage` trong file nội dung. Dùng các gói có trong preamble;
   cấu hình build cần chạy với XeLaTeX và biber khi có trích dẫn.

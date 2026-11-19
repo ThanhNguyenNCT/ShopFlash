@@ -54,13 +54,15 @@ Có **22 bảng, 15 đoạn mã, 10 khối kết quả và 3 biểu đồ** theo
 
 ## 2.5. Concurrency Control
 
-**Đã có lý thuyết và thiết kế thí nghiệm:** [README](../report/concurrency/README.md), [bản LaTeX của chủ đề](../report/concurrency/noi-dung.tex). Chưa thấy bộ số đo hoàn chỉnh cho các thí nghiệm dự kiến trong thư mục này; thành viên bổ sung kết quả thật và kết luận sau khi kiểm chứng.
+**Đã ghép vào LaTeX (19/11/2026):** `Sections/Tasks/task5.tex` ghép bốn file trong `Sections/Tasks/Concurrency/`; số đo, script, nhật ký và cách chạy lại ở [report/concurrency](../report/concurrency/README.md).
 
-<!-- 2.5.1. Vấn đề điều khiển đồng thời và các cơ chế
-     2.5.2. Thực nghiệm trên Oracle
-     2.5.3. Thực nghiệm trên Redis và phối hợp Flash Sale
-     2.5.4. So sánh dưới tải và kết luận
-     Không điền giả thuyết thành kết quả. -->
+- 2.5.1. Cơ sở lý thuyết (hiện tượng bất thường, mức cô lập, Saga/TCC).
+- 2.5.2. Cơ chế trên Oracle; 2.5.3. Cơ chế trên Redis.
+- 2.5.4. Thiết kế Flash Sale trên hai DBMS (chia dữ liệu, vòng đời, Try–Confirm–Cancel).
+- 2.5.5. Thiết kế thí nghiệm (Concurrency Lab, 10 chiến lược); 2.5.6. Kết quả E1–E5.
+- 2.5.7. So sánh và lựa chọn DBMS trong ShopFlash.
+
+Có **9 bảng, 7 mã nguồn và 4 hình**, mang tiền tố 2.5. Số đo E1–E5 đo ngày 16/11/2026, giữ nguyên.
 
 ## 2.6. Data Backup & Recovery
 
@@ -70,7 +72,7 @@ Có **22 bảng, 15 đoạn mã, 10 khối kết quả và 3 biểu đồ** theo
 
 # Phần 3. HIỆN THỰC ỨNG DỤNG VÀ KẾT LUẬN
 
-Nguồn chính: [section_3.md](../section_3.md), đã ghép vào `Sections/Implementation/noi-dung.tex`. Có bảng tổng hợp chức năng, nội dung Client/đánh giá/kết luận và sáu ảnh gốc tại `Pictures/Section_3/` (Hình 3.1–3.6). Minh họa Flash Sale (dự kiến Hình 3.7) và nội dung/ảnh Admin vẫn chờ bổ sung. [Source Audit](../SECTION_1_HANDOFF.md) là nguồn đối chiếu chức năng và giới hạn tại thời điểm khảo sát; phải phân biệt ảnh giao diện với kiểm chứng giao dịch DBMS ở Phần 2.
+Nguồn chính: [section_3.md](../section_3.md), đã ghép vào `Sections/Implementation/noi-dung.tex`. Có bảng tổng hợp chức năng, nội dung Client/đánh giá/kết luận và sáu ảnh gốc tại `Pictures/Section_3/` (Hình 3.1–3.6). Flash Sale đã có ảnh trong LaTeX (Hình 3.7, 3.8 phía khách; Hình 3.12 quản lý chương trình, 19/11/2026); minh họa báo cáo/thống kê phía Admin vẫn chờ bổ sung. [Source Audit](../SECTION_1_HANDOFF.md) là nguồn đối chiếu chức năng và giới hạn tại thời điểm khảo sát; phải phân biệt ảnh giao diện với kiểm chứng giao dịch DBMS ở Phần 2.
 
 ## 3.1. Các chức năng đã hiện thực
 
@@ -78,7 +80,7 @@ Nguồn chính: [section_3.md](../section_3.md), đã ghép vào `Sections/Imple
 
 ## 3.2. Minh họa và đánh giá ứng dụng
 
-[Minh họa và đánh giá](../section_3.md#32-minh-họa-và-đánh-giá-ứng-dụng): trang chủ, tìm kiếm/lọc, giỏ hàng, Checkout, danh sách đơn và chi tiết đơn. Ảnh Client phản ánh luồng đơn 188.000 đồng đã có; không tạo mới ảnh hoặc kết quả. Giữ chỗ bổ sung Flash Sale và Admin.
+[Minh họa và đánh giá](../section_3.md#32-minh-họa-và-đánh-giá-ứng-dụng): trang chủ, tìm kiếm/lọc, giỏ hàng, Checkout, danh sách đơn và chi tiết đơn. Ảnh Client phản ánh luồng đơn 188.000 đồng đã có; không tạo mới ảnh hoặc kết quả. Flash Sale đã bổ sung trong LaTeX; giữ chỗ cho báo cáo/thống kê phía Admin.
 
 ## 3.3. Kết luận, hạn chế và hướng phát triển
 
@@ -92,4 +94,4 @@ Nguồn chính: [section_3.md](../section_3.md), đã ghép vào `Sections/Imple
 - Tiểu mục nghiên cứu dùng `2.<topic>.<tiểu mục>`. Bảng/hình/mã/kết quả Transaction dùng `2.4.<số thứ tự>`; các topic khác dùng cùng quy tắc khi được người phụ trách chuẩn hóa. Hình 1.1 và Bảng 1.1 thuộc Phần 1.
 - Giữ nguyên tên file ảnh, dữ liệu thô và bằng chứng có số cũ để không gãy đường dẫn. Số hiển thị của báo cáo nằm trong heading/caption; số trong tên artifact cũ không phải số mục hiện hành.
 - Các mục chỉ có runbook/nguyên liệu ở trên chưa được coi là chương đã biên tập hoàn chỉnh. Khung chú thích không phải nội dung nghiên cứu mới.
-- **LaTeX/PDF trong `Report/` đã dùng ba phần**, có Phần 1 từ `section_1.md`, Transaction 2.4 và Phần 3 từ `section_3.md` kèm sáu ảnh Client. Các topic chưa ghép vẫn giữ khung; Flash Sale/Admin ở Phần 3 còn chỗ bổ sung. PDF hiện hành là `Report/build/main.pdf`. Nguồn Markdown khác được liệt kê ở trên vẫn cần người phụ trách chốt và chuyển sang LaTeX; không suy ra chúng đã được ghép chỉ từ việc có file nguồn.
+- **LaTeX/PDF trong `Report/` đã dùng ba phần**, có Phần 1 từ `section_1.md`, Transaction 2.4 và Phần 3 từ `section_3.md` kèm sáu ảnh Client. Concurrency 2.5 đã ghép (19/11/2026). Các topic chưa ghép vẫn giữ khung; báo cáo/thống kê phía Admin ở Phần 3 còn chỗ bổ sung. PDF hiện hành là `Report/build/main.pdf`. Nguồn Markdown khác được liệt kê ở trên vẫn cần người phụ trách chốt và chuyển sang LaTeX; không suy ra chúng đã được ghép chỉ từ việc có file nguồn.

@@ -1,0 +1,205 @@
+% !TeX root = ../../../main.tex
+% 2.5.4: Flash Sale phối hợp Oracle và Redis. Thiết kế đầy đủ của module:
+% backend/src/main/java/com/shopflash/modules/concurrency/AGENTS.md.
+% Mã nguồn chép từ repository/oracle/*.java và resources/concurrency/redis/*.lua, chú thích rút gọn.
+
+\subsubsection{Thiết kế Flash Sale trên hai DBMS}\label{sec:cc-thiet-ke}
+
+Phần này mô tả cách ShopFlash dùng các cơ chế ở trên cho chức năng Flash Sale; giao diện được giới thiệu ở Hình~\ref{fig:impl-client-flash-sale}, \ref{fig:impl-client-flash-checkout} và~\ref{fig:impl-admin-flash-sales}. Lý do chia việc như dưới đây là kết quả thực nghiệm ở mục~\ref{sec:cc-ket-luan}. Mọi câu SQL dùng bind variable (\texttt{:ten}); Lua script được nạp bằng \texttt{SCRIPT LOAD} và gọi bằng \texttt{EVALSHA}.
+
+\paragraph{Chia dữ liệu giữa Oracle và Redis}
+Oracle là nguồn gốc; Redis chỉ giữ trạng thái chạy từ lúc chương trình được lên lịch và dựng lại được từ Oracle (Bảng~\ref{tab:cc-chia-du-lieu}).
+
+\begin{table}[!htbp]
+\centering
+\caption{Dữ liệu của Flash Sale nằm ở đâu.}\label{tab:cc-chia-du-lieu}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|P{0.24\linewidth}|L|L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Dữ liệu} & \reportheader{Oracle} & \reportheader{Redis} \\ \hline
+Chương trình, giờ mở bán, giới hạn mỗi người & \texttt{FLASH\_\allowbreak SALES}, \texttt{FLASH\_\allowbreak SALE\_\allowbreak CONFIGS} & Bản sao trong HASH \texttt{flash:\allowbreak sale:\allowbreak \{id\}} \\ \hline
+Số suất & \texttt{FLASH\_\allowbreak SALE\_\allowbreak ITEMS}: \texttt{allocated\_\allowbreak quantity}, \texttt{sold\_\allowbreak quantity} & \texttt{flash:\allowbreak item:\allowbreak \{id\}}: \texttt{remaining}, đã trừ cả suất đang giữ \\ \hline
+Số lượng mỗi khách đã giữ và đã mua & Tính được từ \texttt{ORDER\_\allowbreak ITEMS} & HASH \texttt{flash:\allowbreak item:\allowbreak \{id\}:\allowbreak user\_qty} \\ \hline
+Suất đang giữ (reservation) & Không lưu & HASH \texttt{flash:\allowbreak reservation:\allowbreak \{uuid\}}, HASH \texttt{flash:\allowbreak item:\allowbreak \{id\}:\allowbreak pending}, ZSET \texttt{flash:\allowbreak reservations:\allowbreak expiry} theo giờ hết hạn \\ \hline
+Tồn kho & \texttt{PRODUCT\_\allowbreak INVENTORY}: \texttt{on\_\allowbreak hand\_\allowbreak quantity}, \texttt{reserved\_\allowbreak flash\_\allowbreak quantity} & Không lưu \\ \hline
+Đơn hàng & \texttt{ORDERS} (\texttt{order\_\allowbreak type = 'FLASH\_\allowbreak SALE'}), \texttt{ORDER\_\allowbreak ITEMS} & Không lưu \\ \hline
+\end{tabularx}
+\end{table}
+
+Module thêm hai migration: V4 thêm cột \texttt{flash\_\allowbreak sales.version} (khóa lạc quan khi quản trị viên sửa chương trình), index \texttt{(status, start\_\allowbreak at)} và sửa view kiểm tra bất biến tồn kho; V5 tạo bảng \texttt{cc\_\allowbreak lab\_\allowbreak items} cho Concurrency Lab. Bất biến tồn kho: với mỗi sản phẩm, \texttt{reserved\_\allowbreak flash\_\allowbreak quantity} bằng tổng \texttt{allocated\_\allowbreak quantity - sold\_\allowbreak quantity} của các chương trình đã lên lịch hoặc đang chạy; view \texttt{v\_\allowbreak inventory\_\allowbreak invariant\_\allowbreak check} liệt kê các sản phẩm vi phạm và phải luôn rỗng. Các thí nghiệm E4, E5 dùng view này để kiểm tra sau mỗi bước.
+
+\paragraph{Vòng đời chương trình}
+Chương trình đi qua các trạng thái \texttt{DRAFT} $\rightarrow$ \texttt{SCHEDULED} $\rightarrow$ \texttt{ACTIVE} $\rightarrow$ \texttt{ENDED}, hoặc \texttt{CANCELLED}. Mỗi lần chuyển là một transaction Oracle, Redis đổi sau khi commit (Mã nguồn~\ref{lst:cc-vong-doi}).
+
+\begin{itemize}
+  \item \textbf{Đổi trạng thái bằng compare-and-set:} \texttt{UPDATE flash\_\allowbreak sales SET status = :\allowbreak to WHERE flash\_\allowbreak sale\_\allowbreak id = :\allowbreak id AND status = :\allowbreak from}. Hai quản trị viên hoặc hai job chạy cùng lúc thì chỉ một bên sửa được dòng.
+  \item \textbf{Lên lịch giữ hàng ngay:} với từng sản phẩm, \texttt{reserved\_\allowbreak flash\_\allowbreak quantity} tăng thêm số suất nếu kho còn đủ; thiếu một sản phẩm thì rollback cả chương trình. Nhờ vậy đến giờ mở bán chắc chắn có hàng.
+  \item \textbf{Giờ mở và đóng bán do Lua quyết định} bằng đồng hồ Redis, không phụ thuộc job. Job (mỗi 5 giây) chỉ đổi trạng thái trong Oracle và chọn việc bằng \texttt{FOR UPDATE SKIP LOCKED} để chạy được trên nhiều instance.
+  \item \textbf{Kết thúc} chờ thêm thời gian giữ suất cộng 120 giây sau giờ đóng, để mọi suất còn hạn được chốt xong, rồi mới trả phần chưa bán về kho thường.
+  \item \textbf{Thứ tự khóa} thống nhất với module Transaction để tránh deadlock: \texttt{FLASH\_\allowbreak SALES}, rồi \texttt{FLASH\_\allowbreak SALE\_\allowbreak ITEMS}, sau cùng là \texttt{PRODUCT\_\allowbreak INVENTORY} theo \texttt{product\_\allowbreak id} tăng dần.
+\end{itemize}
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=OracleSQL, caption={Compare-and-set trạng thái, giữ hàng và job đổi trạng thái}, label={lst:cc-vong-doi}]
+-- DRAFT -> SCHEDULED: chi mot ben thang khi hai admin cung bam.
+UPDATE flash_sales SET status = 'SCHEDULED', version = version + 1, updated_at = SYSTIMESTAMP
+WHERE  flash_sale_id = :id AND status = 'DRAFT' AND start_at > SYSTIMESTAMP;
+
+-- Khoa cac san pham cua chuong trinh theo thu tu co dinh.
+SELECT fi.flash_sale_item_id, fi.product_id, fi.allocated_quantity, fi.sold_quantity,
+       p.status AS product_status
+FROM   flash_sale_items fi
+JOIN   products p ON p.product_id = fi.product_id
+WHERE  fi.flash_sale_id = :id AND fi.status = 'ACTIVE'
+ORDER  BY fi.flash_sale_item_id
+FOR UPDATE OF fi.sold_quantity;
+
+-- Giu hang cho flash sale; 0 dong la khong du hang.
+UPDATE product_inventory
+SET    reserved_flash_quantity = reserved_flash_quantity + :q,
+       version = version + 1, updated_at = SYSTIMESTAMP
+WHERE  product_id = :productId AND on_hand_quantity - reserved_flash_quantity >= :q;
+
+-- Job mo ban: nhieu instance cung chay thi moi instance lay phan chua bi khoa.
+SELECT flash_sale_id FROM flash_sales
+WHERE  status = 'SCHEDULED' AND start_at <= SYSTIMESTAMP
+FOR UPDATE SKIP LOCKED;
+
+-- Job ket thuc: sau gio dong + thoi gian giu suat + moc an toan.
+SELECT fs.flash_sale_id
+FROM   flash_sales fs
+JOIN   flash_sale_configs c ON c.flash_sale_id = fs.flash_sale_id
+WHERE  fs.flash_sale_id = :id AND fs.status = 'ACTIVE'
+AND    fs.end_at + NUMTODSINTERVAL(c.reservation_timeout_seconds + :grace, 'SECOND')
+       <= SYSTIMESTAMP
+FOR UPDATE OF fs.status SKIP LOCKED;
+\end{lstlisting}
+
+\paragraph{Luồng mua: Try--Confirm--Cancel}\label{sec:cc-tcc}
+\begin{enumerate}
+  \item \textbf{Giữ suất (Try), chỉ trên Redis.} Một Lua script kiểm tra giờ mở bán, trạng thái sản phẩm, số suất còn lại và giới hạn mỗi người, rồi trừ suất và tạo reservation có hạn (mặc định 60 giây). Bấm hai lần thì nhận lại đúng reservation cũ. Lượt hết suất không chạm tới Oracle (Mã nguồn~\ref{lst:cc-reserve}).
+  \item \textbf{Đặt đơn.} Lua chuyển reservation từ \texttt{PENDING} sang \texttt{CLAIMED} (chỉ chủ suất, còn hạn). Sau đó một transaction Oracle (giới hạn 10 giây) tăng \texttt{sold\_\allowbreak quantity} có điều kiện, xuất kho phần đã giữ, ghi \texttt{ORDERS} và \texttt{ORDER\_\allowbreak ITEMS} (Mã nguồn~\ref{lst:cc-dat-don}). Khóa \texttt{idempotency\_\allowbreak key = 'FS-' || reservationId} có ràng buộc duy nhất, nên một suất chỉ ra một đơn.
+  \item \textbf{Confirm hoặc Cancel.} Commit thì Lua đánh dấu \texttt{CONFIRMED}; rollback thì Lua trả suất về Redis (Mã nguồn~\ref{lst:cc-release}). Gửi lại yêu cầu đặt đơn là an toàn: suất đã có đơn thì trả lại đơn cũ.
+  \item \textbf{Job dọn (mỗi 5 giây).} Lấy tối đa 500 suất tới hạn theo thứ tự hết hạn (\texttt{ZRANGEBYSCORE flash:\allowbreak reservations:\allowbreak expiry -inf <now> LIMIT 0 500}). Suất \texttt{PENDING} quá hạn thì trả. Suất \texttt{CLAIMED} quá hạn 30 giây (backend sập giữa chừng) thì tra Oracle theo \texttt{idempotency\_\allowbreak key}: có đơn thì xác nhận, không có thì trả suất.
+\end{enumerate}
+
+Mọi thao tác trả suất đều kiểm tra trạng thái ngay trong Lua, nên hook rollback và job dọn chạy trùng cũng chỉ trả một lần. Reservation chỉ còn hiệu lực khi vẫn có tên trong danh sách suất đang giữ của sản phẩm (HASH \texttt{pending}); điều này giữ cho Redis khớp Oracle sau khi dựng lại (thí nghiệm E4). Số suất còn lại hiển thị trên trang Flash Sale được hỏi lại mỗi 2 giây và chỉ đọc từ Redis, để Oracle không chịu tải đọc đúng lúc đang ghi đơn; mỗi phản hồi kèm giờ của Redis, cùng đồng hồ mà Lua dùng để mở bán, nên trang đếm ngược đúng dù máy khách lệch giờ.
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language={[5.3]Lua}, caption={reserve.lua: kiểm tra và trừ suất trong một script (Try)}, label={lst:cc-reserve}]
+-- KEYS: flash:sale:{s}, flash:item:{i}, flash:item:{i}:user_qty, flash:item:{i}:pending,
+--       flash:reservation:{moi}, flash:reservations:expiry
+-- ARGV: userId, quantity, reservationId moi, saleId, itemId
+local t = redis.call('TIME')
+local now = tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1000)
+local userId, q, newId, saleId, itemId = ARGV[1], tonumber(ARGV[2]), ARGV[3], ARGV[4], ARGV[5]
+if not q or q <= 0 then return {'INVALID_QUANTITY'} end
+
+local sale = redis.call('HMGET', KEYS[1], 'status', 'startAt', 'endAt', 'maxPerUser', 'reservationTtl')
+if not sale[1] or (sale[1] ~= 'SCHEDULED' and sale[1] ~= 'ACTIVE') then return {'SALE_NOT_FOUND'} end
+if now < tonumber(sale[2]) then return {'SALE_NOT_STARTED'} end
+if now >= tonumber(sale[3]) then return {'SALE_ENDED'} end
+
+local item = redis.call('HMGET', KEYS[2], 'saleId', 'status', 'remaining', 'productId')
+if not item[1] or item[1] ~= saleId or item[2] ~= 'ACTIVE' then return {'ITEM_UNAVAILABLE'} end
+
+-- Da co suat dang giu: con han thi tra lai dung suat do (bam "Mua ngay" hai lan).
+local existing = redis.call('HGET', KEYS[4], userId)
+if existing then
+  local oldKey = 'flash:reservation:' .. existing
+  local old = redis.call('HMGET', oldKey, 'status', 'expiresAt', 'quantity')
+  local oldExpires = tonumber(old[2])
+  if old[1] == 'CLAIMED' or (old[1] == 'PENDING' and now < oldExpires) then
+    return {'EXISTING', existing, oldExpires, now}
+  end
+  if old[1] == 'PENDING' then   -- het han ma job don chua kip xu ly: tra suat ngay
+    local oldQ = tonumber(old[3])
+    redis.call('HINCRBY', KEYS[2], 'remaining', oldQ)
+    if redis.call('HINCRBY', KEYS[3], userId, -oldQ) <= 0 then redis.call('HDEL', KEYS[3], userId) end
+    redis.call('HSET', oldKey, 'status', 'RELEASED', 'releasedAt', now)
+    redis.call('EXPIRE', oldKey, 3600)
+    redis.call('ZREM', KEYS[6], existing)
+    item[3] = tostring(tonumber(item[3]) + oldQ)
+  end
+  redis.call('HDEL', KEYS[4], userId)
+end
+
+if tonumber(item[3]) < q then return {'SOLD_OUT'} end
+local bought = tonumber(redis.call('HGET', KEYS[3], userId) or '0')
+if bought + q > tonumber(sale[4]) then return {'USER_LIMIT_REACHED'} end
+
+local expiresAt = now + tonumber(sale[5]) * 1000
+redis.call('HINCRBY', KEYS[2], 'remaining', -q)
+redis.call('HINCRBY', KEYS[3], userId, q)
+redis.call('HSET', KEYS[4], userId, newId)
+redis.call('HSET', KEYS[5], 'saleId', saleId, 'itemId', itemId, 'productId', item[4],
+  'userId', userId, 'quantity', q, 'status', 'PENDING', 'createdAt', now, 'expiresAt', expiresAt)
+redis.call('ZADD', KEYS[6], expiresAt, newId)
+return {'CREATED', newId, expiresAt, now}
+\end{lstlisting}
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=OracleSQL, caption={Đặt đơn: tăng số đã bán và xuất kho bằng UPDATE có điều kiện trong một transaction}, label={lst:cc-dat-don}]
+-- 0 dong duoc sua nghia la het suat hoac chuong trinh khong con ban: rollback.
+UPDATE flash_sale_items fi
+SET    fi.sold_quantity = fi.sold_quantity + :q, fi.updated_at = SYSTIMESTAMP
+WHERE  fi.flash_sale_item_id = :itemId AND fi.status = 'ACTIVE'
+AND    fi.sold_quantity + :q <= fi.allocated_quantity
+AND    EXISTS (SELECT 1 FROM flash_sales fs
+               WHERE fs.flash_sale_id = fi.flash_sale_id
+               AND   fs.status IN ('SCHEDULED', 'ACTIVE'));
+
+UPDATE product_inventory
+SET    on_hand_quantity = on_hand_quantity - :q,
+       reserved_flash_quantity = reserved_flash_quantity - :q,
+       version = version + 1, updated_at = SYSTIMESTAMP
+WHERE  product_id = :productId AND reserved_flash_quantity >= :q;
+
+INSERT INTO orders (order_code, user_id, order_type, status, subtotal, discount_amount,
+                    total_amount, recipient_name, recipient_phone, shipping_address,
+                    idempotency_key, created_at, updated_at)
+VALUES (:code, :userId, 'FLASH_SALE', 'PENDING', :total, 0, :total, :name, :phone,
+        :address, :key, SYSTIMESTAMP, SYSTIMESTAMP);
+
+INSERT INTO order_items (order_id, product_id, flash_sale_item_id, product_name,
+                         product_sku, unit_price, quantity, line_total)
+VALUES (:orderId, :productId, :itemId, :name, :sku, :price, :q, :total);
+
+-- Job don tra don theo khoa idempotent 'FS-' || reservationId.
+SELECT order_id, order_code, user_id, status, total_amount
+FROM   orders WHERE idempotency_key = :key;
+\end{lstlisting}
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language={[5.3]Lua}, caption={release.lua: trả suất đúng một lần (Cancel, bù trừ)}, label={lst:cc-release}]
+-- KEYS: flash:reservation:{id}, flash:item:{i}, flash:item:{i}:user_qty, flash:item:{i}:pending,
+--       flash:reservations:expiry
+-- ARGV: reservationId, cac trang thai duoc phep tra, graceMs (-1: khong xet gio), userId chu suat
+local r = redis.call('HMGET', KEYS[1], 'status', 'userId', 'quantity', 'expiresAt')
+if not r[1] then return 0 end
+if not string.find(',' .. ARGV[2] .. ',', ',' .. r[1] .. ',', 1, true) then return 0 end
+if ARGV[4] ~= '' and r[2] ~= ARGV[4] then return 0 end
+local t = redis.call('TIME')
+local now = tonumber(t[1]) * 1000 + math.floor(tonumber(t[2]) / 1000)
+local grace = tonumber(ARGV[3])
+if grace >= 0 and now < tonumber(r[4]) + grace then return 0 end
+
+local q = tonumber(r[3])
+-- Chi cong suat khi reservation con co ten trong hash pending cua san pham.
+local registered = redis.call('HGET', KEYS[4], r[2]) == ARGV[1]
+if registered and redis.call('EXISTS', KEYS[2]) == 1 then
+  redis.call('HINCRBY', KEYS[2], 'remaining', q)
+  if redis.call('HINCRBY', KEYS[3], r[2], -q) <= 0 then redis.call('HDEL', KEYS[3], r[2]) end
+end
+redis.call('HSET', KEYS[1], 'status', 'RELEASED', 'releasedAt', now)
+redis.call('EXPIRE', KEYS[1], 3600)
+redis.call('ZREM', KEYS[5], ARGV[1])
+if registered then redis.call('HDEL', KEYS[4], r[2]) end
+return 1
+\end{lstlisting}
+
+Hai script còn lại của luồng mua cùng dạng: \texttt{claim.lua} chuyển \texttt{PENDING} sang \texttt{CLAIMED} khi đúng chủ, còn hạn và reservation còn trong HASH \texttt{pending}; \texttt{confirm.lua} chuyển \texttt{CLAIMED} sang \texttt{CONFIRMED}, đặt \texttt{EXPIRE 3600} và xóa reservation khỏi HASH \texttt{pending} và ZSET hết hạn.
+
+\paragraph{Kiểm thử}
+Module có 9 unit test không cần cơ sở dữ liệu và 36 test tích hợp chạy trên Oracle và Redis thật: Lua giữ suất (200 người tranh 30 suất không bao giờ quá 30), đặt đơn và bù trừ khi rollback, job dọn, các chuyển trạng thái của chương trình, và mười chiến lược của Concurrency Lab.

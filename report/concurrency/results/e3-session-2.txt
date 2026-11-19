@@ -1,0 +1,17 @@
+
+Transaction set.
+
+
+PL/SQL procedure successfully completed.
+
+
+      SOLD
+----------
+	 0
+
+
+1 row updated.
+
+
+Commit complete.
+

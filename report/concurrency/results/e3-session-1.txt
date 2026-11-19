@@ -1,0 +1,55 @@
+
+Transaction set.
+
+
+PL/SQL procedure successfully completed.
+
+
+      SOLD
+----------
+	 0
+
+
+PL/SQL procedure successfully completed.
+
+
+SOLD_PHIEN_1_THAY
+-----------------
+		0
+
+1 row selected.
+
+UPDATE cc_lab_items SET sold = :sold + 1, version = version + 1 WHERE lab_item_id = 1
+*
+ERROR at line 1:
+ORA-08177: can't serialize access for this transaction
+Help: https://docs.oracle.com/error-help/db/ora-08177/
+
+
+
+Rollback complete.
+
+
+Transaction set.
+
+
+PL/SQL procedure successfully completed.
+
+
+      SOLD
+----------
+	 1
+
+
+1 row updated.
+
+
+Commit complete.
+
+
+ ALLOCATED	 SOLD	 VERSION
+---------- ---------- ----------
+	10	    2	       2
+
+1 row selected.
+

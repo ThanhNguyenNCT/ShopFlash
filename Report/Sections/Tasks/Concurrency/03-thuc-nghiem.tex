@@ -1,0 +1,249 @@
+% !TeX root = ../../../main.tex
+% 2.5.5–2.5.6: thiết kế thí nghiệm và kết quả E1–E5.
+% Giả thuyết ghi trước khi đo; số đo lấy nguyên từ report/concurrency/results/.
+
+\subsubsection{Thiết kế thí nghiệm}\label{sec:cc-thi-nghiem}
+
+Concurrency Lab là trang quản trị trong ShopFlash, chạy cùng một kịch bản ``N người tranh M suất'' bằng mười chiến lược (Bảng~\ref{tab:cc-chien-luoc}). Backend chạy N lượt mua trên đúng C thread (tối đa C lượt đồng thời), có cổng xuất phát chung để mọi lượt bắt đầu cùng lúc. Lab ghi vào bảng \texttt{cc\_lab\_items} và key \texttt{cclab:item} riêng, không đụng dữ liệu bán hàng. Câu lệnh của từng chiến lược ở Mã nguồn~\ref{lst:cc-lab-oracle}, \ref{lst:cc-lab-redis} và~\ref{lst:cc-lab-lua}.
+
+\begin{table}[!htbp]
+\centering
+\caption{Các chiến lược trong Concurrency Lab và giả thuyết (ghi trước khi đo).}\label{tab:cc-chien-luoc}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|P{0.27\linewidth}|L|L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Chiến lược} & \reportheader{Cách làm} & \reportheader{Giả thuyết} \\ \hline
+\texttt{ORACLE\_NAIVE} & \texttt{SELECT sold}, Java kiểm tra, \texttt{UPDATE SET sold = :sold + 1} & Bán vượt, mất cập nhật; \texttt{CHECK} không báo lỗi \\ \hline
+\texttt{ORACLE\_PESSIMISTIC} & \texttt{SELECT \ldots{} FOR UPDATE}, kiểm tra, \texttt{UPDATE} & Đúng; các lượt xếp hàng chờ khóa \\ \hline
+\texttt{ORACLE\_NOWAIT} & \texttt{SELECT \ldots{} FOR UPDATE NOWAIT} & Không bán vượt, nhưng nhiều lượt bị từ chối (ORA-00054) dù còn hàng \\ \hline
+\texttt{ORACLE\_OPTIMISTIC} & Đọc \texttt{version}, \texttt{UPDATE \ldots{} WHERE version = :v}, thử lại tối đa 5 lần & Không bán vượt; thử lại nhiều; có thể bán thiếu khi hết lượt thử \\ \hline
+\texttt{ORACLE\_ATOMIC} & Một câu \texttt{UPDATE \ldots{} WHERE sold + 1 <= allocated} & Đúng, không thử lại, 1 round-trip \\ \hline
+\texttt{ORACLE\_SERIALIZABLE} & Như \texttt{NAIVE} nhưng ở SERIALIZABLE & Không bán vượt; nhiều ORA-08177 \\ \hline
+\texttt{REDIS\_NAIVE} & \texttt{HGET remaining}, Java kiểm tra, \texttt{HSET remaining} & Bán vượt \\ \hline
+\texttt{REDIS\_WATCH} & \texttt{WATCH}, \texttt{MULTI}, \texttt{HINCRBY -1}, \texttt{EXEC}; null thì thử lại & Không bán vượt; thử lại nhiều \\ \hline
+\texttt{REDIS\_DECR} & \texttt{HINCRBY -1}, âm thì \texttt{HINCRBY +1} & Đúng số bán; bộ đếm có lúc âm \\ \hline
+\texttt{REDIS\_LUA} & Kiểm tra và trừ trong một Lua script & Đúng, không thử lại, 1 round-trip \\ \hline
+\end{tabularx}
+\end{table}
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=OracleSQL, caption={Các chiến lược trên Oracle (bảng cc\_lab\_items, một dòng)}, label={lst:cc-lab-oracle}]
+-- ORACLE_NAIVE (READ COMMITTED) va ORACLE_SERIALIZABLE: doc, Java kiem tra, ghi gia tri da tinh.
+SELECT allocated, sold, version FROM cc_lab_items WHERE lab_item_id = :id;
+UPDATE cc_lab_items SET sold = :sold, version = version + 1, updated_at = SYSTIMESTAMP
+WHERE  lab_item_id = :id;
+
+-- ORACLE_PESSIMISTIC va ORACLE_NOWAIT: nhu tren, nhung cau doc khoa dong.
+SELECT allocated, sold, version FROM cc_lab_items WHERE lab_item_id = :id FOR UPDATE;
+SELECT allocated, sold, version FROM cc_lab_items WHERE lab_item_id = :id FOR UPDATE NOWAIT;
+
+-- ORACLE_OPTIMISTIC: 0 dong thi doc lai va thu lai (toi da 5 lan).
+UPDATE cc_lab_items SET sold = :sold, version = :version + 1, updated_at = SYSTIMESTAMP
+WHERE  lab_item_id = :id AND version = :version;
+
+-- ORACLE_ATOMIC: kiem tra va ghi trong mot cau lenh.
+UPDATE cc_lab_items SET sold = sold + 1, version = version + 1, updated_at = SYSTIMESTAMP
+WHERE  lab_item_id = :id AND sold + 1 <= allocated;
+\end{lstlisting}
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=Redis, caption={Các chiến lược trên Redis (HASH cclab:item)}, label={lst:cc-lab-redis}]
+# REDIS_NAIVE: doc, Java kiem tra, ghi gia tri da tinh.
+HGET cclab:item remaining
+HSET cclab:item remaining <remaining - 1>
+
+# REDIS_WATCH: EXEC tra nil neu key bi sua sau WATCH, khi do thu lai (toi da 5 lan).
+WATCH cclab:item
+HGET cclab:item remaining
+MULTI
+HINCRBY cclab:item remaining -1
+HINCRBY cclab:item version 1
+EXEC
+
+# REDIS_DECR: tru truoc, am thi cong lai.
+HINCRBY cclab:item remaining -1
+HINCRBY cclab:item remaining 1
+\end{lstlisting}
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language={[5.3]Lua}, caption={REDIS\_LUA: lab-buy.lua}, label={lst:cc-lab-lua}]
+local remaining = tonumber(redis.call('HGET', KEYS[1], 'remaining'))
+if not remaining then return -1 end
+if remaining <= 0 then return 0 end
+redis.call('HINCRBY', KEYS[1], 'remaining', -1)
+redis.call('HINCRBY', KEYS[1], 'version', 1)
+return 1
+\end{lstlisting}
+
+Số đo mỗi lần chạy:
+\begin{itemize}
+  \item số lượt được báo mua thành công;
+  \item số suất bán vượt, bằng $\max(0, \text{thành công} - M)$;
+  \item số cập nhật bị mất, bằng số lượt thành công trừ giá trị \texttt{sold} cuối cùng;
+  \item số lần thử lại và số lỗi theo mã;
+  \item throughput (lượt/giây) và độ trễ p50, p95, p99.
+\end{itemize}
+Mỗi cấu hình chạy 1 lần khởi động không tính rồi 5 lần đo; báo cáo trung bình $\pm$ độ lệch chuẩn mẫu.
+
+\begin{description}[style=nextline, leftmargin=1.25cm]
+  \item[E1. Bán vượt suất.] Cả 10 chiến lược; N = 1000, M = 100, C = 64.
+  \item[E2. Chi phí khi tranh chấp tăng.] Các chiến lược đúng (\texttt{ORACLE\_PESSIMISTIC}, \texttt{ORACLE\_OPTIMISTIC}, \texttt{ORACLE\_ATOMIC}, \texttt{REDIS\_WATCH}, \texttt{REDIS\_LUA}); N = M = 2000 để mọi lượt đều có hàng; C $\in \{1, 8, 32, 64, 128\}$. Giả thuyết: \texttt{REDIS\_LUA} có throughput cao nhất và p95 thấp nhất; \texttt{ORACLE\_ATOMIC} hơn \texttt{ORACLE\_PESSIMISTIC} vì giữ khóa ngắn hơn; hai chiến lược lạc quan thử lại nhiều dần theo C; khi C vượt kích thước pool kết nối thì throughput không tăng nữa.
+  \item[E3. SERIALIZABLE trên Oracle.] Hai phiên SQL làm lại kịch bản mất cập nhật ở mức SERIALIZABLE; giả thuyết: phiên ghi sau nhận ORA-08177.
+  \item[E4. Sự cố giữa Redis và Oracle.] (a) Giữ suất rồi tắt backend, bật lại, đợi qua hạn: job dọn phải trả suất. (b) Xóa key runtime của chương trình trên Redis rồi dựng lại từ Oracle: \texttt{remaining = allocated - sold}, không bán vượt. Sau mỗi bước, view \texttt{v\_inventory\_invariant\_check} không có dòng nào.
+  \item[E5. Luồng giữ suất qua HTTP.] 500 khách cùng giữ 50 suất qua API bằng k6; giả thuyết: đúng 50 khách giữ được, 450 khách nhận hết suất.
+\end{description}
+
+% -----------------------------------------------------------------------------
+\subsubsection{Kết quả thực nghiệm}\label{sec:cc-ket-qua}
+
+\paragraph{Môi trường đo}
+Đo ngày 16/11/2026 trên một laptop (Intel Core i7-12700H, 14 nhân 20 luồng, RAM 31,6 GB, Windows 11 Pro). Oracle AI Database 26ai Free 23.26.3 và Redis 7.4.7 (Redis Stack, AOF bật, \texttt{appendfsync everysec}) chạy trong Docker Desktop 28.5.2 (WSL2, được cấp 20 CPU và 15,4 GB RAM). Backend Spring Boot 4.1.1 chạy trực tiếp trên máy bằng JDK 23.0.2, một instance. Pool kết nối của hai bên đặt bằng nhau: HikariCP 16 kết nối tới Oracle, Jedis 16 kết nối tới Redis. Độ trễ một lượt gồm cả thời gian chờ kết nối từ pool. Chi tiết và cách chạy lại: \texttt{report/\allowbreak concurrency/\allowbreak results/\allowbreak environment.md}.
+
+\paragraph{E1: Bán vượt suất}
+Bảng~\ref{tab:cc-e1} và Hình~\ref{fig:cc-e1} là kết quả 5 lần đo với N = 1000, M = 100, C = 64.
+
+\begin{table}[!htbp]
+\centering
+\caption{E1: 1000 lượt mua tranh 100 suất, C = 64 (trung bình $\pm$ độ lệch chuẩn của 5 lần đo). ``Thành công'' là số lượt được báo mua thành công.}\label{tab:cc-e1}
+\reporttablesetup
+\fontsize{10}{12}\selectfont
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\linewidth}{|P{0.25\linewidth}|r|r|r|r|L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Chiến lược} & \reportheader{Thành công} & \reportheader{Bộ đếm cuối} & \reportheader{Bán vượt} & \reportheader{Thử lại} & \reportheader{Lượt lỗi (mã lỗi)} \\ \hline
+\texttt{ORACLE\_NAIVE} & 1000 $\pm$ 0 & 66,2 $\pm$ 4,0 & 900 & 0 & 0 \\ \hline
+\texttt{ORACLE\_PESSIMISTIC} & 100 $\pm$ 0 & 100 $\pm$ 0 & 0 & 0 & 0 \\ \hline
+\texttt{ORACLE\_NOWAIT} & 82,6 $\pm$ 2,6 & 82,6 $\pm$ 2,6 & 0 & 0 & 917 $\pm$ 3 (ORA-00054) \\ \hline
+\texttt{ORACLE\_OPTIMISTIC} & 100 $\pm$ 0 & 100 $\pm$ 0 & 0 & 877 $\pm$ 19 & 109 $\pm$ 3 (hết lượt thử) \\ \hline
+\texttt{ORACLE\_ATOMIC} & 100 $\pm$ 0 & 100 $\pm$ 0 & 0 & 0 & 0 \\ \hline
+\texttt{ORACLE\_SERIALIZABLE} & 100 $\pm$ 0 & 100 $\pm$ 0 & 0 & 322 $\pm$ 8 & 17 $\pm$ 3 (ORA-08177) \\ \hline
+\texttt{REDIS\_NAIVE} & 1000 $\pm$ 0 & 54,2 $\pm$ 12,8 & 900 & 0 & 0 \\ \hline
+\texttt{REDIS\_WATCH} & 100 $\pm$ 0 & 100 $\pm$ 0 & 0 & 1010 $\pm$ 16 & 141 $\pm$ 2 (hết lượt thử) \\ \hline
+\texttt{REDIS\_DECR} & 100 $\pm$ 0 & 100 $\pm$ 0 & 0 & 0 & 0 \\ \hline
+\texttt{REDIS\_LUA} & 100 $\pm$ 0 & 100 $\pm$ 0 & 0 & 0 & 0 \\ \hline
+\end{tabularx}
+\end{table}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.9\linewidth]{{Pictures/Task_5/3.5-01-e1-ban-vuot}.png}
+\caption{E1: số lượt được báo mua thành công so với số bán ghi trong bộ đếm.}\label{fig:cc-e1}
+\end{figure}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{{Pictures/Task_5/3.5-08-concurrency-lab}.png}
+\caption{Trang Concurrency Lab sau một lần chạy E1 khác (không phải lần đo trong Bảng~\ref{tab:cc-e1}); hai dòng bán vượt được đánh dấu.}\label{fig:cc-lab}
+\end{figure}
+
+\begin{itemize}
+  \item Hai chiến lược ngây thơ bán vượt ở cả 5 lần đo, đúng giả thuyết. Cả 1000 lượt đều được báo mua thành công (vượt 900 suất), trong khi bộ đếm cuối cùng chỉ ghi 66,2 (Oracle) và 54,2 (Redis): hơn 930 cập nhật bị ghi đè. Bộ đếm không bao giờ chạm 100 nên không lượt nào bị từ chối, và ràng buộc \texttt{CHECK (sold <= allocated)} của Oracle không báo lỗi lần nào. Ràng buộc trên dữ liệu không thay được điều khiển đồng thời.
+  \item Tám chiến lược còn lại không bán vượt và không mất cập nhật: số lượt báo thành công luôn bằng bộ đếm.
+  \item \texttt{ORACLE\_NOWAIT} bán thiếu: chỉ 82,6 trên 100 suất, vì 917 lượt gặp dòng đang bị khóa và bị từ chối ngay (ORA-00054) dù còn hàng.
+  \item Ba chiến lược phải thử lại đều bán đủ 100 suất ở thí nghiệm này (N gấp 10 lần M nên còn nhiều người mua thay thế), nhưng tốn 322 tới 1010 lần thử lại và có 17 tới 141 lượt bỏ cuộc sau 5 lần thử.
+  \item \texttt{ORACLE\_PESSIMISTIC}, \texttt{ORACLE\_ATOMIC}, \texttt{REDIS\_DECR} và \texttt{REDIS\_LUA} đúng mà không có lượt lỗi hay thử lại nào.
+\end{itemize}
+
+\paragraph{E2: Chi phí khi tranh chấp tăng}
+Bảng~\ref{tab:cc-e2-throughput}, Bảng~\ref{tab:cc-e2-p95} và Hình~\ref{fig:cc-e2} là kết quả với N = M = 2000. Throughput tính trên mọi lượt, kể cả lượt lỗi.
+
+\begin{table}[!htbp]
+\centering
+\caption{E2: throughput (lượt/giây) theo số lượt đồng thời C, trung bình $\pm$ độ lệch chuẩn của 5 lần đo.}\label{tab:cc-e2-throughput}
+\reporttablesetup
+\fontsize{10}{12}\selectfont
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\linewidth}{|P{0.25\linewidth}|*{5}{>{\raggedleft\arraybackslash}X|}}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Chiến lược} & \reportheader{C = 1} & \reportheader{C = 8} & \reportheader{C = 32} & \reportheader{C = 64} & \reportheader{C = 128} \\ \hline
+\texttt{ORACLE\_PESSIMISTIC} & 219 $\pm$ 11 & 392 $\pm$ 26 & 382 $\pm$ 5 & 336 $\pm$ 19 & 360 $\pm$ 28 \\ \hline
+\texttt{ORACLE\_OPTIMISTIC} & 290 $\pm$ 19 & 634 $\pm$ 27 & 551 $\pm$ 163 & 553 $\pm$ 104 & 522 $\pm$ 20 \\ \hline
+\texttt{ORACLE\_ATOMIC} & 406 $\pm$ 28 & 2659 $\pm$ 85 & 1838 $\pm$ 541 & 1937 $\pm$ 378 & 2639 $\pm$ 714 \\ \hline
+\texttt{REDIS\_WATCH} & 302 $\pm$ 19 & 401 $\pm$ 61 & 524 $\pm$ 35 & 579 $\pm$ 40 & 571 $\pm$ 22 \\ \hline
+\texttt{REDIS\_LUA} & 1177 $\pm$ 18 & 6900 $\pm$ 698 & 9567 $\pm$ 788 & 8951 $\pm$ 934 & 9144 $\pm$ 610 \\ \hline
+\end{tabularx}
+\end{table}
+
+\begin{table}[!htbp]
+\centering
+\caption{E2: độ trễ p95 (ms) và số suất bán được trên 2000 (trong ngoặc, khi không bán hết).}\label{tab:cc-e2-p95}
+\reporttablesetup
+\fontsize{10}{12}\selectfont
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\linewidth}{|P{0.25\linewidth}|*{5}{>{\raggedleft\arraybackslash}X|}}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Chiến lược} & \reportheader{C = 1} & \reportheader{C = 8} & \reportheader{C = 32} & \reportheader{C = 64} & \reportheader{C = 128} \\ \hline
+\texttt{ORACLE\_PESSIMISTIC} & 6,2 & 27,4 & 124 & 316 & 664 \\ \hline
+\texttt{ORACLE\_OPTIMISTIC} & 4,6 & 20,3 (1280) & 177 (908) & 420 (906) & 748 (913) \\ \hline
+\texttt{ORACLE\_ATOMIC} & 3,5 & 4,0 & 24,6 & 57,2 & 259 \\ \hline
+\texttt{REDIS\_WATCH} & 4,5 & 35,5 (1154) & 132 (796) & 296 (797) & 655 (798) \\ \hline
+\texttt{REDIS\_LUA} & 1,1 & 1,6 & 9,8 & 25,9 & 51,4 \\ \hline
+\end{tabularx}
+\end{table}
+
+\begin{figure}[!htbp]
+\centering
+\begin{subfigure}{0.49\linewidth}
+  \includegraphics[width=\linewidth]{{Pictures/Task_5/3.5-02-e2-throughput}.png}
+  \caption{Throughput}
+\end{subfigure}\hfill
+\begin{subfigure}{0.49\linewidth}
+  \includegraphics[width=\linewidth]{{Pictures/Task_5/3.5-03-e2-p95}.png}
+  \caption{Độ trễ p95}
+\end{subfigure}
+\caption{E2: chi phí của năm chiến lược đúng khi số lượt đồng thời tăng.}\label{fig:cc-e2}
+\end{figure}
+
+\begin{itemize}
+  \item \texttt{REDIS\_LUA} có throughput cao nhất và p95 thấp nhất ở mọi mức C, đúng giả thuyết: gấp 2,9 lần \texttt{ORACLE\_ATOMIC} khi C = 1 và 2,6 tới 5,2 lần khi C từ 8 trở lên.
+  \item \texttt{ORACLE\_ATOMIC} nhanh hơn \texttt{ORACLE\_PESSIMISTIC} 1,9 lần khi C = 1 và 4,8 tới 7,3 lần khi có tranh chấp, đúng giả thuyết. Bản bi quan giữ khóa dòng qua hai round-trip và một lần commit, nên throughput đứng ở khoảng 340 tới 390 lượt/giây còn p95 tăng gần tuyến tính theo C (6 ms lên 664 ms): các lượt xếp hàng chờ khóa.
+  \item Hai chiến lược lạc quan thử lại nhiều dần theo C, đúng giả thuyết, và hậu quả nặng hơn dự đoán: không chờ giữa các lần thử, tối đa 5 lần, thì ngay ở C = 8 đã có 36\% (Oracle) và 42\% (Redis) số lượt bỏ cuộc. Từ C = 32, \texttt{ORACLE\_OPTIMISTIC} chỉ bán được khoảng 910 và \texttt{REDIS\_WATCH} khoảng 800 trên 2000 suất dù mọi lượt đều có hàng. Throughput của hai chiến lược này tính cả lượt bỏ cuộc, nên số suất bán được mỗi giây chưa bằng một nửa con số trong bảng.
+  \item Giả thuyết ``throughput ngừng tăng khi C vượt kích thước pool'' chỉ đúng với \texttt{REDIS\_LUA} (ngừng tăng từ C = 32, pool 16). Các chiến lược Oracle đã ngừng tăng từ C = 8, trước khi chạm pool: nút cổ chai là khóa của một dòng duy nhất, không phải số kết nối.
+  \item \texttt{ORACLE\_ATOMIC} dao động mạnh giữa các lần đo khi C từ 32 trở lên (độ lệch chuẩn 20\% tới 29\%), nên thứ hạng giữa các mức C của riêng chiến lược này chưa kết luận được.
+\end{itemize}
+
+\paragraph{E3: SERIALIZABLE trên Oracle}
+Hai phiên \texttt{sqlplus} cùng ở mức SERIALIZABLE, cùng ``đọc \texttt{sold} rồi ghi \texttt{sold + 1}'' trên dòng bộ đếm của Lab (\texttt{sold = 0}); script ở \texttt{report/\allowbreak concurrency/\allowbreak oracle/}, kết quả nguyên văn ở \texttt{report/\allowbreak concurrency/\allowbreak results/\allowbreak e3-session-*.txt}.
+\begin{enumerate}
+  \item Phiên 1 bắt đầu transaction, đọc \texttt{sold = 0}, rồi chờ 6 giây.
+  \item Phiên 2 bắt đầu transaction, cũng đọc \texttt{sold = 0}, ghi \texttt{sold = 1} và commit.
+  \item Phiên 1 đọc lại vẫn thấy \texttt{sold = 0} (snapshot lúc transaction bắt đầu). Khi ghi \texttt{sold = 1}, Oracle từ chối: \texttt{ORA-08177: can't serialize access for this transaction}.
+  \item Phiên 1 rollback, thử lại trong transaction mới: đọc được \texttt{sold = 1}, ghi \texttt{sold = 2}, commit. Kết quả cuối \texttt{sold = 2}, \texttt{version = 2}.
+\end{enumerate}
+Kết quả đúng giả thuyết. Ở READ COMMITTED, cùng kịch bản này cho \texttt{sold = 1}: mất một cập nhật, như \texttt{ORACLE\_NAIVE} ở E1 (thí nghiệm B2 của mục~\ref{sec:tx-2-3} cho thấy cùng vấn đề quyết định dựa trên giá trị đọc trước). SERIALIZABLE của Oracle không ngăn tranh chấp mà phát hiện rồi báo lỗi, nên ứng dụng phải tự thử lại: ở E1, \texttt{ORACLE\_SERIALIZABLE} cần 322 lần thử lại cho 1000 lượt và vẫn có 17 lượt bỏ cuộc.
+
+\paragraph{E4: Sự cố giữa Redis và Oracle}
+Chạy trên chương trình mẫu 9101 bằng \texttt{report/\allowbreak concurrency/\allowbreak bench/\allowbreak e4\_incident.py}; sau mỗi bước script đọc API đối chiếu Oracle với Redis (Hình~\ref{fig:cc-runtime}) và view \texttt{v\_inventory\_invariant\_check}. Nhật ký đầy đủ: \texttt{report/\allowbreak concurrency/\allowbreak results/\allowbreak e4-log.txt}.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{{Pictures/Task_5/3.5-07-doi-chieu-runtime}.png}
+\caption{Màn đối chiếu Oracle với Redis của một chương trình Flash Sale.}\label{fig:cc-runtime}
+\end{figure}
+
+\textit{(a) Backend sập sau khi khách đã giữ suất.} Đúng giả thuyết.
+\begin{enumerate}
+  \item 09:28:44, một khách giữ 1 trong 50 suất (hạn 60 giây): Redis còn 49, đang giữ 1; Oracle chưa ghi gì.
+  \item 09:28:54, tắt đột ngột tiến trình backend rồi khởi động lại. 09:29:13, suất vẫn ở trạng thái \texttt{PENDING}, Redis vẫn còn 49: reservation nằm trên Redis nên không mất theo backend.
+  \item Suất hết hạn lúc 09:29:44,4. Job dọn của backend mới trả suất lúc 09:29:45,8 (trễ 1,4 giây): Redis còn 50, đang giữ 0. View bất biến không có dòng nào ở mọi bước.
+\end{enumerate}
+
+\textit{(b) Redis mất key runtime rồi dựng lại từ Oracle.} Trước sự cố: 100 suất, Oracle ghi đã bán 3, một khách khác đang giữ 1 suất chưa đặt đơn (Redis còn 96).
+\begin{enumerate}
+  \item Xóa key của chương trình và của ba sản phẩm trên Redis (suất còn lại, số đã mua của từng khách, danh sách suất đang giữ). API đối chiếu báo runtime chưa nạp; khách thử giữ suất nhận \texttt{404}, không ai mua được nhưng cũng không bán sai.
+  \item Dựng lại từ Oracle: Redis còn $97 = 100 - 3$. Khách đã mua trước sự cố giữ suất lần nữa thì bị từ chối (\texttt{USER\_LIMIT\_REACHED}): số đã mua của từng khách được đếm lại từ đơn hàng.
+  \item Suất đang giữ dở trước sự cố không còn hiệu lực: đặt đơn bằng suất đó nhận \texttt{409 RESERVATION\_EXPIRED}, suất đã được mở bán lại cho người khác. Oracle và Redis khớp nhau, view bất biến không có dòng nào.
+\end{enumerate}
+Giả thuyết ``\texttt{remaining = allocated - sold}, không bán vượt'' đúng. Tuy nhiên lần chạy đầu của bước (b) cho thấy một lỗi của chính ShopFlash: key của reservation không bị xóa cùng runtime, nên khách vẫn đặt được đơn bằng suất đang giữ dở dù suất đó đã được mở bán lại. Oracle ghi đã bán 2 trong khi Redis còn 99 ($2 + 99 > 100$). Oracle không bán vượt, vì câu \texttt{UPDATE} có điều kiện vẫn chặn ở suất cuối, nhưng một khách giữ suất cuối sẽ bị từ chối lúc đặt đơn và khách kia thoát khỏi giới hạn mỗi người. Lỗi đã được sửa (suất chỉ còn hiệu lực khi vẫn có tên trong danh sách suất đang giữ của sản phẩm, kiểm tra ngay trong Lua, xem Mã nguồn~\ref{lst:cc-release}) và kết quả ở trên là của lần chạy sau khi sửa; cả hai lần chạy đều có trong nhật ký. Thí nghiệm này cho thấy vì sao cần Oracle làm chốt chặn cuối: trạng thái trên Redis có thể lệch sau sự cố mà số bán thật vẫn không vượt.
+
+\paragraph{E5: Luồng giữ suất qua HTTP}
+E1 và E2 gọi thẳng tầng dữ liệu từ trong backend. E5 kiểm tra lại luồng thật qua HTTP: k6 đăng nhập 500 khách mẫu, rồi cả 500 khách cùng lúc bấm ``Mua ngay'' một sản phẩm có 50 suất của chương trình mẫu (script \texttt{report/\allowbreak concurrency/\allowbreak bench/\allowbreak e5-flash-reserve.js}, kết quả \texttt{report/\allowbreak concurrency/\allowbreak results/\allowbreak e5-summary.json}). Thí nghiệm này chỉ chạy một lần, nên chỉ dùng để kiểm tra tính đúng, không dùng để so tốc độ.
+\begin{itemize}
+  \item Đúng 50 khách giữ được suất (\texttt{201}), 450 khách nhận \texttt{409 SOLD\_OUT}, không có kết quả nào khác.
+  \item Ngay sau đó Redis còn 0 suất, đang giữ 50, Oracle chưa ghi gì. Không khách nào đặt đơn, nên sau 60 giây job dọn trả đủ 50 suất; view bất biến không có dòng nào.
+  \item Độ trễ một lượt giữ suất: trung vị 358 ms, p95 486 ms. Con số này lớn hơn nhiều so với E2 vì gồm cả HTTP, kiểm tra JWT và 500 kết nối đồng thời từ container k6 tới một backend.
+\end{itemize}

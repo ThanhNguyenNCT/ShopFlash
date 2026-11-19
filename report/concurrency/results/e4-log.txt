@@ -1,0 +1,67 @@
+--- A0. Trước khi giữ suất (giờ server 2026-11-16T09:28:44.314+07:00, Oracle ACTIVE, runtimeLoaded=True)
+    item 9102: allocated=50 sold(Oracle)=0 remaining(Redis)=50 held=0 pending=0 inSync=True
+    v_inventory_invariant_check: 0 dòng lệch
+A1. Khách cc498 giữ 1 suất item 9102: HTTP 201, reservationId=3e040d1f-8a70-424a-af49-f5cc6bb4d1c7, expiresAt=2026-11-16T09:29:44.385+07:00
+--- A1. Sau khi giữ suất (giờ server 2026-11-16T09:28:44.431+07:00, Oracle ACTIVE, runtimeLoaded=True)
+    item 9102: allocated=50 sold(Oracle)=0 remaining(Redis)=49 held=1 pending=1 inSync=True
+    v_inventory_invariant_check: 0 dòng lệch
+Bây giờ tắt backend (kill tiến trình), bật lại, rồi chạy: e4_incident.py a2 3e040d1f-8a70-424a-af49-f5cc6bb4d1c7
+A2. Backend đã bật lại. Suất 3e040d1f-8a70-424a-af49-f5cc6bb4d1c7: PENDING
+--- A2. Ngay sau khi backend bật lại (giờ server 2026-11-16T09:29:13.169+07:00, Oracle ACTIVE, runtimeLoaded=True)
+    item 9102: allocated=50 sold(Oracle)=0 remaining(Redis)=49 held=1 pending=1 inSync=True
+    v_inventory_invariant_check: 0 dòng lệch
+    đợi 43 s cho quá hạn giữ suất và job dọn (mỗi 5 s) chạy ...
+A3. Sau hạn giữ suất. Suất 3e040d1f-8a70-424a-af49-f5cc6bb4d1c7: RELEASED
+--- A3. Sau khi job dọn chạy (giờ server 2026-11-16T09:29:56.434+07:00, Oracle ACTIVE, runtimeLoaded=True)
+    item 9102: allocated=50 sold(Oracle)=0 remaining(Redis)=50 held=0 pending=0 inSync=True
+    v_inventory_invariant_check: 0 dòng lệch
+--- B0. Ban đầu (giờ server 2026-11-16T09:30:04.292+07:00, Oracle ACTIVE, runtimeLoaded=True)
+    item 9103: allocated=100 sold(Oracle)=0 remaining(Redis)=100 held=0 pending=0 inSync=True
+    v_inventory_invariant_check: 0 dòng lệch
+B1. Khách cc500 giữ suất (HTTP 201) và đặt đơn: HTTP 201, FS-df8721161a4d45dc891b0f5af8568dff
+B2. Khách cc499 giữ 1 suất, chưa đặt đơn: HTTP 201, reservationId=c05a7e48-91e3-419a-b8d0-f310a9d25081
+--- B2. Một suất đã bán, một suất đang giữ (giờ server 2026-11-16T09:30:04.506+07:00, Oracle ACTIVE, runtimeLoaded=True)
+    item 9103: allocated=100 sold(Oracle)=1 remaining(Redis)=98 held=1 pending=1 inSync=True
+    v_inventory_invariant_check: 0 dòng lệch
+B3. Xóa key runtime trên Redis: UNLINK 10 key -> 6 key bị xóa
+--- B3. Sau khi mất key Redis (giờ server 2026-11-16T09:30:04.873+07:00, Oracle ACTIVE, runtimeLoaded=False)
+    item 9103: allocated=100 sold(Oracle)=1 remaining(Redis)=None held=None pending=0 inSync=False
+    v_inventory_invariant_check: 0 dòng lệch
+    Khách cc497 thử giữ suất lúc Redis thiếu key: HTTP 404 FLASH_SALE_NOT_FOUND
+B4. Dựng lại runtime từ Oracle: HTTP 200 {'flashSaleId': 9101, 'items': 3, 'droppedReservations': 0}
+--- B4. Sau khi dựng lại (giờ server 2026-11-16T09:30:04.958+07:00, Oracle ACTIVE, runtimeLoaded=True)
+    item 9103: allocated=100 sold(Oracle)=1 remaining(Redis)=99 held=0 pending=0 inSync=True
+    v_inventory_invariant_check: 0 dòng lệch
+    Suất đang giữ dở của cc499: PENDING
+    cc499 đặt đơn bằng suất đã bị bỏ: HTTP 201 {'orderId': 10126, 'orderCode': 'FS-c8a01dc3d9384d28bff0ea9bc9c7726a', 'status': 'PENDING', 'totalAmount': 149000}
+    cc500 (đã mua 1, giới hạn 1) giữ suất lần nữa: HTTP 409 USER_LIMIT_REACHED
+    cc497 giữ suất sau khi dựng lại: HTTP 201
+--- B5. Cuối cùng (cc497 đã hủy giữ suất) (giờ server 2026-11-16T09:30:05.133+07:00, Oracle ACTIVE, runtimeLoaded=True)
+    item 9103: allocated=100 sold(Oracle)=2 remaining(Redis)=99 held=-1 pending=0 inSync=False
+    v_inventory_invariant_check: 0 dòng lệch
+
+===== Chạy lại bước b sau khi sửa claim.lua, release.lua (suất mồ côi không đặt đơn được, không cộng suất) =====
+--- B0. Ban đầu (giờ server 2026-11-16T09:32:33.972+07:00, Oracle ACTIVE, runtimeLoaded=True)
+    item 9103: allocated=100 sold(Oracle)=2 remaining(Redis)=98 held=0 pending=0 inSync=True
+    v_inventory_invariant_check: 0 dòng lệch
+B1. Khách cc496 giữ suất (HTTP 201) và đặt đơn: HTTP 201, FS-0c397927b6f347c78665f6b247d75762
+B2. Khách cc495 giữ 1 suất, chưa đặt đơn: HTTP 201, reservationId=ee9f719b-05e5-4310-8145-03e1bf717051
+--- B2. Một suất đã bán, một suất đang giữ (giờ server 2026-11-16T09:32:34.235+07:00, Oracle ACTIVE, runtimeLoaded=True)
+    item 9103: allocated=100 sold(Oracle)=3 remaining(Redis)=96 held=1 pending=1 inSync=True
+    v_inventory_invariant_check: 0 dòng lệch
+B3. Xóa key runtime trên Redis: UNLINK 10 key -> 6 key bị xóa
+--- B3. Sau khi mất key Redis (giờ server 2026-11-16T09:32:34.665+07:00, Oracle ACTIVE, runtimeLoaded=False)
+    item 9103: allocated=100 sold(Oracle)=3 remaining(Redis)=None held=None pending=0 inSync=False
+    v_inventory_invariant_check: 0 dòng lệch
+    Khách cc497 thử giữ suất lúc Redis thiếu key: HTTP 404 FLASH_SALE_NOT_FOUND
+B4. Dựng lại runtime từ Oracle: HTTP 200 {'flashSaleId': 9101, 'items': 3, 'droppedReservations': 0}
+--- B4. Sau khi dựng lại (giờ server 2026-11-16T09:32:34.817+07:00, Oracle ACTIVE, runtimeLoaded=True)
+    item 9103: allocated=100 sold(Oracle)=3 remaining(Redis)=97 held=0 pending=0 inSync=True
+    v_inventory_invariant_check: 0 dòng lệch
+    Suất đang giữ dở của cc495: PENDING
+    cc495 đặt đơn bằng suất đã bị bỏ: HTTP 409 RESERVATION_EXPIRED
+    cc496 (đã mua 1, giới hạn 1) giữ suất lần nữa: HTTP 409 USER_LIMIT_REACHED
+    cc497 giữ suất sau khi dựng lại: HTTP 201
+--- B5. Cuối cùng (cc497 đã hủy giữ suất) (giờ server 2026-11-16T09:32:34.989+07:00, Oracle ACTIVE, runtimeLoaded=True)
+    item 9103: allocated=100 sold(Oracle)=3 remaining(Redis)=97 held=0 pending=0 inSync=True
+    v_inventory_invariant_check: 0 dòng lệch

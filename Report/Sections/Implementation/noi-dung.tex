@@ -1,6 +1,7 @@
 % !TeX root = ../../main.tex
 % Chuyển từ section_3.md; sáu ảnh gốc do người dùng cung cấp, chỉ đổi tên.
-% Chỗ bổ sung Flash Sale và Admin được giữ nguyên, không tạo minh chứng mới.
+% Ảnh Flash Sale (client-flash-*, admin-flash-sales) do người phụ trách Concurrency (2.5) bổ sung,
+% chụp ngày 16/11/2026. Chỗ bổ sung báo cáo/thống kê phía Admin vẫn giữ nguyên.
 
 \subsection{Các chức năng đã hiện thực}\label{sec:implemented-features}
 
@@ -112,7 +113,21 @@ Bên cạnh mua hàng thông thường, ShopFlash hỗ trợ các chương trìn
 
 Khác với Normal Checkout, luồng Flash Sale sử dụng Redis để quản lý quota và reservation tạm thời, trong khi Oracle lưu trữ đơn hàng và trạng thái nghiệp vụ chính thức. Chức năng này minh họa việc phối hợp hai DBMS trong bài toán mua hàng có cạnh tranh về số lượng.
 
-\emph{[Hình 3.7 — Giao diện Flash Sale và kết quả giữ suất hoặc đặt hàng. Bổ sung từ ảnh thực tế khi hoàn thiện minh chứng.]}
+Trang Flash Sale (Hình~\ref{fig:impl-client-flash-sale}) hiện các sản phẩm của chương trình đang mở bán với giá Flash Sale, số suất đã bán và còn lại; số suất được cập nhật mỗi 2 giây và đồng hồ đếm ngược chạy theo giờ của server.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{Pictures/Section_3/client-flash-sale.png}
+\caption{Giao diện Flash Sale với số suất đã bán và còn lại của từng sản phẩm.}\label{fig:impl-client-flash-sale}
+\end{figure}
+
+Khi bấm ``Mua ngay'', khách giữ được một suất trong 60 giây và chuyển sang trang đặt đơn (Hình~\ref{fig:impl-client-flash-checkout}); nếu hết thời gian mà chưa đặt đơn, suất được trả lại cho người khác. Cơ chế giữ suất và kết quả thực nghiệm được trình bày ở mục~\ref{sec:cc}.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{Pictures/Section_3/client-flash-checkout.png}
+\caption{Giao diện đặt đơn Flash Sale trong thời gian giữ suất.}\label{fig:impl-client-flash-checkout}
+\end{figure}
 
 \subsubsection*{B. Giao diện phía quản trị (Admin)}
 
@@ -143,7 +158,18 @@ Form tạo và chỉnh sửa sản phẩm kiểm tra dữ liệu ngay khi nhập
 
 Các màn hình này cho thấy dữ liệu danh mục và sản phẩm được lưu trên Oracle làm nguồn chính; sau mỗi thay đổi thành công, hệ thống cập nhật bản chiếu sản phẩm trên Redis để phục vụ tìm kiếm phía khách hàng. Cơ chế lưu trữ và so sánh giữa hai DBMS được phân tích tại topic Data Storage \& Management.
 
-\emph{[Thành viên phụ trách Admin bổ sung phần minh họa quản lý Flash Sale và báo cáo/thống kê. Mỗi nhóm chỉ cần một đoạn mô tả ngắn cùng ảnh giao diện tiêu biểu.]}
+\paragraph*{Nhóm chức năng quản lý Flash Sale}
+
+Quản trị viên tạo chương trình ở trạng thái nháp, chọn sản phẩm và số suất, rồi lên lịch. Khi lên lịch, hệ thống giữ trước hàng trong kho Oracle và nạp số suất lên Redis; chương trình tự chuyển sang đang chạy khi tới giờ và kết thúc sau giờ đóng. Danh sách chương trình hiện thời gian, trạng thái và số suất đã bán của từng chương trình (Hình~\ref{fig:impl-admin-flash-sales}). Trang chi tiết cho phép hủy lịch, hủy, dừng sớm, đối chiếu số liệu giữa Oracle và Redis, và dựng lại dữ liệu Redis từ Oracle (Hình~\ref{fig:cc-runtime}). Trang Concurrency Lab dùng cho thực nghiệm được trình bày ở mục~\ref{sec:cc}.
+
+% Ảnh không có khung trình duyệt nên đặt hẹp hơn các ảnh Admin khác để cùng tỉ lệ chữ.
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.72\linewidth]{Pictures/Section_3/admin-flash-sales.png}
+\caption{Danh sách chương trình Flash Sale với trạng thái và số suất đã bán.}\label{fig:impl-admin-flash-sales}
+\end{figure}
+
+\emph{[Thành viên phụ trách bổ sung phần minh họa báo cáo/thống kê. Chỉ cần một đoạn mô tả ngắn cùng ảnh giao diện tiêu biểu.]}
 
 \subsubsection*{C. Đánh giá kết quả vận hành}
 

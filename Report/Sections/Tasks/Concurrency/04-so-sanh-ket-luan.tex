@@ -1,0 +1,43 @@
+% !TeX root = ../../../main.tex
+% 2.5.7: so sánh hai DBMS và lựa chọn trong ShopFlash; chỉ giữ những ý được số đo ủng hộ.
+
+\subsubsection{So sánh và lựa chọn DBMS trong ShopFlash}\label{sec:cc-so-sanh}
+
+\paragraph{So sánh cơ chế và kết quả đo}
+Bảng~\ref{tab:cc-so-sanh} đặt cạnh nhau cơ chế điều khiển đồng thời của hai DBMS; hai dòng cuối là số đo của E1 và E2.
+
+\begin{table}[!htbp]
+\centering
+\caption{So sánh điều khiển đồng thời trên Oracle và Redis.}\label{tab:cc-so-sanh}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|P{0.24\linewidth}|L|L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Tiêu chí} & \reportheader{Oracle} & \reportheader{Redis} \\ \hline
+Đơn vị tranh chấp & Dòng (khóa dòng), không leo thang khóa & Cả server: mỗi lệnh hoặc script chạy một mình \\ \hline
+Đọc và ghi & MVCC, đọc không chặn ghi & Không cần, mọi lệnh đã tuần tự \\ \hline
+Mức cô lập & READ COMMITTED (mặc định), SERIALIZABLE (snapshot isolation), READ ONLY & Không có khái niệm mức cô lập; \texttt{MULTI}/\texttt{EXEC} chỉ đảm bảo không bị chen ngang \\ \hline
+Rollback & Có, theo câu lệnh và theo transaction & Không (cả \texttt{MULTI}/\texttt{EXEC} lẫn Lua) \\ \hline
+Khóa bi quan & \texttt{SELECT \ldots{} FOR UPDATE [NOWAIT | WAIT n | SKIP LOCKED]} & Không có sẵn; tự dựng khóa phân tán \\ \hline
+Khóa lạc quan & Cột \texttt{version}, \texttt{UPDATE \ldots{} WHERE version = :v} & \texttt{WATCH} \\ \hline
+Kiểm tra rồi ghi nguyên tử & Một câu \texttt{UPDATE \ldots{} WHERE} có điều kiện & Lua script hoặc Function \\ \hline
+Deadlock & Có thể xảy ra; tự phát hiện (ORA-00060) & Không có \\ \hline
+Độ bền sau khi ghi & Redo log & Tùy cấu hình AOF, RDB \\ \hline
+Throughput khi tranh một dòng hoặc key (E2, C = 64) & 1937 lượt/giây với \texttt{UPDATE} có điều kiện; 336 với \texttt{FOR UPDATE} & 8951 lượt/giây với Lua; 579 với \texttt{WATCH} (60\% số lượt bỏ cuộc) \\ \hline
+Bán vượt khi viết theo cách ngây thơ (E1) & Có: 1000 lượt được báo mua trên 100 suất, bộ đếm chỉ ghi 66; \texttt{CHECK} không báo lỗi & Có: 1000 lượt được báo mua, bộ đếm chỉ ghi 54 \\ \hline
+\end{tabularx}
+\end{table}
+
+\paragraph{Lựa chọn trong ShopFlash}\label{sec:cc-ket-luan}
+Từ các thí nghiệm trên, ShopFlash chia việc của Flash Sale cho hai DBMS như sau.
+
+\begin{itemize}
+  \item \textbf{Giữ suất dùng Redis với Lua.} Đây là thao tác nóng nhất và tranh chấp cao nhất: mọi khách cùng bấm vào vài sản phẩm trong vài giây. Lua kiểm tra và trừ suất trong một bước nên không bán vượt (E1), và có throughput cao nhất ở mọi mức tải, khoảng 9000 lượt/giây ở C = 64, gấp 4,6 lần cách nhanh nhất trên Oracle (E2). Lượt hết suất bị từ chối ngay trên Redis, không tạo tải cho Oracle.
+  \item \textbf{Ghi đơn và trừ kho dùng Oracle với \texttt{UPDATE} có điều kiện trong một transaction.} Cách này đúng, không cần thử lại và nhanh hơn khóa bi quan 5 tới 7 lần khi có tranh chấp (E1, E2). Tiền và tồn kho cần rollback, ràng buộc và độ bền của Oracle; số lượt tới được bước này đã bị Redis giới hạn bằng số suất.
+  \item \textbf{Không dùng ``đọc rồi ghi'' ở bất kỳ đâu.} Trên cả hai hệ, cách viết này báo mua thành công cho cả 1000 khách trên 100 suất, và ràng buộc \texttt{CHECK} không phát hiện được (E1).
+  \item \textbf{Không dùng khóa lạc quan cho điểm nóng.} Cột \texttt{version} trên Oracle và \texttt{WATCH} trên Redis không bán vượt, nhưng từ 32 lượt đồng thời chỉ bán được dưới một nửa số suất nếu thử lại 5 lần không chờ (E2). ShopFlash vẫn dùng \texttt{version} cho thao tác ít tranh chấp như quản trị viên sửa chương trình hay sửa tồn kho. SERIALIZABLE cũng không phù hợp cho điểm nóng vì lý do tương tự (E3).
+  \item \textbf{Oracle là nguồn gốc và là chốt chặn cuối; Redis là trạng thái chạy dựng lại được.} Hai hệ không có transaction chung, nên ranh giới giữa chúng là suất giữ có hạn kèm bù trừ (Try--Confirm--Cancel, mục~\ref{sec:cc-tcc}). Backend sập thì suất được trả sau hạn; Redis mất dữ liệu thì dựng lại từ Oracle (E4). E4 cũng cho thấy trạng thái trên Redis có thể lệch sau sự cố, kể cả do lỗi của ứng dụng, trong khi điều kiện trong câu \texttt{UPDATE} của Oracle vẫn giữ số bán không vượt số suất.
+\end{itemize}
+
+\paragraph{Giới hạn của các phép đo}
+Các phép đo chạy trên một laptop, hai DBMS chạy trong Docker cùng máy với backend, một instance backend, bộ đếm chỉ có một dòng hoặc một key. Con số tuyệt đối sẽ khác trên máy chủ thật và khi có độ trễ mạng; thứ hạng giữa các chiến lược là điều các phép đo này ủng hộ, không phải tỉ lệ chính xác. Redis ở đây ghi AOF mỗi giây, nên một phần lợi thế tốc độ của Redis đổi bằng độ bền: sập đúng lúc có thể mất tới khoảng một giây thao tác giữ suất, điều ShopFlash chấp nhận được vì suất dựng lại được từ Oracle.

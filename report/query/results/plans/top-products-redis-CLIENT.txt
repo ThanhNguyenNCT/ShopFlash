@@ -3,7 +3,7 @@
 FT.AGGREGATE idx:order-line-analytics '@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]' TIMEOUT 0 LOAD 5 @productId @quantity @lineTotal @productName @categoryName WITHCURSOR COUNT 10000
 
 Chế độ CLIENT: Redis chỉ lọc theo index (status TAG, createdAt NUMERIC) và trả document thô.
-Số document khớp bộ lọc: 215807 (đếm bằng FT.SEARCH idx:order-line-analytics '@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]' LIMIT 0 0)
+Số document khớp bộ lọc: 215805 (đếm bằng FT.SEARCH idx:order-line-analytics '@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]' TIMEOUT 0 LIMIT 0 0)
 1. FT.AGGREGATE idx:order-line-analytics '@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]' TIMEOUT 0 LOAD 5 @productId @quantity @lineTotal @productName @categoryName WITHCURSOR COUNT 10000
 2. FT.CURSOR READ idx:order-line-analytics <cursorId> COUNT 10000, lặp đến khi cursorId = 0: khoảng 21 lần
 Round-trip dự kiến: khoảng 22 (mỗi trang 10000 document)

@@ -34,13 +34,7 @@ Nguồn chính: [section_1.md](../section_1.md). Đã có đủ ba tiểu mục,
 
 ## 2.3. Query Processing
 
-**Đã có runbook và kết quả, chưa thấy bản chương Markdown riêng:** [Query Processing](../report/query/README.md), [benchmark](../report/query/results/benchmark-summary.md), [cache-aside](../report/query/results/cache-summary.md). Khung để thành viên ghép nội dung hiện có:
-
-<!-- 2.3.1. Câu hỏi nghiên cứu và phương pháp
-     2.3.2. Cơ chế và thực nghiệm Oracle
-     2.3.3. Cơ chế và thực nghiệm Redis
-     2.3.4. Đối chiếu kết quả và lựa chọn DBMS
-     Chưa điền nội dung hoặc số đo mới trong lần biên tập này. -->
+**Đã ghép vào LaTeX:** [Sections/Tasks/task3.tex](Sections/Tasks/task3.tex), người thực hiện Nguyễn Công Thành (2313119); gồm 2.3.1 Câu hỏi nghiên cứu và phương pháp, 2.3.2 Cơ chế và thực nghiệm trên Oracle, 2.3.3 Cơ chế và thực nghiệm trên Redis, 2.3.4 Đối chiếu kết quả và lựa chọn DBMS. Có 10 bảng, 5 mã nguồn, 4 khối kết quả, 5 hình (4 ảnh Query Lab chụp ngày 19/11/2026 ở `Pictures/Task_3/`, 1 biểu đồ pgfplots). Số đo chính ngày 19/11/2026: [benchmark](../report/query/results/benchmark-summary.md), [cache-aside](../report/query/results/cache-summary.md), [lượt đo lặp lại](../report/query/results/benchmark-lan-lap-19-11.md); kế hoạch thực thi ở `report/query/results/plans/`. Lần đo 18/10/2026 cho thứ tự Oracle–Redis khác ở hai báo cáo, được trình bày ở 2.3.4.2. [Runbook chạy lại](../report/query/README.md).
 
 ## 2.4. Transaction
 

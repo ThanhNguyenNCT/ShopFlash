@@ -30,21 +30,21 @@ Plan hash value: 3776558797
 --------------------------------------------------------------------------------------------------------------------------------------------------------
 | Id  | Operation                                  | Name                 | Starts | E-Rows | A-Rows |   A-Time   | Buffers |  OMem |  1Mem | Used-Mem |
 --------------------------------------------------------------------------------------------------------------------------------------------------------
-|   0 | SELECT STATEMENT                           |                      |      1 |        |     51 |00:00:01.44 |     681K|       |       |          |
-|   1 |  SORT ORDER BY                             |                      |      1 |   1840 |     51 |00:00:01.44 |     681K|  4096 |  4096 | 4096  (0)|
-|   2 |   HASH GROUP BY                            |                      |      1 |   1840 |     51 |00:00:01.44 |     681K|  1064K|  1064K|          |
-|*  3 |    FILTER                                  |                      |      1 |        |    215K|00:00:01.60 |     681K|       |       |          |
-|   4 |     NESTED LOOPS                           |                      |      1 |    213K|    215K|00:00:01.57 |     681K|       |       |          |
-|   5 |      NESTED LOOPS                          |                      |      1 |    213K|    215K|00:00:01.38 |     465K|       |       |          |
-|   6 |       NESTED LOOPS                         |                      |      1 |    213K|    215K|00:00:01.22 |     465K|       |       |          |
-|   7 |        NESTED LOOPS                        |                      |      1 |    213K|    215K|00:00:00.43 |   33774 |       |       |          |
-|*  8 |         TABLE ACCESS FULL                  | ORDERS               |      1 |  87141 |  87141 |00:00:00.07 |    2139 |       |       |          |
-|*  9 |         TABLE ACCESS BY INDEX ROWID BATCHED| ORDER_ITEMS          |  87141 |      2 |    215K|00:00:00.29 |   31635 |       |       |          |
-|* 10 |          INDEX RANGE SCAN                  | IX_ORDER_ITEMS_ORDER |  87141 |      2 |    215K|00:00:00.14 |   26868 |       |       |          |
-|  11 |        TABLE ACCESS BY INDEX ROWID         | PRODUCTS             |    215K|      1 |    215K|00:00:00.59 |     431K|       |       |          |
-|* 12 |         INDEX UNIQUE SCAN                  | PK_PRODUCTS          |    215K|      1 |    215K|00:00:00.26 |     215K|       |       |          |
-|* 13 |       INDEX UNIQUE SCAN                    | PK_CATEGORIES        |    215K|      1 |    215K|00:00:00.10 |       4 |       |       |          |
-|  14 |      TABLE ACCESS BY INDEX ROWID           | CATEGORIES           |    215K|      1 |    215K|00:00:00.14 |     215K|       |       |          |
+|   0 | SELECT STATEMENT                           |                      |      1 |        |     50 |00:00:00.78 |     681K|       |       |          |
+|   1 |  SORT ORDER BY                             |                      |      1 |   4085 |     50 |00:00:00.78 |     681K|  4096 |  4096 | 4096  (0)|
+|   2 |   HASH GROUP BY                            |                      |      1 |   4085 |     50 |00:00:00.78 |     681K|  1486K|  1132K|          |
+|*  3 |    FILTER                                  |                      |      1 |        |    215K|00:00:00.85 |     681K|       |       |          |
+|   4 |     NESTED LOOPS                           |                      |      1 |    216K|    215K|00:00:00.83 |     681K|       |       |          |
+|   5 |      NESTED LOOPS                          |                      |      1 |    216K|    215K|00:00:00.71 |     465K|       |       |          |
+|   6 |       NESTED LOOPS                         |                      |      1 |    216K|    215K|00:00:00.61 |     465K|       |       |          |
+|   7 |        NESTED LOOPS                        |                      |      1 |    216K|    215K|00:00:00.25 |   33734 |       |       |          |
+|*  8 |         TABLE ACCESS FULL                  | ORDERS               |      1 |  87139 |  87139 |00:00:00.05 |    2139 |       |       |          |
+|*  9 |         TABLE ACCESS BY INDEX ROWID BATCHED| ORDER_ITEMS          |  87139 |      2 |    215K|00:00:00.15 |   31595 |       |       |          |
+|* 10 |          INDEX RANGE SCAN                  | IX_ORDER_ITEMS_ORDER |  87139 |      2 |    215K|00:00:00.07 |   26878 |       |       |          |
+|  11 |        TABLE ACCESS BY INDEX ROWID         | PRODUCTS             |    215K|      1 |    215K|00:00:00.29 |     431K|       |       |          |
+|* 12 |         INDEX UNIQUE SCAN                  | PK_PRODUCTS          |    215K|      1 |    215K|00:00:00.13 |     215K|       |       |          |
+|* 13 |       INDEX UNIQUE SCAN                    | PK_CATEGORIES        |    215K|      1 |    215K|00:00:00.06 |       4 |       |       |          |
+|  14 |      TABLE ACCESS BY INDEX ROWID           | CATEGORIES           |    215K|      1 |    215K|00:00:00.08 |     215K|       |       |          |
 --------------------------------------------------------------------------------------------------------------------------------------------------------
  
 Predicate Information (identified by operation id):

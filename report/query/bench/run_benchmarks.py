@@ -43,6 +43,9 @@ PLANS = OUT / "plans"
 REPORTS = ["revenue-by-month", "revenue-by-category", "top-products", "vip-customers", "unsold-products"]
 JOIN_REPORTS = ["revenue-by-category", "top-products", "vip-customers"]
 ICT = timezone(timedelta(hours=7))
+# Khoảng ngày cố định, khớp bộ sinh dữ liệu 100k đơn (00_params.sql: start_date, end_date). Không để API tự lấy
+# "12 tháng gần nhất": khi đó khoảng ngày trôi theo ngày chạy và hai lần đo không cùng dữ liệu.
+RANGE = {"from": "2025-11-01", "to": "2026-10-18"}
 
 
 _token = {"value": None, "at": 0.0}
@@ -85,7 +88,10 @@ def environment():
     ram = sh("powershell", "-NoProfile", "-Command", "[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB,1)") if os.name == "nt" else ""
     docker = sh("docker", "version", "--format", "{{.Server.Version}}")
     docker_res = sh("docker", "info", "--format", "{{.NCPU}} CPU, {{.MemTotal}} bytes")
-    images = sh("docker", "compose", "config", "--images")
+    # `config --images` không giữ thứ tự service, nên chọn image theo tên thay vì theo dòng.
+    images = sh("docker", "compose", "config", "--images").splitlines()
+    oracle_image = next((i for i in images if "database/free" in i), "")
+    redis_image = next((i for i in images if "redis" in i), "")
     oracle_ver = sh("docker", "compose", "exec", "-T", "oracle", "bash", "-c", "sqlplus -v")
     redis_ver = sh("docker", "compose", "exec", "-T", "redis", "redis-cli", "INFO", "server")
     redis_ver = next((l for l in redis_ver.splitlines() if l.startswith("redis_version")), redis_ver)
@@ -99,14 +105,16 @@ def environment():
         "|---|---|",
         f"| Máy | {cpu}, {ram} GB RAM |",
         f"| Hệ điều hành, Docker | {platform.platform()}; Docker {docker} ({docker_res}) |",
-        f"| Oracle | {oracle_ver.splitlines()[-1] if oracle_ver else ''}; image `{images.splitlines()[0] if images else ''}` |",
-        f"| Redis | {redis_ver}; image `{images.splitlines()[1] if len(images.splitlines()) > 1 else ''}` |",
+        f"| Oracle | {oracle_ver.splitlines()[-1] if oracle_ver else ''}; image `{oracle_image}` |",
+        f"| Redis | {redis_ver}; image `{redis_image}` |",
         f"| Dữ liệu | Oracle: {status['oracle']['countedOrders']:,} đơn được tính / {status['oracle']['orderItems']:,} dòng hàng "
         f"(CONFIRMED + COMPLETED, trên tổng 100.000 đơn); Redis: {status['redis']['orderDocs']:,} doc đơn, "
         f"{status['redis']['lineDocs']:,} doc dòng hàng |",
         "",
         "Oracle Free bị giới hạn 2 CPU, 2 GB RAM, 12 GB dữ liệu. Thời gian `elapsedMs` đo trong backend quanh lời gọi DB "
         "(gồm mạng tới container và xử lý kết quả, không gồm HTTP tới trình duyệt).",
+        "",
+        f"Khoảng ngày của mọi báo cáo: {RANGE['from']} đến {RANGE['to']} (cả hai đầu tính trọn ngày, +07:00).",
     ]
     (OUT / "environment.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
@@ -115,7 +123,7 @@ def environment():
 def benchmarks(runs, warmup):
     rows = ["| Báo cáo | Nguồn | Biến thể | Trung bình ± độ lệch (ms) | p50 (ms) | p95 (ms) | Round-trip |", "|---|---|---|---|---|---|---|"]
     for report in REPORTS:
-        body = {"runs": runs, "warmup": warmup}
+        body = {"runs": runs, "warmup": warmup, **RANGE}
         print(f"benchmark {report} ...", flush=True)
         csv = call("POST", f"/{report}/benchmark", body=body, accept="text/csv")
         (OUT / f"benchmark-{report}.csv").write_text(csv.replace("\r\n", "\n"), encoding="utf-8")
@@ -163,14 +171,14 @@ def cache_benchmarks(runs, warmup):
         miss, miss_rt = [], None
         for i in range(warmup + runs):
             clear_cache()
-            meta = call("GET", f"/{report}", {"source": "cache"})["meta"]
+            meta = call("GET", f"/{report}", {"source": "cache", **RANGE})["meta"]
             assert meta["variant"] == "MISS", meta
             if i >= warmup:
                 miss.append(meta["elapsedMs"])
                 miss_rt = meta["roundTrips"]
                 csv.append(f"{report},MISS,{i - warmup + 1},{meta['elapsedMs']},{meta['roundTrips']}")
         res = call("POST", f"/{report}/benchmark", body={
-            "runs": runs, "warmup": warmup,
+            "runs": runs, "warmup": warmup, **RANGE,
             "variants": [{"source": "oracle", "variant": "AUTO"}, {"source": "cache", "variant": "HIT"}]})["results"]
         by = {r["source"]: r for r in res}
         for r in res:
@@ -192,7 +200,7 @@ def cache_benchmarks(runs, warmup):
 
 
 def save_plan(name, params, report="top-products"):
-    plan = call("GET", f"/{report}/plan", params)
+    plan = call("GET", f"/{report}/plan", {**params, **RANGE})
     text = f"# {report} {params}\n# statement:\n{plan['statement']}\n\n" + "\n".join(plan["lines"]) + "\n"
     (PLANS / name).write_text(text, encoding="utf-8")
     return plan
@@ -226,7 +234,10 @@ if __name__ == "__main__":
     ap.add_argument("--runs", type=int, default=5)
     ap.add_argument("--warmup", type=int, default=1)
     ap.add_argument("--only-cache", action="store_true", help="chỉ đo cache-aside")
+    ap.add_argument("--from", dest="date_from", default=RANGE["from"], help="ngày đầu YYYY-MM-DD (mặc định %(default)s)")
+    ap.add_argument("--to", dest="date_to", default=RANGE["to"], help="ngày cuối YYYY-MM-DD (mặc định %(default)s)")
     args = ap.parse_args()
+    RANGE.update({"from": args.date_from, "to": args.date_to})
     PLANS.mkdir(parents=True, exist_ok=True)
     if not args.only_cache:
         environment()

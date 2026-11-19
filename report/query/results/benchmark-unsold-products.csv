@@ -1,6 +1,6 @@
 report,source,variant,run,elapsedMs,roundTrips
-unsold-products,oracle,AUTO,1,137.08,2
-unsold-products,oracle,AUTO,2,124.65,2
-unsold-products,oracle,AUTO,3,170.77,2
-unsold-products,oracle,AUTO,4,151.45,2
-unsold-products,oracle,AUTO,5,112.44,2
+unsold-products,oracle,AUTO,1,29.8,2
+unsold-products,oracle,AUTO,2,32.01,2
+unsold-products,oracle,AUTO,3,36.94,2
+unsold-products,oracle,AUTO,4,30.2,2
+unsold-products,oracle,AUTO,5,29.54,2

@@ -1,3 +1,571 @@
 % !TeX root = ../../main.tex
+% 2.3 Query Processing. Người viết: Nguyễn Công Thành (TV3).
+% Số đo, kế hoạch thực thi và ảnh gốc nằm ở report/query/results/ và report/query/images/;
+% ảnh dùng trong PDF được chép sang Pictures/Task_3/ (giữ nguyên tên file).
+% Nhãn có tiền tố q- để không trùng với các mục khác.
 \subsection{Query Processing}\label{sec:query}
-% Nội dung do thành viên phụ trách Query processing bổ sung.
+\begingroup
+\txnumbering
+
+\noindent\textit{Người thực hiện: Nguyễn Công Thành -- 2313119}
+
+Mục này so sánh cách Oracle và Redis xử lý cùng một truy vấn báo cáo. Đối tượng là hai chức năng quản trị của ShopFlash: F5 (doanh thu theo tháng, theo danh mục) và F6 (top sản phẩm bán chạy, khách VIP, sản phẩm chưa từng bán). Mỗi báo cáo được cài trên cả hai DBMS và phải trả cùng một kết quả. Nhờ vậy, khác biệt về thời gian và về cách viết chỉ còn đến từ cách mỗi hệ thống xử lý truy vấn.
+
+\subsubsection{Câu hỏi nghiên cứu và phương pháp}\label{sec:q-1}
+
+Phần nghiên cứu trả lời hai câu hỏi. Thứ nhất, khi nhận cùng một yêu cầu báo cáo, Oracle và Redis biến nó thành các bước thực thi như thế nào, và ai quyết định các bước đó. Thứ hai, trên dữ liệu đơn hàng của ShopFlash, cách nào cho kết quả nhanh hơn và cách nào hợp với F5, F6.
+
+Năm báo cáo được chọn sao cho mỗi báo cáo thử một loại phép toán khác nhau (Bảng~\ref{tab:q-reports}). Các báo cáo đều lọc đơn có trạng thái \texttt{CONFIRMED} hoặc \texttt{COMPLETED} trong một khoảng ngày.
+
+\begin{table}[!htbp]
+\centering
+\caption{Năm báo cáo dùng để so sánh và phép toán mỗi báo cáo cần.}\label{tab:q-reports}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|P{3.6cm}|c|L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Báo cáo} & \reportheader{Chức năng} & \reportheader{Phép toán trên Oracle} \\ \hline
+Doanh thu theo tháng & F5 & Một bảng \texttt{orders}, gom nhóm theo tháng \\ \hline
+Doanh thu theo danh mục & F5 & Join 4 bảng \texttt{orders}, \texttt{order\_items}, \texttt{products}, \texttt{categories}; gom theo danh mục \\ \hline
+Top sản phẩm bán chạy & F6 & Join 4 bảng, gom theo sản phẩm, lấy N dòng đầu \\ \hline
+Khách VIP & F6 & Join \texttt{orders} với \texttt{users}, gom theo khách, subquery trong \texttt{HAVING} \\ \hline
+Sản phẩm chưa từng bán & F6 & \texttt{NOT EXISTS} trên \texttt{order\_items} (anti-join) \\ \hline
+\end{tabularx}
+\end{table}
+
+Phía Oracle, mỗi báo cáo là một câu SQL chạy trên schema \texttt{SHOP}. Phía Redis, báo cáo chạy trên một read model được dựng lại từ Oracle; cách dựng và cách truy vấn được trình bày ở mục~\ref{sec:q-3}.
+
+\paragraph{Môi trường và cách đo}\label{sec:q-1-env}
+
+Mọi phép đo chạy trên một máy cá nhân. Hai DBMS nằm trong Docker (Bảng~\ref{tab:q-env}).
+
+\begin{table}[!htbp]
+\centering
+\caption{Môi trường đo của mục Query Processing (ghi lúc 19/11/2026).}\label{tab:q-env}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|P{3.2cm}|L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Thành phần} & \reportheader{Giá trị} \\ \hline
+Máy & AMD Ryzen 5 7535HS, 15,3 GB RAM \\ \hline
+Hệ điều hành, Docker & Windows 11 (10.0.26300), Docker 29.5.2, cấp 12 CPU và khoảng 7,8 GB RAM cho Docker \\ \hline
+Oracle & Oracle AI Database 26ai Free 23.26.3. Bản Free giới hạn 2 CPU, 2 GB RAM, 12 GB dữ liệu \\ \hline
+Redis & Redis Stack 7.4.7, có RediSearch và RedisJSON \\ \hline
+Dữ liệu & 100.000 đơn sinh tự động, trong đó 87.139 đơn được tính với 215.805 dòng hàng; 10.195 sản phẩm, 76 danh mục, 20.502 người dùng (kể cả danh mục và tài khoản mẫu của ứng dụng). Redis giữ đúng 87.139 document đơn và 215.805 document dòng hàng \\ \hline
+\end{tabularx}
+\end{table}
+
+Khoảng ngày của mọi báo cáo là 01/11/2025 đến 18/10/2026, đúng khoảng mà bộ sinh dữ liệu tạo đơn. Mỗi cấu hình chạy khởi động một lần (không tính), sau đó đo 5 lần liên tiếp. Các lần đo chạy lần lượt, không song song. Bảng trong mục này ghi trung bình $\pm$ độ lệch chuẩn; p50 và p95 nằm trong \texttt{report/query/results/benchmark-summary.md}. Thời gian được đo trong backend, quanh lời gọi tới DBMS. Con số gồm đường mạng tới container và thời gian đọc kết quả, không gồm HTTP tới trình duyệt.
+
+Bộ số chính được đo ngày 19/11/2026. Ngay trước đó, cùng script đã chạy thêm một lượt đầy đủ để kiểm độ ổn định (\texttt{benchmark-lan-lap-19-11.md}); hai lượt cho cùng thứ tự giữa các cách chạy ở mọi báo cáo. Một lần đo trước đó, ngày 18/10/2026, cho kết quả khác ở hai báo cáo; mục~\ref{sec:q-4-rerun} trình bày khác biệt này. Các con số chỉ dùng để so sánh trong cùng môi trường, không phải hiệu năng tuyệt đối.
+
+\paragraph{Kiểm tra hai nguồn trả cùng kết quả}\label{sec:q-1-match}
+
+So sánh thời gian chỉ có nghĩa khi hai nguồn tính ra cùng một thứ. Backend có API \texttt{/compare}: chạy một báo cáo trên Oracle và Redis rồi so từng dòng theo khóa. Script \texttt{report/query/tests/contract\_test.py} gọi API này cho cả bốn báo cáo mà Redis làm được. Trên dữ liệu ở Bảng~\ref{tab:q-env}, script chạy 165 kiểm tra và đạt cả 165. Cả bốn báo cáo khớp từng dòng, kể cả tổng tiền tính bằng đồng (Hình~\ref{fig:q-match}). Báo cáo thứ năm, sản phẩm chưa từng bán, Redis không làm được; lý do nằm ở mục~\ref{sec:q-3-subquery}.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.78\linewidth]{Pictures/Task_3/3.3-03-d1-ket-qua-khop.png}
+\caption{Query Lab, tab Kết quả hai nguồn: top 10 sản phẩm trên Oracle và Redis khớp từng dòng. Thời gian trên thẻ là một lần chạy, không phải số đo chính.}\label{fig:q-match}
+\end{figure}
+
+\subsubsection{Cơ chế và thực nghiệm trên Oracle}\label{sec:q-2}
+
+\paragraph{Cơ chế xử lý truy vấn}\label{sec:q-2-theory}
+
+SQL là ngôn ngữ khai báo: câu truy vấn nói cần lấy gì, không nói lấy bằng cách nào. Theo Silberschatz và cộng sự \cite{qSilberschatz}, DBMS xử lý một câu truy vấn qua ba bước: phân tích và dịch câu SQL sang biểu thức đại số quan hệ, tối ưu, rồi thực thi. Bước tối ưu sinh nhiều kế hoạch thực thi (execution plan) cho cùng một kết quả và chọn kế hoạch rẻ nhất. Kế hoạch là một cây toán tử: quét bảng, quét index, join, gom nhóm, sắp xếp.
+
+Oracle dùng bộ tối ưu dựa trên chi phí (cost-based optimizer, CBO) \cite{qOracleOptimizer}. Chi phí của mỗi kế hoạch được ước lượng từ thống kê trong data dictionary: số dòng của bảng, số giá trị khác nhau của cột, phân bố dữ liệu. Từ đó CBO đoán số dòng đi qua từng bước (cardinality), rồi chọn thứ tự join, thuật toán join và cách truy cập bảng. Với join, Oracle có ba thuật toán:
+
+\begin{itemize}[leftmargin=*,itemsep=2pt,topsep=4pt]
+\item \textit{Nested loops}: với mỗi dòng của bảng ngoài, dò bảng trong, thường qua index. Hợp khi bảng ngoài có ít dòng.
+\item \textit{Hash join}: dựng bảng băm trên tập nhỏ hơn rồi quét tập kia một lần. Hợp khi cả hai tập lớn và điều kiện join là phép bằng.
+\item \textit{Sort-merge join}: sắp hai tập theo khóa join rồi trộn. Hợp khi dữ liệu đã có thứ tự.
+\end{itemize}
+
+Trước khi chọn kế hoạch, CBO còn có thể viết lại câu truy vấn. Ví dụ, nó gom nhóm sớm trước khi join, hoặc đổi \texttt{NOT EXISTS} thành anti-join. Kế hoạch đã chọn được lưu trong shared pool để các lần chạy sau dùng lại.
+
+Để xem kế hoạch, câu SQL được thêm hint \texttt{GATHER\_PLAN\_STATISTICS}. Chạy xong, cùng session gọi \texttt{DBMS\_XPLAN.DISPLAY\_CURSOR(NULL, NULL, 'ALLSTATS LAST')} \cite{qOracleXplan}. Kết quả cho từng bước của kế hoạch: số dòng ước lượng (\texttt{E-Rows}), số dòng thực tế (\texttt{A-Rows}), số lần bước đó được gọi (\texttt{Starts}), thời gian thực tế (\texttt{A-Time}) và số block đọc từ bộ đệm (\texttt{Buffers}).
+
+\paragraph{Kế hoạch do CBO tự chọn}\label{sec:q-2-auto}
+
+Thí nghiệm đầu tiên chạy báo cáo top sản phẩm, không thêm hint nào ngoài hint thu thống kê thực thi. Câu SQL join bốn bảng, gom theo sản phẩm rồi lấy 10 dòng đầu (Mã nguồn~\ref{lst:q-top-sql}).
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=OracleSQL,caption={Câu SQL của báo cáo top sản phẩm bán chạy.},label={lst:q-top-sql}]
+SELECT /*+ GATHER_PLAN_STATISTICS */ p.product_id,
+       p.name AS product_name,
+       c.name AS category_name,
+       SUM(oi.quantity) AS quantity,
+       SUM(oi.line_total) AS revenue
+FROM orders o
+JOIN order_items oi ON oi.order_id = o.order_id
+JOIN products p ON p.product_id = oi.product_id
+JOIN categories c ON c.category_id = p.category_id
+WHERE o.status IN ('CONFIRMED', 'COMPLETED')
+  AND o.created_at >= :fromTs
+  AND o.created_at < :toExclusiveTs
+GROUP BY p.product_id, p.name, c.name
+ORDER BY quantity DESC, p.product_id
+FETCH FIRST :limit ROWS ONLY
+\end{lstlisting}
+
+Kế hoạch CBO chọn có plan hash \texttt{2314863829}. Kết quả~\ref{result:q-auto} trích các bước chính; cột bộ nhớ được lược bớt.
+
+\reportblockspace{72pt}
+\begingroup
+\captionof{txresult}{Kế hoạch AUTO của báo cáo top sản phẩm, trích \texttt{top-products-oracle-AUTO.txt}.}\label{result:q-auto}
+\nopagebreak[4]
+\begin{Verbatim}[fontsize=\scriptsize]
+| Id | Operation                  | Name        | Starts | E-Rows | A-Rows | Buffers |
+|  4 |     HASH JOIN              |             |      1 |   9001 |   9000 |    5161 |
+|  5 |      TABLE ACCESS FULL     | CATEGORIES  |      1 |     76 |     76 |       6 |
+|  6 |      HASH JOIN             |             |      1 |   9001 |   9000 |    5155 |
+|  7 |       VIEW                 | VW_GBC_17   |      1 |   9000 |   9000 |    4908 |
+|  8 |        HASH GROUP BY       |             |      1 |   9000 |   9000 |    4908 |
+| 10 |          HASH JOIN         |             |      1 |    216K|    215K|    4908 |
+| 11 |           TABLE ACCESS FULL| ORDERS      |      1 |  87139 |  87139 |    2139 |
+| 12 |           TABLE ACCESS FULL| ORDER_ITEMS |      1 |    247K|    247K|    2769 |
+| 13 |       TABLE ACCESS FULL    | PRODUCTS    |      1 |  10195 |  10195 |     247 |
+\end{Verbatim}
+\endgroup\par\smallskip
+
+Cả ba phép join đều là hash join. Cả bốn bảng đều được quét toàn bộ. Báo cáo cần 87.139 trên 100.000 đơn. Với tỉ lệ đó, đọc từng dòng qua index tốn hơn đọc thẳng cả bảng.
+
+CBO cũng đã viết lại câu truy vấn. View \texttt{VW\_GBC\_17} là kết quả của phép biến đổi group-by placement: 215 nghìn dòng hàng được gom theo sản phẩm trước, còn 9.000 dòng, rồi mới join với \texttt{products} và \texttt{categories}. Câu SQL gốc viết join trước, gom sau. Ước lượng số dòng sau gom nhóm là 9.001, thực tế 9.000. Ước lượng gần đúng như vậy là nhờ thống kê đã được thu thập. Cả kế hoạch đọc 5.161 block và chạy trong $101{,}4 \pm 4{,}5$ ms.
+
+\paragraph{Ép thuật toán join bằng hint}\label{sec:q-2-hint}
+
+Thí nghiệm này kiểm tra lựa chọn của CBO bằng cách ép các thuật toán khác rồi đo. Ba báo cáo có join được chạy với bốn biến thể. AUTO là câu SQL không hint. Ba biến thể còn lại dùng \texttt{LEADING(o oi p c)} kèm \texttt{USE\_NL}, \texttt{USE\_HASH} hoặc \texttt{USE\_MERGE}. Hint \texttt{LEADING} giữ cố định thứ tự join, để hint thuật toán áp lên đúng từng bảng.
+
+\begin{table}[!htbp]
+\centering
+\caption{Thời gian (ms) khi ép thuật toán join, trung bình $\pm$ độ lệch chuẩn của 5 lần đo.}\label{tab:q-hints}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|L|r|r|r|r|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Báo cáo} & \reportheader{AUTO} & \reportheader{NL} & \reportheader{HASH} & \reportheader{MERGE} \\ \hline
+Doanh thu theo danh mục & 94,5 $\pm$ 7,6 & 459,4 $\pm$ 10,3 & 108,5 $\pm$ 8,8 & 314,1 $\pm$ 16,9 \\ \hline
+Top sản phẩm & 101,4 $\pm$ 4,5 & 528,4 $\pm$ 27,9 & 136,1 $\pm$ 15,1 & 306,4 $\pm$ 10,9 \\ \hline
+Khách VIP (join 2 bảng) & 126,5 $\pm$ 10,6 & 160,3 $\pm$ 13,2 & 138,9 $\pm$ 10,0 & 140,1 $\pm$ 10,3 \\ \hline
+\end{tabularx}
+\end{table}
+
+Ép nested loops làm hai báo cáo join bốn bảng chậm đi 4,9 và 5,2 lần. Kế hoạch NL của top sản phẩm (plan hash \texttt{2442890914}) đọc 681 nghìn block, gấp 132 lần kế hoạch AUTO. Cột \texttt{Starts} trong Kết quả~\ref{result:q-nl} cho thấy lý do.
+
+\reportblockspace{72pt}
+\begingroup
+\captionof{txresult}{Một phần kế hoạch NL ép bằng hint, trích \texttt{top-products-oracle-NL.txt}.}\label{result:q-nl}
+\nopagebreak[4]
+\begin{Verbatim}[fontsize=\scriptsize]
+| Id | Operation                          | Name                 | Starts | A-Rows | Buffers |
+| 10 |           TABLE ACCESS FULL        | ORDERS               |      1 |  87139 |    2139 |
+| 12 |            INDEX RANGE SCAN        | IX_ORDER_ITEMS_ORDER |  87139 |    215K|   26878 |
+| 13 |          TABLE ACCESS BY INDEX ROWID| PRODUCTS            |    215K|    215K|     431K|
+| 14 |           INDEX UNIQUE SCAN        | PK_PRODUCTS          |    215K|    215K|     215K|
+| 16 |        TABLE ACCESS BY INDEX ROWID | CATEGORIES           |    215K|    215K|     215K|
+\end{Verbatim}
+\endgroup\par\smallskip
+
+Index của \texttt{order\_items} bị dò 87.139 lần, mỗi đơn một lần. Sau đó, với mỗi dòng hàng trong 215 nghìn dòng, Oracle lại dò một lần sang \texttt{products} và một lần sang \texttt{categories}. Mỗi lần dò đọc ít nhất một block.
+
+Ở báo cáo khách VIP, khoảng cách chỉ còn 1,3 lần. Báo cáo này chỉ join hai bảng. Ở cả ba báo cáo, kế hoạch AUTO nhanh nhất trong bốn biến thể. Người viết SQL không phải chọn thuật toán join. Hình~\ref{fig:q-optimizer} đặt hai kế hoạch cạnh nhau trên giao diện quản trị.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.62\linewidth]{Pictures/Task_3/3.3-04-d2-optimizer.png}
+\caption{Query Lab, tab Optimizer: cùng câu SQL top sản phẩm, trên là kế hoạch CBO tự chọn (HASH JOIN), dưới là kế hoạch bị ép NESTED LOOPS. Dòng join được tô màu.}\label{fig:q-optimizer}
+\end{figure}
+
+\paragraph{Thống kê quyết định kế hoạch}\label{sec:q-2-stats}
+
+CBO chỉ tốt khi thống kê đúng. Thí nghiệm thứ ba làm mất thống kê rồi quan sát kế hoạch của báo cáo top sản phẩm qua ba trạng thái:
+
+\begin{enumerate}[leftmargin=*,itemsep=2pt,topsep=4pt]
+\item Lấy kế hoạch khi thống kê đầy đủ.
+\item Gọi \texttt{DBMS\_STATS.DELETE\_TABLE\_STATS} cho năm bảng liên quan, rồi lấy lại kế hoạch.
+\item Gọi \texttt{DBMS\_STATS.GATHER\_TABLE\_STATS}, rồi lấy lại kế hoạch.
+\end{enumerate}
+
+Cả hai thủ tục phải truyền \texttt{no\_invalidate => FALSE} \cite{qOracleStats}. Lần thử đầu để giá trị mặc định: Oracle tiếp tục dùng kế hoạch cũ đang nằm trong shared pool, và xóa thống kê xong kế hoạch vẫn y nguyên.
+
+\begin{table}[!htbp]
+\centering
+\caption{Kế hoạch của báo cáo top sản phẩm theo trạng thái thống kê. Số dòng thực tế sau gom nhóm là 9.000.}\label{tab:q-stats}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|L|c|c|r|r|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Trạng thái} & \reportheader{Plan hash} & \reportheader{Join chính} & \reportheader{Ước lượng} & \reportheader{Buffers} \\ \hline
+Có thống kê & 2314863829 & HASH JOIN & 9.001 & 5.161 \\ \hline
+Đã xóa thống kê & 56634007 & MERGE JOIN & 285.000 & 91.035 \\ \hline
+Thu thập lại & 2314863829 & HASH JOIN & 9.002 & 5.161 \\ \hline
+\end{tabularx}
+\end{table}
+
+Kết quả~\ref{result:q-nostats} trích kế hoạch khi không còn thống kê.
+
+\reportblockspace{72pt}
+\begingroup
+\captionof{txresult}{Kế hoạch khi đã xóa thống kê, trích \texttt{stats-after-delete-top-products.txt}.}\label{result:q-nostats}
+\nopagebreak[4]
+\begin{Verbatim}[fontsize=\scriptsize]
+| Id | Operation                              | Name                     | Starts | E-Rows | A-Rows | Buffers |
+|  5 |      MERGE JOIN                        |                          |      1 |    285K|   9000 |   91035 |
+| 12 |             TABLE ACCESS BY INDEX ROWID| ORDERS                   |      2 |  92677 |  87139 |   88010 |
+| 13 |              INDEX RANGE SCAN          | IX_ORDERS_STATUS_CREATED |      2 |      2 |  87139 |     916 |
+Note
+   - dynamic statistics used: dynamic sampling (level=2)
+\end{Verbatim}
+\endgroup\par\smallskip
+
+Không có thống kê, Oracle lấy mẫu nhanh lúc parse (dynamic sampling) và đoán sai nhiều chỗ. Index \texttt{IX\_ORDERS\_STATUS\_CREATED} được đoán trả về 2 dòng, thực tế trả về 87.139. Kết quả gom nhóm được đoán 285 nghìn dòng, thực tế 9.000. Vì tin điều kiện lọc rất chọn lọc, CBO đi qua index rồi đọc từng dòng của \texttt{orders}. Riêng bước này đọc 88.010 block. Cả kế hoạch đọc 91.035 block, gấp 17,6 lần kế hoạch có thống kê.
+
+Bảng không ghi thời gian vì mỗi trạng thái chỉ chạy một lần. \texttt{A-Time} của ba lần lần lượt là 0,49 s, 0,27 s và 0,26 s, dao động nhiều hơn khác biệt giữa các trạng thái. Toàn bộ dữ liệu đã nằm trong bộ đệm (không có lần đọc đĩa nào), nên 17,6 lần số block chưa biến thành 17,6 lần thời gian. Trên dữ liệu lớn hơn bộ đệm, phần chênh này sẽ thành đọc đĩa.
+
+Thu thập lại thống kê thì plan hash quay về \texttt{2314863829}. Với ShopFlash, điều này có hệ quả vận hành: sau khi nạp nhiều dữ liệu, cần để job thu thập thống kê tự động của Oracle chạy, hoặc gọi \texttt{GATHER\_TABLE\_STATS}.
+
+\paragraph{Subquery và anti-join}\label{sec:q-2-subquery}
+
+Hai báo cáo F6 cần truy vấn lồng nhau. Khách VIP là khách có tổng chi lớn hơn mức chi trung bình. Mức trung bình tính trên mọi khách trong cùng khoảng ngày, bằng một subquery trong \texttt{HAVING}. Sản phẩm chưa từng bán dùng \texttt{NOT EXISTS} (Mã nguồn~\ref{lst:q-subquery}).
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=OracleSQL,caption={Phần lồng nhau của hai báo cáo khách VIP và sản phẩm chưa từng bán.},label={lst:q-subquery}]
+-- Khach VIP
+HAVING SUM(o.total_amount) > (
+    SELECT AVG(t.spent)
+    FROM (SELECT SUM(o2.total_amount) AS spent
+          FROM orders o2
+          WHERE o2.status IN ('CONFIRMED', 'COMPLETED')
+            AND o2.created_at >= :fromTs
+            AND o2.created_at < :toExclusiveTs
+          GROUP BY o2.user_id) t)
+
+-- San pham chua tung ban
+WHERE p.status = 'ACTIVE'
+  AND NOT EXISTS (SELECT 1 FROM order_items oi
+                  WHERE oi.product_id = p.product_id)
+\end{lstlisting}
+
+Thời gian của hai báo cáo này gồm hai câu SQL: một câu lấy trang dữ liệu, một câu lấy tổng số dòng và giá trị tóm tắt để phân trang.
+
+\begin{table}[!htbp]
+\centering
+\caption{Subquery trên Oracle.}\label{tab:q-subquery}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|P{3.4cm}|r|L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Báo cáo} & \reportheader{Thời gian (ms)} & \reportheader{Toán tử chính trong kế hoạch} \\ \hline
+Khách VIP & 126,5 $\pm$ 10,6 & \texttt{FILTER} dùng kết quả của \texttt{SORT AGGREGATE}; nhánh subquery chạy một lần (\texttt{Starts = 1}) \\ \hline
+Sản phẩm chưa từng bán & 31,7 $\pm$ 3,1 & \texttt{HASH JOIN ANTI} với \texttt{INDEX FAST FULL SCAN} trên \texttt{IX\_ORDER\_ITEMS\_PRODUCT} \\ \hline
+\end{tabularx}
+\end{table}
+
+Subquery tính mức chi trung bình không phụ thuộc vào dòng bên ngoài. Oracle tính nó đúng một lần rồi dùng kết quả để lọc: 19.273 khách đi vào bộ lọc, còn lại 6.049 khách VIP. Với \texttt{NOT EXISTS}, Oracle đổi thành anti-join dạng hash. Nó chỉ quét index trên \texttt{order\_items.product\_id}, không đọc bảng, và tìm ra 1.147 sản phẩm đang bán chưa xuất hiện trong dòng hàng nào. Người viết SQL không cần biết hai phép biến đổi này.
+
+\subsubsection{Cơ chế và thực nghiệm trên Redis}\label{sec:q-3}
+
+\paragraph{Cơ chế xử lý truy vấn}\label{sec:q-3-theory}
+
+Redis là kho key-value. Nó không có SQL, không có join và không có bộ tối ưu truy vấn. Để làm báo cáo, ShopFlash dùng module RediSearch trên dữ liệu JSON của RedisJSON \cite{qRedisAggregations}. Cách làm gồm ba phần.
+
+Phần đầu là read model đã denormalize. Dữ liệu được dựng lại từ Oracle thành hai loại document. Key \texttt{order:analytics:\{orderId\}} giữ một đơn, kèm sẵn tên và email khách. Key \texttt{order:line:\{orderItemId\}} giữ một dòng hàng, kèm sẵn tên sản phẩm, mã và tên danh mục, trạng thái và ngày của đơn. Phép join được làm một lần lúc dựng, không làm lúc truy vấn. Dựng lại 100.000 đơn mất từ 14 đến 39 giây qua các lần dựng trong ngày đo.
+
+Phần thứ hai là index RediSearch trên hai loại document đó. Mã nguồn~\ref{lst:q-ftcreate} là index của dòng hàng, lấy từ script khởi tạo Redis \texttt{init.lua} của dự án. Trạng thái là \texttt{TAG}, ngày là \texttt{NUMERIC}. Mọi trường dùng để gom nhóm, cộng dồn hoặc trả về đều khai báo \texttt{SORTABLE}; lý do nằm ở mục~\ref{sec:q-3-findings}.
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=Redis,caption={Index RediSearch của read model dòng hàng.},label={lst:q-ftcreate}]
+FT.CREATE idx:order-line-analytics ON JSON PREFIX 1 order:line: SCHEMA
+  $.orderId      AS orderId      NUMERIC
+  $.userId       AS userId       NUMERIC
+  $.status       AS status       TAG
+  $.orderType    AS orderType    TAG
+  $.createdAt    AS createdAt    NUMERIC SORTABLE
+  $.productId    AS productId    NUMERIC SORTABLE
+  $.productName  AS productName  TEXT NOINDEX SORTABLE UNF
+  $.categoryId   AS categoryId   NUMERIC SORTABLE
+  $.categoryName AS categoryName TEXT NOINDEX SORTABLE UNF
+  $.quantity     AS quantity     NUMERIC SORTABLE
+  $.lineTotal    AS lineTotal    NUMERIC SORTABLE
+\end{lstlisting}
+
+Phần thứ ba là lệnh \texttt{FT.AGGREGATE}. Lệnh này chạy một pipeline: lọc theo index, rồi lần lượt \texttt{GROUPBY}/\texttt{REDUCE}, \texttt{SORTBY}, \texttt{APPLY}/\texttt{FILTER}, \texttt{LIMIT}, đúng thứ tự các bước được viết trong lệnh \cite{qRedisCommands}.
+
+Mỗi báo cáo trên Redis được cài theo hai cách để so sánh. Cách AGGREGATE để Redis tự gom nhóm và sắp xếp trong một lệnh. Cách CLIENT coi Redis như kho key-value thuần: Redis chỉ lọc theo index và trả document thô theo từng trang bằng \texttt{WITHCURSOR}, mỗi trang 10.000 document, còn ứng dụng Java tự gom nhóm và sắp xếp.
+
+\paragraph{FT.PROFILE: Redis chạy đúng thứ tự trong lệnh}\label{sec:q-3-profile}
+
+Báo cáo doanh thu theo danh mục trên Redis là một lệnh (Mã nguồn~\ref{lst:q-ftagg}). Lệnh được chạy dưới \texttt{FT.PROFILE} để xem Redis đã làm gì.
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=Redis,caption={Báo cáo doanh thu theo danh mục trên Redis.},label={lst:q-ftagg}]
+FT.AGGREGATE idx:order-line-analytics
+  "@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]"
+  TIMEOUT 0
+  GROUPBY 2 @categoryId @categoryName
+    REDUCE SUM 1 @quantity AS quantity
+    REDUCE SUM 1 @lineTotal AS revenue
+  SORTBY 4 @revenue DESC @categoryId ASC
+\end{lstlisting}
+
+\reportblockspace{72pt}
+\begingroup
+\captionof{txresult}{Kết quả \texttt{FT.PROFILE}, trích \texttt{revenue-by-category-redis-AGGREGATE.txt}; danh sách khoảng số được lược.}\label{result:q-profile}
+\nopagebreak[4]
+\begin{Verbatim}[fontsize=\scriptsize]
+Iterators profile:
+  Type=INTERSECT, Time=1446, Counter=215805
+    Type=UNION, Query type=TAG, Time=448, Counter=215805
+      Type=TAG, Term=confirmed, Time=43, Counter=61780, Size=61780
+      Type=TAG, Term=completed, Time=105, Counter=154025, Size=154025
+    Type=UNION, Query type=NUMERIC, Time=554, Counter=215805
+      (cac khoang so cua createdAt)
+Result processors profile:
+  Type=Index,   Time=1762, Counter=215805
+  Type=Grouper, Time=363,  Counter=50
+  Type=Sorter,  Time=0,    Counter=50
+\end{Verbatim}
+\endgroup\par\smallskip
+
+Phần iterator là bước lọc: giao của điều kiện trạng thái (hợp hai giá trị TAG) với điều kiện ngày (hợp nhiều khoảng số), ra 215.805 dòng hàng. Phần result processor là ba bước còn lại, theo đúng thứ tự trong lệnh: đọc dòng từ index, gom còn 50 nhóm, sắp xếp 50 nhóm.
+
+Profile không cho thấy lựa chọn nào. Không có thuật toán join để chọn, không có phép viết lại. Muốn chạy khác đi, ví dụ lọc thêm một điều kiện trước khi gom, người viết phải tự sửa lệnh. Những gì CBO làm ở mục~\ref{sec:q-2-auto} đều đã được lập trình viên làm trước: join lúc dựng read model, chọn trường \texttt{SORTABLE} lúc tạo index.
+
+\paragraph{Tính trong Redis hay kéo dữ liệu về ứng dụng}\label{sec:q-3-roundtrip}
+
+Thí nghiệm này đo cái giá của việc kéo dữ liệu thô về ứng dụng để tính, so với để Redis tính tại chỗ. Bốn báo cáo được chạy theo hai cách AGGREGATE và CLIENT; backend đếm số round-trip tới Redis.
+
+\begin{table}[!htbp]
+\centering
+\caption{Redis AGGREGATE so với CLIENT, thời gian (ms) của 5 lần đo. Cột Round-trip là số lần gọi của CLIENT; Tỉ lệ là CLIENT chia AGGREGATE.}\label{tab:q-roundtrip}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|L|r|r|c|c|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Báo cáo} & \reportheader{AGGREGATE} & \reportheader{CLIENT} & \reportheader{Round-trip} & \reportheader{Tỉ lệ} \\ \hline
+Doanh thu theo tháng & 62,7 $\pm$ 1,1 & 625,0 $\pm$ 59,0 & 9 & 10,0 lần \\ \hline
+Doanh thu theo danh mục & 55,8 $\pm$ 2,3 & 1.686,0 $\pm$ 121,9 & 22 & 30,2 lần \\ \hline
+Top sản phẩm & 92,2 $\pm$ 7,9 & 1.961,9 $\pm$ 76,5 & 22 & 21,3 lần \\ \hline
+Khách VIP & 192,8 $\pm$ 9,1 & 673,7 $\pm$ 44,3 & 9 & 3,5 lần \\ \hline
+\end{tabularx}
+\end{table}
+
+Với cách CLIENT, toàn bộ 215.805 dòng hàng (hoặc 87.139 đơn) đi qua mạng về ứng dụng. Số lần gọi là 9 đến 22. Báo cáo theo danh mục cuối cùng chỉ có 50 dòng. Cách AGGREGATE chỉ cần một lần gọi và trả về đúng số dòng cần. Báo cáo theo danh mục có ít nhóm nhất và chênh lệch lớn nhất, 30 lần. Khách VIP chênh ít nhất, 3,5 lần, vì cách AGGREGATE của báo cáo này cũng phải chạy hai lượt (mục~\ref{sec:q-3-subquery}).
+
+Hình~\ref{fig:q-roundtrip} là một lần chạy đơn lẻ trên giao diện. Số dùng để so sánh là số trong Bảng~\ref{tab:q-roundtrip}.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.78\linewidth]{Pictures/Task_3/3.3-06-d4-round-trip.png}
+\caption{Query Lab, tab Round-trip: doanh thu theo danh mục chạy ba cách trong một lần. Oracle và Redis AGGREGATE mỗi cách 1 round-trip, Redis CLIENT 22 round-trip.}\label{fig:q-roundtrip}
+\end{figure}
+
+\paragraph{Truy vấn lồng nhau}\label{sec:q-3-subquery}
+
+\texttt{FT.AGGREGATE} không có subquery. Báo cáo khách VIP vì thế phải chạy hai lượt (Mã nguồn~\ref{lst:q-vip-redis}). Lượt một tính mức chi trung bình của mỗi khách. Ứng dụng đọc con số đó rồi chèn vào điều kiện \texttt{FILTER} của lượt hai.
+
+\reportblockspace{72pt}
+\begin{lstlisting}[language=Redis,caption={Khách VIP trên Redis: hai lượt FT.AGGREGATE, giá trị trung bình do ứng dụng chuyển từ lượt một sang lượt hai.},label={lst:q-vip-redis}]
+FT.AGGREGATE idx:order-analytics
+  "@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]"
+  TIMEOUT 0
+  GROUPBY 1 @userId REDUCE SUM 1 @totalAmount AS totalSpent
+  GROUPBY 0 REDUCE AVG 1 @totalSpent AS averageSpent
+    REDUCE COUNT 0 AS customerCount
+
+FT.AGGREGATE idx:order-analytics
+  "@status:{CONFIRMED|COMPLETED} @createdAt:[1761930000 (1792342800]"
+  TIMEOUT 0
+  GROUPBY 3 @userId @userName @userEmail
+    REDUCE SUM 1 @totalAmount AS totalSpent REDUCE COUNT 0 AS orderCount
+  FILTER "@totalSpent > 74131857.2096"
+  SORTBY 4 @totalSpent DESC @userId ASC LIMIT 0 20
+\end{lstlisting}
+
+Hai lượt mất $192{,}8 \pm 9{,}1$ ms; Oracle làm cùng việc trong $126{,}5 \pm 10{,}6$ ms. Cách tách lượt còn có một nhược điểm về tính đúng: giữa hai lượt, dữ liệu có thể thay đổi, nên hai lượt có thể không nhìn cùng một trạng thái.
+
+Báo cáo sản phẩm chưa từng bán thì không làm được. Câu hỏi này cần so tập sản phẩm với tập dòng hàng. Read model chỉ chứa dòng hàng đã bán, và Redis không có anti-join. API trả \texttt{meta.supported = false}. Muốn có báo cáo này trên Redis, phải dựng thêm một read model khác cho riêng câu hỏi đó.
+
+\paragraph{Độ mới của read model}\label{sec:q-3-consistency}
+
+Read model là bản sao. Thí nghiệm này đo cái giá của việc tách bản đọc riêng. Kịch bản nằm trong \texttt{contract\_test.py}:
+
+\begin{enumerate}[leftmargin=*,itemsep=2pt,topsep=4pt]
+\item Chèn một đơn mới vào Oracle bằng SQL.
+\item Gọi \texttt{GET /analytics/status} và \texttt{/revenue-by-month/compare}.
+\item Dựng lại read model.
+\item So lại hai nguồn.
+\end{enumerate}
+
+Sau bước 1, trạng thái trả \texttt{inSync = false} và compare báo lệch ở tháng hiện tại. Sau khi dựng lại, \texttt{inSync = true} và hai nguồn khớp. Hình~\ref{fig:q-consistency} chụp ngay sau bước 1, khi đơn mới được chèn bằng \texttt{report/query/demo/d6-order.sh}: Oracle đếm 87.140 đơn và 215.806 dòng hàng, Redis vẫn ở 87.139 và 215.805.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.78\linewidth]{Pictures/Task_3/3.3-08-d6-nhat-quan.png}
+\caption{Query Lab, tab Nhất quán: sau khi chèn một đơn vào Oracle, read model Redis lệch 1 đơn và 1 dòng hàng cho tới lần dựng lại kế tiếp.}\label{fig:q-consistency}
+\end{figure}
+
+Truy vấn trên Oracle luôn đọc dữ liệu đã commit mới nhất. Read model trên Redis chỉ đúng tới lần dựng gần nhất, và người vận hành phải tự quyết định khi nào dựng lại.
+
+\paragraph{Những điều chỉ thấy khi cài đặt}\label{sec:q-3-findings}
+
+Bốn vấn đề dưới đây không có trong kế hoạch ban đầu. Chúng chỉ lộ ra khi chạy trên dữ liệu thật.
+
+\begin{itemize}[leftmargin=*,itemsep=2pt,topsep=4pt]
+\item \textit{Trường phải khai báo \texttt{SORTABLE}.} Nếu trường dùng trong \texttt{GROUPBY} hoặc \texttt{REDUCE} không có \texttt{SORTABLE}, \texttt{FT.AGGREGATE} phải đọc lại JSON của từng document. Báo cáo theo danh mục khi đó mất khoảng 1,5 s phía server; khai báo xong còn 0,15 đến 0,33 s. Hai con số này đo bằng \texttt{INFO commandstats} trong lúc phát triển, không thuộc bộ benchmark ở Bảng~\ref{tab:q-bench}. Bên Oracle, CBO tự chọn cách truy cập. Bên Redis, đây là quyết định thiết kế của lập trình viên.
+\item \textit{Lệnh phải kèm \texttt{TIMEOUT 0}.} Redis Stack mặc định \texttt{TIMEOUT 500} với \texttt{ON\_TIMEOUT return}. Lệnh chạy quá 500 ms sẽ trả kết quả thiếu mà không báo lỗi. Trong lúc thử, có lần số đơn theo trạng thái chỉ ra 2.299 vì lý do này.
+\item \textit{Redis chạy từng lệnh một.} Trang Báo cáo gọi năm báo cáo cùng lúc. Các lệnh \texttt{FT.AGGREGATE} khi đó xếp hàng chờ nhau. Mỗi báo cáo hiện thời gian vài giây tới vài chục giây. Vì vậy số liệu so sánh chỉ lấy từ các lần đo chạy lần lượt.
+\item \textit{Giới hạn chữ số.} \texttt{SUM} và \texttt{AVG} của RediSearch in kết quả với 12 chữ số có nghĩa. Dữ liệu hiện tại là số tiền tròn đồng và mỗi tổng nhỏ hơn $10^{12}$, nên vẫn khớp Oracle. Tổng lớn hơn sẽ mất độ chính xác.
+\end{itemize}
+
+\subsubsection{Đối chiếu kết quả và lựa chọn DBMS}\label{sec:q-4}
+
+\paragraph{Thời gian các báo cáo}\label{sec:q-4-bench}
+
+Bảng~\ref{tab:q-bench} gom số đo của cả hai DBMS. Hình~\ref{fig:q-bench} vẽ lại bảng này trên thang log.
+
+\begin{table}[!htbp]
+\centering
+\caption{Thời gian các báo cáo (ms), trung bình $\pm$ độ lệch chuẩn của 5 lần đo, ngày 19/11/2026. Cột NL là kế hoạch bị ép, chỉ có ở báo cáo có join.}\label{tab:q-bench}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|L|r|r|r|r|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Báo cáo} & \reportheader{Oracle AUTO} & \reportheader{Oracle NL} & \reportheader{Redis AGGREGATE} & \reportheader{Redis CLIENT} \\ \hline
+Doanh thu theo tháng & 49,7 $\pm$ 3,3 & -- & 62,7 $\pm$ 1,1 & 625,0 $\pm$ 59,0 \\ \hline
+Doanh thu theo danh mục & 94,5 $\pm$ 7,6 & 459,4 $\pm$ 10,3 & 55,8 $\pm$ 2,3 & 1.686,0 $\pm$ 121,9 \\ \hline
+Top sản phẩm & 101,4 $\pm$ 4,5 & 528,4 $\pm$ 27,9 & 92,2 $\pm$ 7,9 & 1.961,9 $\pm$ 76,5 \\ \hline
+Khách VIP & 126,5 $\pm$ 10,6 & 160,3 $\pm$ 13,2 & 192,8 $\pm$ 9,1 & 673,7 $\pm$ 44,3 \\ \hline
+Sản phẩm chưa từng bán & 31,7 $\pm$ 3,1 & -- & không làm được & không làm được \\ \hline
+\end{tabularx}
+\end{table}
+
+\begin{figure}[!htbp]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  ybar, bar width=7pt, width=0.95\linewidth, height=7cm,
+  ymode=log, log origin=infty, ymin=30, ymax=3000,
+  ytick={50,100,200,500,1000,2000}, log ticks with fixed point,
+  yticklabel style={/pgf/number format/.cd, use comma, 1000 sep={.}},
+  ylabel={Thời gian (ms, thang log)},
+  symbolic x coords={thang,danhmuc,top,vip},
+  xticklabels={Doanh thu theo tháng, Doanh thu theo danh mục, Top sản phẩm, Khách VIP},
+  xtick=data, x tick label style={font=\small, text width=2.6cm, align=center},
+  legend style={at={(0.5,1.02)}, anchor=south, legend columns=4, font=\small, draw=none,
+    /tikz/every even column/.append style={column sep=0.4cm}},
+  area legend,
+  error bars/y dir=both, error bars/y explicit,
+  ymajorgrids, grid style={gray!25}, enlarge x limits=0.15,
+]
+\addplot+[fill=black!80, draw=black, error bars/error bar style={black}]
+  coordinates {(thang,49.7) +- (0,3.3) (danhmuc,94.5) +- (0,7.6) (top,101.4) +- (0,4.5) (vip,126.5) +- (0,10.6)};
+\addplot+[fill=black!35, draw=black, error bars/error bar style={black}]
+  coordinates {(danhmuc,459.4) +- (0,10.3) (top,528.4) +- (0,27.9) (vip,160.3) +- (0,13.2)};
+\addplot+[fill=black!12, draw=black, error bars/error bar style={black}]
+  coordinates {(thang,62.7) +- (0,1.1) (danhmuc,55.8) +- (0,2.3) (top,92.2) +- (0,7.9) (vip,192.8) +- (0,9.1)};
+\addplot+[fill=white, draw=black, error bars/error bar style={black}]
+  coordinates {(thang,625.0) +- (0,59.0) (danhmuc,1686.0) +- (0,121.9) (top,1961.9) +- (0,76.5) (vip,673.7) +- (0,44.3)};
+\legend{Oracle AUTO, Oracle NL (ép), Redis AGGREGATE, Redis CLIENT}
+\end{axis}
+\end{tikzpicture}
+\caption{Thời gian các báo cáo trên hai DBMS, vẽ từ Bảng~\ref{tab:q-bench}. Thanh lỗi là $\pm$ 1 độ lệch chuẩn.}\label{fig:q-bench}
+\end{figure}
+
+Giữa Oracle AUTO và Redis AGGREGATE, không bên nào nhanh hơn ở mọi báo cáo. Redis nhanh hơn ở doanh thu theo danh mục (1,7 lần) và top sản phẩm (1,1 lần). Oracle nhanh hơn ở doanh thu theo tháng (1,3 lần) và khách VIP (1,5 lần). Lượt đo lặp lại cho cùng chiều ở cả bốn báo cáo.
+
+Phần diễn giải dưới đây là suy luận của nhóm từ các kế hoạch đã thu, không phải phép đo riêng. Hai báo cáo Redis thắng đều cần join bốn bảng trên Oracle. Trên Redis, phép join đó đã làm xong lúc dựng read model, nên truy vấn chỉ còn lọc và gom trên một index. Báo cáo theo tháng chỉ dùng một bảng. Oracle không phải join. Redis mất lợi thế. Khách VIP trên Redis phải chạy hai lượt và gom 19 nghìn nhóm khách, còn Oracle làm trong một câu và tính subquery một lần. Redis nhanh khi câu hỏi đã được chuẩn bị sẵn trong read model. Cái giá được trả trước, lúc dựng.
+
+Các khác biệt lớn thì rõ ràng hơn nhiều. Kế hoạch tệ của Oracle (NL ép) chậm 4,9 đến 5,2 lần kế hoạch AUTO ở báo cáo join bốn bảng. Cách CLIENT của Redis chậm 3,5 đến 30 lần cách AGGREGATE.
+
+\paragraph{Đối chiếu với lần đo ngày 18/10/2026}\label{sec:q-4-rerun}
+
+Lần đo đầu tiên chạy ngày 18/10/2026, trên cùng máy, cùng dữ liệu sinh, cùng khoảng ngày và cùng code truy vấn. Từ đó tới ngày 19/11, kho mã không có thay đổi nào ở index Redis, ở code truy vấn Redis hay ở script đo. Kết quả hai lần khác nhau (Bảng~\ref{tab:q-rerun}).
+
+\begin{table}[!htbp]
+\centering
+\caption{Oracle AUTO và Redis AGGREGATE ở hai lần đo (ms, trung bình của 5 lần đo).}\label{tab:q-rerun}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|L|r|r|r|r|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Báo cáo} & \reportheader{Oracle 18/10} & \reportheader{Oracle 19/11} & \reportheader{Redis 18/10} & \reportheader{Redis 19/11} \\ \hline
+Doanh thu theo tháng & 78,6 & 49,7 & 199,9 & 62,7 \\ \hline
+Doanh thu theo danh mục & 208,5 & 94,5 & 373,4 & 55,8 \\ \hline
+Top sản phẩm & 155,2 & 101,4 & 850,7 & 92,2 \\ \hline
+Khách VIP & 193,7 & 126,5 & 875,4 & 192,8 \\ \hline
+\end{tabularx}
+\end{table}
+
+Ngày 18/10, Oracle nhanh hơn Redis ở cả bốn báo cáo, từ 1,8 đến 5,5 lần. Ngày 19/11, cả hai đều nhanh hơn, nhưng Redis nhanh lên 3,2 đến 9,2 lần, còn Oracle chỉ 1,5 đến 2,2 lần. Độ lệch chuẩn ngày 18/10 cũng lớn hơn. Nhóm chưa xác định được nguyên nhân. Giả thuyết là tải của máy lúc đo khác nhau, nhưng nhóm không ghi lại tải máy ở lần đầu nên không kiểm được.
+
+Điều rút ra cho báo cáo này: chênh lệch dưới 2 lần giữa Oracle AUTO và Redis AGGREGATE không ổn định qua hai môi trường đo, nên không dùng làm căn cứ chọn DBMS. Các chênh lệch lớn thì giữ cùng chiều qua mọi lần đo. AUTO nhanh hơn NL ép khoảng 5 lần, cả ngày 18/10 lẫn 19/11. AGGREGATE nhanh hơn CLIENT nhiều lần ở cả hai ngày đó. Cache HIT nhanh hơn Oracle hàng chục lần ở cả ngày 11/11 và 19/11 (mục~\ref{sec:q-4-cache}).
+
+\paragraph{So sánh theo tiêu chí}\label{sec:q-4-criteria}
+
+Bảng~\ref{tab:q-criteria} tổng hợp các khác biệt về xử lý truy vấn, mỗi dòng trỏ về thí nghiệm làm bằng chứng.
+
+\begin{table}[!htbp]
+\centering
+\caption{So sánh xử lý truy vấn trên Oracle và Redis.}\label{tab:q-criteria}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|P{2.6cm}|L|L|P{2.1cm}|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Tiêu chí} & \reportheader{Oracle} & \reportheader{Redis (RediSearch)} & \reportheader{Bằng chứng} \\ \hline
+Ngôn ngữ truy vấn & SQL khai báo: join, subquery, \texttt{NOT EXISTS}, lấy N dòng đầu & Pipeline \texttt{FT.AGGREGATE} theo thứ tự cố định, không join, không subquery & \ref{sec:q-2-subquery}, \ref{sec:q-3-profile} \\ \hline
+Bộ tối ưu & CBO chọn thuật toán join, cách truy cập, tự viết lại truy vấn & Không có; lệnh viết thế nào chạy thế ấy & \ref{sec:q-2-auto}, \ref{sec:q-3-profile} \\ \hline
+Kế hoạch tốt so với kế hoạch tệ & AUTO nhanh hơn NL bị ép 4,9--5,2 lần & Lập trình viên tự chọn; AGGREGATE nhanh hơn CLIENT 3,5--30 lần & \ref{sec:q-2-hint}, \ref{sec:q-3-roundtrip} \\ \hline
+Phụ thuộc vào & Thống kê: mất thống kê thì ước lượng 285 nghìn thay vì 9 nghìn dòng, đọc gấp 17,6 lần block & Thiết kế index: thiếu \texttt{SORTABLE} thì chậm khoảng 4,5--10 lần & \ref{sec:q-2-stats}, \ref{sec:q-3-findings} \\ \hline
+Xem kế hoạch & \texttt{DBMS\_XPLAN.\allowbreak DISPLAY\_CURSOR}: E-Rows, A-Rows, Buffers từng bước & \texttt{FT.PROFILE}: số document qua từng bước & \ref{sec:q-2-auto}, \ref{sec:q-3-profile} \\ \hline
+Join & Lúc truy vấn, ba thuật toán & Làm sẵn lúc dựng read model & \ref{sec:q-2-auto}, \ref{sec:q-3-theory} \\ \hline
+Tốc độ báo cáo gom nhóm & Nhanh hơn khi không cần join hoặc có subquery & Nhanh hơn khi join đã làm sẵn trong read model; chênh lệch dưới 2 lần và đổi chiều giữa hai lần đo & \ref{sec:q-4-bench}, \ref{sec:q-4-rerun} \\ \hline
+Subquery & Một câu; subquery không phụ thuộc chỉ tính một lần & VIP cần hai lượt; \texttt{NOT EXISTS} không làm được & \ref{sec:q-2-subquery}, \ref{sec:q-3-subquery} \\ \hline
+Độ mới dữ liệu & Luôn đọc dữ liệu đã commit mới nhất & Đúng tới lần dựng gần nhất (14--39 s mỗi lần dựng) & \ref{sec:q-3-consistency} \\ \hline
+Câu hỏi mới & Viết thêm một câu SQL & Có thể phải đổi read model, index và dựng lại & \ref{sec:q-3-subquery} \\ \hline
+\end{tabularx}
+\end{table}
+
+Hai khác biệt quan trọng nhất rút ra từ bảng. Ở Oracle, DBMS quyết định cách chạy; ở Redis, lập trình viên quyết định, thông qua read model, index và cách viết lệnh. Oracle trả lời được câu hỏi chưa tính trước, còn Redis chỉ trả lời tốt câu hỏi đã được chuẩn bị dữ liệu sẵn.
+
+\paragraph{Kết hợp hai DBMS: Oracle tính, Redis giữ kết quả}\label{sec:q-4-cache}
+
+Redis nhanh nhất khi đọc theo key. Nhóm thử thêm cách kết hợp theo mẫu cache-aside: Oracle tính, Redis giữ kết quả đã tính.
+
+Khi gọi báo cáo với \texttt{source=cache}, backend tra key \texttt{report:cache:\{báo cáo\}:\{tham số\}} trên Redis. Có key thì trả luôn (HIT, một lệnh \texttt{GET}). Không có thì chạy câu SQL trên Oracle, lưu kết quả bằng \texttt{SET \ldots{} PX <TTL>} rồi trả (MISS). TTL mặc định là 5 phút, đặt bằng \texttt{shopflash.query.cache-ttl}. Cách đo giống Bảng~\ref{tab:q-bench}, cùng ngày 19/11/2026.
+
+\begin{table}[!htbp]
+\centering
+\caption{Cache-aside: thời gian (ms) của 5 lần đo, ngày 19/11/2026.}\label{tab:q-cache}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|L|r|r|r|r|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Báo cáo} & \reportheader{Oracle AUTO} & \reportheader{Cache MISS} & \reportheader{Cache HIT} & \reportheader{Oracle / HIT} \\ \hline
+Doanh thu theo tháng & 44,8 $\pm$ 1,4 & 48,5 $\pm$ 4,2 & 1,05 $\pm$ 0,09 & 43 lần \\ \hline
+Doanh thu theo danh mục & 118,0 $\pm$ 18,7 & 124,3 $\pm$ 48,8 & 1,49 $\pm$ 0,18 & 79 lần \\ \hline
+Top sản phẩm & 141,6 $\pm$ 39,7 & 161,1 $\pm$ 61,8 & 1,90 $\pm$ 0,10 & 75 lần \\ \hline
+Khách VIP & 134,2 $\pm$ 10,2 & 154,3 $\pm$ 13,0 & 1,40 $\pm$ 0,11 & 96 lần \\ \hline
+Sản phẩm chưa từng bán & 32,8 $\pm$ 2,2 & 36,5 $\pm$ 5,4 & 1,34 $\pm$ 0,10 & 24 lần \\ \hline
+\end{tabularx}
+\end{table}
+
+Cột Oracle AUTO ở đây là một lượt đo riêng, chạy xen giữa các lần đo cache, nên lệch tới 40\% so với Bảng~\ref{tab:q-bench}. Lần MISS tốn hơn gọi Oracle trực tiếp một chút, vì thêm \texttt{GET} và \texttt{SET} (3 đến 4 round-trip). Từ lần thứ hai, mỗi báo cáo chỉ còn một \texttt{GET}, mất 1 đến 2 ms, nhanh hơn Oracle từ 24 đến 96 lần. Cách này dùng được cho cả báo cáo sản phẩm chưa từng bán, vì Oracle vẫn là nơi tính. Lần đo ngày 11/11/2026 cũng cho HIT dưới 5 ms và nhanh hơn Oracle 18 đến 65 lần.
+
+Cái giá là dữ liệu cũ. Backend không xóa cache khi có đơn mới, nên trong thời gian TTL, báo cáo có thể thiếu các đơn vừa đặt. \texttt{contract\_test.py} kiểm điều này: chèn một đơn vào Oracle thì cache vẫn trả số cũ; xóa key (tương đương hết TTL) thì lần gọi sau khớp với Oracle.
+
+\paragraph{Lựa chọn cho ShopFlash}\label{sec:q-4-decision}
+
+F5 và F6 là truy vấn phân tích trên dữ liệu đơn hàng: join nhiều bảng, gom nhóm, có subquery, và người quản trị cần thấy cả đơn vừa đặt. ShopFlash chạy các báo cáo này trên Oracle. Trang Báo cáo mặc định đọc từ Oracle. Lý do không nằm ở tốc độ: chênh lệch giữa Oracle và Redis AGGREGATE nhỏ và không ổn định. Oracle đọc được đơn vừa commit. Nó làm được báo cáo cần anti-join. Nó không cần bản sao phải dựng lại. Báo cáo mới chỉ cần thêm một câu SQL.
+
+Redis được dùng theo hai cách, đều có giới hạn rõ. Cache-aside hợp khi người quản trị xem lại cùng một khoảng ngày nhiều lần. Số liệu khi đó có thể trễ tối đa 5 phút. Báo cáo cần số mới tuyệt đối thì đọc thẳng Oracle. Read model analytics vẫn được giữ trong ứng dụng để phục vụ Query Lab. Nó cho thấy cách làm tính sẵn cho câu hỏi đã biết có thể nhanh hơn Oracle, và cái giá của nó: phải denormalize, phải tự thiết kế index \texttt{SORTABLE}, phải dựng lại khi dữ liệu đổi.
+
+Có một trường hợp hợp với Redis hơn. Đó là chỉ số cần đọc rất nhiều lần với độ trễ thấp, ví dụ doanh thu đang chạy của một đợt flash sale. Khi đó, mỗi đơn mới được cộng dồn vào một key. Ứng dụng đọc đúng key đó. Không cần chạy \texttt{FT.AGGREGATE} trên toàn bộ đơn hàng.
+
+\paragraph{Giới hạn của nghiên cứu}\label{sec:q-4-limits}
+
+Kết luận trên chỉ đúng trong phạm vi đã đo. Dữ liệu là 100.000 đơn sinh tự động trên một máy cá nhân, mỗi cấu hình đo 5 lần. Oracle là bản Free bị giới hạn tài nguyên, Redis chạy một instance, không cluster. Hai lần đo cách nhau một tháng cho thứ tự khác nhau ở hai báo cáo, và nhóm chưa giải thích được vì sao. Nhóm chưa đo khi nhiều người gọi báo cáo cùng lúc. Nhóm cũng chưa đo trên dữ liệu lớn hơn bộ nhớ. Materialized view của Oracle chưa được thử.
+
+\endgroup

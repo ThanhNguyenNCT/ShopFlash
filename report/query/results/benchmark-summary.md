@@ -4,25 +4,25 @@ Số liệu thô: `benchmark-<report>.csv`. Môi trường: `environment.md`.
 
 | Báo cáo | Nguồn | Biến thể | Trung bình ± độ lệch (ms) | p50 (ms) | p95 (ms) | Round-trip |
 |---|---|---|---|---|---|---|
-| revenue-by-month | oracle | AUTO | 78.6 ± 17.4 | 70.5 | 107.7 | 1 |
-| revenue-by-month | redis | AGGREGATE | 199.9 ± 22.1 | 200.6 | 227.3 | 1 |
-| revenue-by-month | redis | CLIENT | 820.1 ± 55.2 | 842.2 | 862.4 | 9 |
-| revenue-by-category | oracle | AUTO | 208.5 ± 40.7 | 193.3 | 255.8 | 1 |
-| revenue-by-category | oracle | NL | 1,180.9 ± 227.9 | 1,254.3 | 1,373.0 | 1 |
-| revenue-by-category | oracle | HASH | 233.2 ± 50.6 | 213.5 | 323.5 | 1 |
-| revenue-by-category | oracle | MERGE | 411.9 ± 82.4 | 382.3 | 551.9 | 1 |
-| revenue-by-category | redis | AGGREGATE | 373.4 ± 48.5 | 360.7 | 441.0 | 1 |
-| revenue-by-category | redis | CLIENT | 2,597.1 ± 382.3 | 2,411.2 | 3,120.2 | 22 |
-| top-products | oracle | AUTO | 155.2 ± 23.6 | 146.7 | 196.0 | 1 |
-| top-products | oracle | NL | 852.9 ± 117.1 | 876.1 | 976.1 | 1 |
-| top-products | oracle | HASH | 233.5 ± 28.6 | 221.7 | 279.5 | 1 |
-| top-products | oracle | MERGE | 573.5 ± 87.7 | 546.6 | 670.0 | 1 |
-| top-products | redis | AGGREGATE | 850.7 ± 32.4 | 835.3 | 903.2 | 1 |
-| top-products | redis | CLIENT | 4,851.2 ± 1,463.0 | 4,254.0 | 7,396.8 | 22 |
-| vip-customers | oracle | AUTO | 193.7 ± 24.4 | 193.6 | 223.2 | 2 |
-| vip-customers | oracle | NL | 271.7 ± 16.9 | 268.0 | 294.4 | 2 |
-| vip-customers | oracle | HASH | 187.2 ± 6.8 | 185.7 | 197.1 | 2 |
-| vip-customers | oracle | MERGE | 250.6 ± 36.9 | 266.9 | 284.2 | 2 |
-| vip-customers | redis | AGGREGATE | 875.4 ± 76.8 | 846.4 | 968.1 | 2 |
-| vip-customers | redis | CLIENT | 2,362.9 ± 517.2 | 2,443.4 | 2,980.8 | 9 |
-| unsold-products | oracle | AUTO | 139.3 ± 22.8 | 137.1 | 170.8 | 2 |
+| revenue-by-month | oracle | AUTO | 49.7 ± 3.3 | 48.5 | 54.1 | 1 |
+| revenue-by-month | redis | AGGREGATE | 62.7 ± 1.1 | 62.6 | 64.4 | 1 |
+| revenue-by-month | redis | CLIENT | 625.0 ± 59.0 | 635.0 | 693.9 | 9 |
+| revenue-by-category | oracle | AUTO | 94.5 ± 7.6 | 91.0 | 108.0 | 1 |
+| revenue-by-category | oracle | NL | 459.4 ± 10.3 | 456.0 | 477.0 | 1 |
+| revenue-by-category | oracle | HASH | 108.5 ± 8.8 | 105.7 | 118.6 | 1 |
+| revenue-by-category | oracle | MERGE | 314.1 ± 16.9 | 314.6 | 335.4 | 1 |
+| revenue-by-category | redis | AGGREGATE | 55.8 ± 2.3 | 56.1 | 58.2 | 1 |
+| revenue-by-category | redis | CLIENT | 1,686.0 ± 121.9 | 1,663.3 | 1,890.0 | 22 |
+| top-products | oracle | AUTO | 101.4 ± 4.5 | 100.2 | 106.9 | 1 |
+| top-products | oracle | NL | 528.4 ± 27.9 | 541.6 | 551.6 | 1 |
+| top-products | oracle | HASH | 136.1 ± 15.1 | 132.7 | 162.2 | 1 |
+| top-products | oracle | MERGE | 306.4 ± 10.9 | 303.8 | 324.0 | 1 |
+| top-products | redis | AGGREGATE | 92.2 ± 7.9 | 88.8 | 106.3 | 1 |
+| top-products | redis | CLIENT | 1,961.9 ± 76.5 | 1,973.3 | 2,047.8 | 22 |
+| vip-customers | oracle | AUTO | 126.5 ± 10.6 | 123.7 | 144.4 | 2 |
+| vip-customers | oracle | NL | 160.3 ± 13.2 | 155.9 | 183.0 | 2 |
+| vip-customers | oracle | HASH | 138.9 ± 10.0 | 139.0 | 151.3 | 2 |
+| vip-customers | oracle | MERGE | 140.1 ± 10.3 | 135.4 | 155.6 | 2 |
+| vip-customers | redis | AGGREGATE | 192.8 ± 9.1 | 193.9 | 202.8 | 2 |
+| vip-customers | redis | CLIENT | 673.7 ± 44.3 | 663.2 | 736.9 | 9 |
+| unsold-products | oracle | AUTO | 31.7 ± 3.1 | 30.2 | 36.9 | 2 |

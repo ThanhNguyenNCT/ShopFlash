@@ -71,24 +71,26 @@ Test của backend:
 
 ## Kết quả chính
 
-Đo ngày 18/10/2026 trên AMD Ryzen 5 7535HS, 15,3 GB RAM, Docker 29.5.2. Oracle AI Database 26ai Free 23.26.3, Redis Stack 7.4.7. Dữ liệu: 87.141 đơn được tính, 215.807 dòng hàng. Khởi động 1 lần không tính, đo 5 lần. Chi tiết ở `results/benchmark-summary.md`, môi trường ở `results/environment.md`.
+Đo ngày 19/11/2026 trên AMD Ryzen 5 7535HS, 15,3 GB RAM, Docker 29.5.2. Oracle AI Database 26ai Free 23.26.3, Redis Stack 7.4.7. Dữ liệu: 87.139 đơn được tính, 215.805 dòng hàng (nạp lại bằng `simulate.py reset` rồi `history`). Khoảng ngày cố định 01/11/2025–18/10/2026 (script đo tự truyền `from`/`to`). Khởi động 1 lần không tính, đo 5 lần. Chi tiết ở `results/benchmark-summary.md`, môi trường ở `results/environment.md`, lượt đo lặp lại ngay trước đó ở `results/benchmark-lan-lap-19-11.md`.
 
 | Báo cáo | Oracle AUTO | Oracle NL (ép) | Redis AGGREGATE | Redis CLIENT |
 |---|---|---|---|---|
-| Doanh thu theo tháng | 79 ± 17 ms | – | 200 ± 22 ms | 820 ± 55 ms (9 round-trip) |
-| Doanh thu theo danh mục | 209 ± 41 ms | 1.181 ± 228 ms | 373 ± 49 ms | 2.597 ± 382 ms (22) |
-| Top sản phẩm | 155 ± 24 ms | 853 ± 117 ms | 851 ± 32 ms | 4.851 ± 1.463 ms (22) |
-| Khách VIP (subquery) | 194 ± 24 ms (2 câu) | 272 ± 17 ms | 875 ± 77 ms (2 lượt) | 2.363 ± 517 ms (9) |
-| Sản phẩm chưa bán (NOT EXISTS) | 139 ± 23 ms | – | không hỗ trợ | không hỗ trợ |
+| Doanh thu theo tháng | 50 ± 3 ms | – | 63 ± 1 ms | 625 ± 59 ms (9 round-trip) |
+| Doanh thu theo danh mục | 95 ± 8 ms | 459 ± 10 ms | 56 ± 2 ms | 1.686 ± 122 ms (22) |
+| Top sản phẩm | 101 ± 5 ms | 528 ± 28 ms | 92 ± 8 ms | 1.962 ± 77 ms (22) |
+| Khách VIP (subquery) | 127 ± 11 ms (2 câu) | 160 ± 13 ms | 193 ± 9 ms (2 lượt) | 674 ± 44 ms (9) |
+| Sản phẩm chưa bán (NOT EXISTS) | 32 ± 3 ms | – | không hỗ trợ | không hỗ trợ |
+
+Lần đo đầu ngày 18/10/2026 (cùng máy, cùng code) cho Oracle nhanh hơn Redis AGGREGATE ở cả 4 báo cáo, 1,8–5,5 lần (79/209/155/194 ms so với 200/373/851/875 ms). Ngày 19/11, hai lượt đo liên tiếp đều cho Redis nhanh hơn ở theo danh mục và top sản phẩm, Oracle nhanh hơn ở theo tháng và VIP. Không có thay đổi code Redis hay script đo giữa hai ngày; chưa rõ nguyên nhân (giả thuyết: tải máy). Vì vậy chênh lệch dưới 2 lần giữa Oracle AUTO và Redis AGGREGATE không dùng làm căn cứ chọn DBMS. Các chênh lệch lớn (NL/AUTO, CLIENT/AGGREGATE, cache HIT/Oracle) giữ cùng chiều ở mọi lần đo.
 
 ### Sáu khác biệt và bằng chứng
 
 | # | Khác biệt | Bằng chứng |
 |---|---|---|
 | D1 | Cùng báo cáo, cùng kết quả trên hai nguồn | `/compare` khớp ở cả 4 báo cáo Redis hỗ trợ (`tests/contract_test.py`); ảnh `3.3-03` |
-| D2 | Oracle có optimizer theo chi phí: AUTO chọn HASH JOIN; ép NL chậm hơn 5,5–5,7 lần ở hai báo cáo join 4 bảng (VIP chỉ join 2 bảng nên chỉ chậm 1,4 lần) | `results/plans/*-oracle-{AUTO,NL,HASH,MERGE}.txt`; bảng trên; ảnh `3.3-04` |
-| D3 | Thống kê quyết định kế hoạch. Xóa thống kê thì top-products chuyển từ plan `2314863829` (HASH JOIN, ước lượng 9.004 dòng, thực tế 9.001) sang `56634007` (MERGE JOIN, ước lượng 285K dòng, dynamic sampling); gather lại thì quay về như cũ | `results/plans/stats-*.txt` |
-| D4 | Redis không có optimizer; tự tính trong ứng dụng (CLIENT) cần 9–22 round-trip và chậm gấp 2,7–7 lần so với để FT.AGGREGATE làm | bảng trên; `results/plans/*-redis-*.txt` (`FT.PROFILE`); ảnh `3.3-06` |
+| D2 | Oracle có optimizer theo chi phí: AUTO chọn HASH JOIN; ép NL chậm hơn 4,9–5,2 lần ở hai báo cáo join 4 bảng (VIP chỉ join 2 bảng nên chỉ chậm 1,3 lần) | `results/plans/*-oracle-{AUTO,NL,HASH,MERGE}.txt`; bảng trên; ảnh `3.3-04` |
+| D3 | Thống kê quyết định kế hoạch. Xóa thống kê thì top-products chuyển từ plan `2314863829` (HASH JOIN, ước lượng 9.001 dòng, thực tế 9.000) sang `56634007` (MERGE JOIN, ước lượng 285K dòng, dynamic sampling, đọc 91.035 block thay vì 5.161); gather lại thì quay về như cũ | `results/plans/stats-*.txt` |
+| D4 | Redis không có optimizer; tự tính trong ứng dụng (CLIENT) cần 9–22 round-trip và chậm gấp 3,5–30 lần so với để FT.AGGREGATE làm | bảng trên; `results/plans/*-redis-*.txt` (`FT.PROFILE`); ảnh `3.3-06` |
 | D5 | Subquery: Oracle viết `HAVING … > (SELECT AVG …)` và `NOT EXISTS` trong SQL; Redis phải tách 2 lượt cho VIP và không làm được "chưa từng bán" | ảnh `3.3-07`; `meta.supported=false` |
 | D6 | Read model Redis chỉ nhất quán sau rebuild: chèn 1 đơn vào Oracle thì compare lệch, rebuild xong mới khớp | `tests/contract_test.py` phần D6; ảnh `3.3-08` |
 
@@ -102,21 +104,23 @@ Test của backend:
 
 ## Kết hợp: Oracle tính, Redis giữ kết quả (cache-aside)
 
-Từ các số đo trên, Redis không nhanh hơn Oracle ở truy vấn gom nhóm. Redis nhanh khi đọc theo khóa, nên cách kết hợp là để Oracle tính rồi giữ kết quả trong Redis:
+Redis nhanh nhất khi đọc theo khóa, nên cách kết hợp là để Oracle tính rồi giữ kết quả trong Redis:
 
 - `GET /api/admin/reports/{report}?source=cache`: tra key `report:cache:<báo cáo>:<tham số>`. Có thì trả luôn (`HIT`); không có thì chạy Oracle, `SET … PX <TTL>` rồi trả (`MISS`). TTL mặc định 5 phút (`shopflash.query.cache-ttl`).
 - Cái giá: không xóa cache khi có đơn mới, nên trong thời gian TTL kết quả có thể cũ. `tests/contract_test.py` kiểm điều này: chèn một đơn vào Oracle, cache vẫn trả số cũ; xóa cache (như hết TTL) thì lần sau khớp Oracle mới.
 - Đo lại: `python report/query/bench/run_benchmarks.py --only-cache` (khoảng 1 phút), ghi `results/cache-summary.md` và `results/benchmark-cache.csv`.
 
-Đo ngày 11/11/2026, cùng máy và dữ liệu như trên, đo 5 lần sau 1 lần khởi động (lúc đo có trình duyệt và Vite đang chạy, nên chỉ so trong cùng bảng):
+Đo ngày 19/11/2026, cùng lần chạy với bảng "Kết quả chính" (cột Oracle AUTO là một lượt đo riêng xen giữa các lần đo cache, nên lệch tới 40% so với bảng trên):
 
 | Báo cáo | Oracle AUTO | Cache MISS (trống) | Cache HIT | Oracle / HIT |
 |---|---|---|---|---|
-| Doanh thu theo tháng | 53 ± 9 ms | 78 ± 43 ms | 3,0 ± 0,6 ms | 18× |
-| Doanh thu theo danh mục | 138 ± 18 ms | 214 ± 54 ms | 4,2 ± 0,8 ms | 33× |
-| Top sản phẩm | 135 ± 48 ms | 144 ± 12 ms | 2,6 ± 0,6 ms | 52× |
-| Khách VIP | 138 ± 33 ms | 152 ± 31 ms | 2,1 ± 0,3 ms | 65× |
-| Sản phẩm chưa bán | 72 ± 15 ms | 177 ± 220 ms | 4,0 ± 0,2 ms | 18× |
+| Doanh thu theo tháng | 45 ± 1 ms | 49 ± 4 ms | 1,05 ± 0,09 ms | 43× |
+| Doanh thu theo danh mục | 118 ± 19 ms | 124 ± 49 ms | 1,49 ± 0,18 ms | 79× |
+| Top sản phẩm | 142 ± 40 ms | 161 ± 62 ms | 1,90 ± 0,10 ms | 75× |
+| Khách VIP | 134 ± 10 ms | 154 ± 13 ms | 1,40 ± 0,11 ms | 96× |
+| Sản phẩm chưa bán | 33 ± 2 ms | 37 ± 5 ms | 1,34 ± 0,10 ms | 24× |
+
+Lần đo ngày 11/11/2026 cũng cho HIT 2–4 ms, nhanh hơn Oracle 18–65 lần.
 
 Lần MISS tốn hơn Oracle một chút (thêm `GET` và `SET`, 3–4 round-trip); từ lần thứ hai chỉ còn 1 `GET`. Cách này hợp với báo cáo admin: xem lại cùng khoảng ngày nhiều lần, chậm vài phút vẫn chấp nhận được. Báo cáo cần số mới tuyệt đối thì đọc thẳng Oracle.
 

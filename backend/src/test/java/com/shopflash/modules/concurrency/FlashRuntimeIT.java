@@ -34,7 +34,7 @@ import com.shopflash.modules.concurrency.service.FlashRuntimeService;
 import redis.clients.jedis.RedisClient;
 
 /**
- * Lua giữ suất trên Redis thật (và nạp runtime từ Oracle cho chương trình seed 9101).
+ * Lua giữ suất trên Redis thật (và nạp runtime từ Oracle cho chương trình seed 9111).
  * Chạy trên stack Docker: ./mvnw test -Dtest='FlashRuntimeIT'
  * Dùng chương trình giả 990001-990004 chỉ có trên Redis; dọn sạch key sau khi chạy.
  */
@@ -263,10 +263,10 @@ class FlashRuntimeIT {
 
     @Test
     void seedSaleIsRebuiltFromOracle() {
-        runtimeService.load(9101);
+        runtimeService.load(9111);
         List<Map<String, Object>> rows = jdbc.queryForList("""
                 SELECT flash_sale_item_id, allocated_quantity - sold_quantity AS remaining
-                FROM flash_sale_items WHERE flash_sale_id = 9101
+                FROM flash_sale_items WHERE flash_sale_id = 9111
                 """, Map.of());
         assertThat(rows).isNotEmpty();
         for (Map<String, Object> row : rows) {
@@ -274,7 +274,7 @@ class FlashRuntimeIT {
             long expected = ((Number) row.get("REMAINING")).longValue();
             assertThat(remaining(itemId)).as("item %d", itemId).isEqualTo(expected);
         }
-        assertThat(redis.hget(FlashKeys.sale(9101), "status")).isEqualTo("ACTIVE");
+        assertThat(redis.hget(FlashKeys.sale(9111), "status")).isEqualTo("ACTIVE");
     }
 
     private ReserveOutcome reserve(long itemId, long userId, int quantity) {

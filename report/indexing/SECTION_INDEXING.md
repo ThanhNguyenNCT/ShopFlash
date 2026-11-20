@@ -246,14 +246,14 @@ Hiện thực trong ứng dụng (module `indexing`):
 - Migration `V3__indexing_product_search.sql` thêm hai index trên `PRODUCTS`. Index ghép có thêm `product_id` ở cuối để thứ tự ổn định khi trùng giá (phân trang không lặp) mà Oracle vẫn không phải sắp xếp lại.
 - API công khai `GET /api/products/search` định tuyến theo bảng trên; mỗi response có `meta` ghi nguồn, đường đi (`KEYWORD`/`BROWSE`), câu SQL hoặc lệnh Redis đã chạy, số lượt gọi DB và thời gian. `GET /api/products/{id}`, `GET /api/products/categories` đọc Oracle.
 - Từ khóa được tách giống nhau cho hai nguồn: chỉ giữ chữ và số (kể cả chữ có dấu), bỏ toán tử của Oracle Text và stopword của RediSearch, nên không thể chèn cú pháp truy vấn; mọi giá trị vào SQL đều là bind variable.
-- Trang **Indexing Lab** (admin) chạy cùng một yêu cầu trên hai nguồn, có và không có index, hiện kế hoạch thực thi và dung lượng index, phục vụ demo.
+- Nguồn, thời gian gọi DB, số lượt gọi và câu lệnh của mỗi lần tìm được in ra console của trình duyệt (F12, nhóm `[ShopFlash search]`) để demo. Ứng dụng **không** có trang so sánh thời gian hai DBMS: trên dữ liệu thật chỉ khoảng 200 sản phẩm, thời gian đo qua ứng dụng bị chi phối bởi số lượt gọi và chi phí driver, mạng (Oracle ép quét toàn bảng ngang Oracle có index; Oracle cần 2 lượt gọi, RediSearch 1), không phản ánh hiệu quả index. Việc so sánh dựa vào E1–E6 đo trong DB trên 200.000 dòng.
 
 **Giới hạn đã biết:**
 
 - Tìm theo từ khóa đọc bản sao Redis, nên tình trạng còn hàng có thể cũ; trang chi tiết và đặt hàng luôn đọc Oracle. Khi `idx:products` được dựng lại hoặc Redis khởi động lại, vài giây đầu chỉ tìm thấy một phần sản phẩm.
 - Khi trùng giá, `SORTBY` của RediSearch chỉ theo một trường nên thứ tự giữa các trang có thể không ổn định.
 - Chưa hỗ trợ tìm không dấu ("dien thoai" ra "điện thoại") và chưa tắt stemming tiếng Anh của `idx:products`.
-- Trường hợp từ khóa **kèm** bộ lọc trên RediSearch chưa được đo trên 200.000 sản phẩm (E2 chỉ đo từ khóa, E3 chỉ đo bộ lọc); trang Indexing Lab có thẻ so sánh cho trường hợp này.
+- Trường hợp từ khóa **kèm** bộ lọc trên RediSearch chưa được đo (E2 chỉ đo từ khóa, E3 chỉ đo bộ lọc).
 
 ### Tài liệu tham khảo
 

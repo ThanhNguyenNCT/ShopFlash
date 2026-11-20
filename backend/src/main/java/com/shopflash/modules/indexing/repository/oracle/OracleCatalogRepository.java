@@ -1,7 +1,6 @@
 package com.shopflash.modules.indexing.repository.oracle;
 
 import com.shopflash.modules.indexing.dto.response.CategoryOption;
-import com.shopflash.modules.indexing.dto.response.IndexInfoResponse.OracleSegment;
 import com.shopflash.modules.indexing.dto.response.ProductDetailResponse;
 import java.util.List;
 import java.util.Optional;
@@ -9,7 +8,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-/** Đọc dữ liệu gốc trên Oracle: chi tiết sản phẩm, danh mục cho bộ lọc, dung lượng index của PRODUCTS. */
+/** Đọc dữ liệu gốc trên Oracle: chi tiết sản phẩm, danh mục cho bộ lọc. */
 @Repository
 public class OracleCatalogRepository {
 
@@ -29,25 +28,6 @@ public class OracleCatalogRepository {
             WHERE c.status = 'ACTIVE'
             GROUP BY c.category_id, c.name
             ORDER BY c.name""";
-
-    /** Bảng PRODUCTS, mọi index của nó, và các bảng phụ DR$...$ của Oracle Text kèm index, LOB của chúng. */
-    private static final String SEGMENTS = """
-            WITH text_tables AS (
-              SELECT table_name FROM user_tables WHERE table_name LIKE 'DR$IX_PRODUCTS_NAME_TEXT$%'
-            ), segs AS (
-              SELECT 'PRODUCTS' AS segment_name, 'PRODUCTS' AS belongs_to FROM dual
-              UNION ALL SELECT index_name, table_name FROM user_indexes WHERE table_name = 'PRODUCTS'
-              UNION ALL SELECT table_name, table_name FROM text_tables
-              UNION ALL SELECT index_name, table_name FROM user_indexes
-                        WHERE table_name IN (SELECT table_name FROM text_tables)
-              UNION ALL SELECT segment_name, table_name FROM user_lobs
-                        WHERE table_name IN (SELECT table_name FROM text_tables)
-              UNION ALL SELECT index_name, table_name FROM user_lobs
-                        WHERE table_name IN (SELECT table_name FROM text_tables)
-            )
-            SELECT DISTINCT s.segment_name, us.segment_type, s.belongs_to, us.bytes
-            FROM segs s JOIN user_segments us ON us.segment_name = s.segment_name
-            ORDER BY us.bytes DESC, s.segment_name""";
 
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -71,11 +51,5 @@ public class OracleCatalogRepository {
     public List<CategoryOption> activeCategories() {
         return jdbc.query(CATEGORIES, new MapSqlParameterSource(), (rs, i) -> new CategoryOption(
                 rs.getLong("category_id"), rs.getString("name"), rs.getLong("product_count")));
-    }
-
-    public List<OracleSegment> productIndexSegments() {
-        return jdbc.query(SEGMENTS, new MapSqlParameterSource(), (rs, i) -> new OracleSegment(
-                rs.getString("segment_name"), rs.getString("segment_type"), rs.getString("belongs_to"),
-                rs.getLong("bytes")));
     }
 }

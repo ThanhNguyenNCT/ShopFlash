@@ -1,17 +1,15 @@
 package com.shopflash.modules.indexing.repository.oracle;
 
-import com.shopflash.modules.indexing.model.OracleVariant;
 import com.shopflash.modules.indexing.model.SearchQuery;
 import com.shopflash.modules.indexing.model.SortOrder;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.stream.Collectors;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 
 /**
  * Dựng câu SQL tìm sản phẩm. Câu được ghép từ các đoạn cố định trong lớp này; mọi giá trị từ client đi qua
- * bind variable. Hint chỉ lấy từ OracleVariant, không nhận chuỗi từ client.
+ * bind variable.
  *
  * Không có từ khóa, lọc danh mục và sắp theo giá: ix_products_cat_status_price (category_id, status, base_price,
  * product_id) cho đúng thứ tự ORDER BY, nên Oracle đọc vừa đủ một trang rồi dừng (E3).
@@ -34,26 +32,26 @@ public final class OracleSearchSql {
     private OracleSearchSql() {
     }
 
-    /** Trang kết quả. gatherStats = thêm hint GATHER_PLAN_STATISTICS (dùng cho trang Lab xem kế hoạch). */
-    public static Sql page(SearchQuery q, OracleVariant variant, boolean gatherStats) {
+    /** Trang kết quả. */
+    public static Sql page(SearchQuery q) {
         MapSqlParameterSource params = new MapSqlParameterSource();
-        boolean scored = usesScore(q, variant);
-        String sql = "SELECT " + hints(variant, gatherStats) + COLUMNS + "\n"
+        boolean scored = usesScore(q);
+        String sql = "SELECT " + COLUMNS + "\n"
                 + JOINS + "\n"
-                + "WHERE " + where(q, variant, params, scored) + "\n"
-                + "ORDER BY " + orderBy(q, variant) + "\n"
+                + "WHERE " + where(q, params, scored) + "\n"
+                + "ORDER BY " + orderBy(q) + "\n"
                 + "OFFSET :offset ROWS FETCH NEXT :size ROWS ONLY";
         params.addValue("offset", q.offset()).addValue("size", q.size());
         return new Sql(sql, params);
     }
 
     /** Tổng số kết quả. Chỉ join categories/product_inventory khi lọc còn hàng (để câu đếm chỉ đọc index khi được). */
-    public static Sql count(SearchQuery q, OracleVariant variant) {
+    public static Sql count(SearchQuery q) {
         MapSqlParameterSource params = new MapSqlParameterSource();
         String from = q.inStock() ? JOINS : "FROM products p";
-        String sql = "SELECT " + hints(variant, false) + "COUNT(*)\n"
+        String sql = "SELECT COUNT(*)\n"
                 + from + "\n"
-                + "WHERE " + where(q, variant, params, false);
+                + "WHERE " + where(q, params, false);
         return new Sql(sql, params);
     }
 
@@ -62,34 +60,16 @@ public final class OracleSearchSql {
         return keywords.stream().map(k -> k + "%").collect(Collectors.joining(" AND "));
     }
 
-    static boolean usesScore(SearchQuery q, OracleVariant variant) {
-        return q.hasKeywords() && variant == OracleVariant.AUTO && q.sort() == SortOrder.RELEVANCE;
+    static boolean usesScore(SearchQuery q) {
+        return q.hasKeywords() && q.sort() == SortOrder.RELEVANCE;
     }
 
-    private static String hints(OracleVariant variant, boolean gatherStats) {
-        List<String> hints = new ArrayList<>();
-        if (variant == OracleVariant.FULL) {
-            hints.add("FULL(p)");
-        }
-        if (gatherStats) {
-            hints.add("GATHER_PLAN_STATISTICS");
-        }
-        return hints.isEmpty() ? "" : "/*+ " + String.join(" ", hints) + " */ ";
-    }
-
-    private static String where(SearchQuery q, OracleVariant variant, MapSqlParameterSource params, boolean scored) {
+    private static String where(SearchQuery q, MapSqlParameterSource params, boolean scored) {
         List<String> parts = new ArrayList<>();
         parts.add("p.status = 'ACTIVE'");
         if (q.hasKeywords()) {
-            if (variant == OracleVariant.AUTO) {
-                parts.add(scored ? "CONTAINS(p.name, :textQuery, 1) > 0" : "CONTAINS(p.name, :textQuery) > 0");
-                params.addValue("textQuery", textQuery(q.keywords()));
-            } else {
-                for (int i = 0; i < q.keywords().size(); i++) {
-                    parts.add("UPPER(p.name) LIKE :kw" + i);
-                    params.addValue("kw" + i, "%" + q.keywords().get(i).toUpperCase(Locale.ROOT) + "%");
-                }
-            }
+            parts.add(scored ? "CONTAINS(p.name, :textQuery, 1) > 0" : "CONTAINS(p.name, :textQuery) > 0");
+            params.addValue("textQuery", textQuery(q.keywords()));
         }
         if (q.categoryId() != null) {
             parts.add("p.category_id = :categoryId");
@@ -110,9 +90,9 @@ public final class OracleSearchSql {
         return String.join("\n  AND ", parts);
     }
 
-    private static String orderBy(SearchQuery q, OracleVariant variant) {
+    private static String orderBy(SearchQuery q) {
         return switch (q.sort()) {
-            case RELEVANCE -> usesScore(q, variant) ? "SCORE(1) DESC, p.product_id" : "p.product_id";
+            case RELEVANCE -> usesScore(q) ? "SCORE(1) DESC, p.product_id" : "p.product_id";
             case PRICE_ASC -> "p.base_price, p.product_id";
             case PRICE_DESC -> "p.base_price DESC, p.product_id DESC";
         };

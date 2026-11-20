@@ -1,3 +1,510 @@
 % !TeX root = ../../main.tex
 \subsection{Indexing}\label{sec:indexing}
-% Nội dung do thành viên phụ trách Indexing bổ sung.
+\begingroup
+% Đánh số bảng/hình/mã nguồn theo mục (2.2.x), giống Storage và Transaction.
+\setcounter{table}{0}\setcounter{figure}{0}\setcounter{lstlisting}{0}
+\renewcommand{\thetable}{\thesubsection.\arabic{table}}
+\renewcommand{\thefigure}{\thesubsection.\arabic{figure}}
+\renewcommand{\thelstlisting}{\thesubsection.\arabic{lstlisting}}
+\renewcommand{\theHtable}{\thesubsection.\arabic{table}}
+\renewcommand{\theHfigure}{\thesubsection.\arabic{figure}}
+\def\theHlstlisting{\thesubsection.\arabic{lstlisting}}
+
+\subsubsection{Mục tiêu, phạm vi và câu hỏi nghiên cứu}\label{sec:ix-goal}
+
+Tìm kiếm và duyệt sản phẩm là một trong những luồng đọc dữ liệu diễn ra thường xuyên nhất của khách hàng trong ShopFlash. Khách hàng tìm theo từ khóa, chọn danh mục, lọc theo khoảng giá rồi sắp xếp và lật từng trang kết quả; trong khi đó, việc thêm hoặc sửa thông tin sản phẩm do quản trị viên thực hiện thưa hơn nhiều. Đây là một khối lượng công việc \emph{đọc nhiều, ghi ít}. Với khối lượng công việc này, chỉ mục (\emph{index}) là công cụ chính để rút ngắn thời gian truy vấn. Tuy nhiên, chỉ mục không miễn phí: mỗi chỉ mục chiếm thêm dung lượng, làm chậm các thao tác ghi, và phải luôn phản ánh đúng dữ liệu gốc.
+
+Mục này nghiên cứu cách Oracle Database và Redis giải quyết bài toán chỉ mục, và đối chiếu chúng trên chính các truy vấn của ShopFlash. Như đã trình bày ở mục~\ref{sec:storage}, Oracle là nguồn dữ liệu gốc của danh mục và sản phẩm, còn Redis giữ một bản chiếu (\emph{projection}) của từng sản phẩm dưới dạng tài liệu RedisJSON \texttt{product:\{id\}}, được đánh chỉ mục bằng RediSearch trong chỉ mục \texttt{idx:products}. Vì vậy, mỗi yêu cầu tìm kiếm của khách hàng có thể được phục vụ bởi Oracle hoặc bởi Redis, và câu hỏi cần trả lời là nên giao yêu cầu nào cho DBMS nào.
+
+Bảng~\ref{tab:ix-query-patterns} tóm tắt các nội dung được dùng làm đối tượng nghiên cứu, ứng với sáu thí nghiệm E1 đến E6. Ba thí nghiệm đầu là các mẫu truy vấn đọc, được chọn để trải từ truy vấn cực kỳ chọn lọc (chỉ một dòng kết quả) đến truy vấn trả về hàng nghìn dòng, vì hiệu quả của chỉ mục phụ thuộc mạnh vào số dòng được chọn ra; thí nghiệm thứ tư là thao tác ghi. Hai thí nghiệm còn lại không gắn với một câu truy vấn cụ thể mà xét cái giá của chỉ mục: dung lượng mà chỉ mục chiếm (E5) và thời điểm chỉ mục phản ánh một thay đổi dữ liệu (E6).
+
+\begin{table}[!htbp]
+\centering
+\caption{Các mẫu truy vấn và khía cạnh của chỉ mục được nghiên cứu.}\label{tab:ix-query-patterns}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=1.1\hsize\linewidth=\hsize}L|>{\hsize=0.8\hsize\linewidth=\hsize}L|>{\hsize=1.1\hsize\linewidth=\hsize}L|c|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Nội dung nghiên cứu} & \reportheader{Chức năng} & \reportheader{Ví dụ} & \reportheader{Thí nghiệm} \\ \hline
+Tra cứu theo một khóa duy nhất, cùng cơ chế với ràng buộc SKU duy nhất của sản phẩm & Nền tảng của mọi kiểu tra cứu & Tìm sản phẩm có SKU \texttt{LAB-0123456} & E1 \\ \hline
+Tìm từ khóa trong tên sản phẩm & Tìm kiếm sản phẩm & ``sony pro'': hai từ khóa, mỗi từ khớp nguyên từ & E2 \\ \hline
+Lọc theo danh mục và khoảng giá, sắp xếp theo giá, phân trang & Lọc nâng cao & Danh mục số 5, giá từ 1 đến 5 triệu đồng, giá tăng dần, 24 sản phẩm mỗi trang & E3 \\ \hline
+Ghi dữ liệu: thêm sản phẩm, sửa giá & Quản lý sản phẩm của quản trị viên & Thêm sản phẩm mới; đổi giá một sản phẩm & E4 \\ \hline
+Dung lượng mà chỉ mục chiếm thêm & Mọi chức năng tìm kiếm có dùng chỉ mục & Dung lượng chỉ mục của E1 đến E3: trên đĩa (Oracle) và trong RAM (Redis) & E5 \\ \hline
+Thời điểm chỉ mục phản ánh thay đổi dữ liệu & Kết quả tìm kiếm đúng sau khi sản phẩm thay đổi & Thêm, sửa giá, xóa một sản phẩm rồi tìm lại ngay & E6 \\ \hline
+\end{tabularx}
+\end{table}
+
+Từ bối cảnh trên, mục này tìm câu trả lời cho ba câu hỏi nghiên cứu:
+
+\begin{enumerate}[label=(\arabic*),leftmargin=*,itemsep=2pt,topsep=4pt]
+    \item Với từng mẫu truy vấn đọc trong Bảng~\ref{tab:ix-query-patterns} (E1 đến E3), chỉ mục trên Oracle và trên Redis giúp truy vấn nhanh hơn bao nhiêu so với khi không có chỉ mục?
+    \item Cái giá của chỉ mục là gì: thao tác ghi chậm đi bao nhiêu, chiếm thêm bao nhiêu dung lượng, và chỉ mục phản ánh thay đổi dữ liệu vào thời điểm nào?
+    \item Từ đó, việc tìm kiếm và lọc sản phẩm của ShopFlash nên giao cho DBMS nào, với loại chỉ mục nào, cho từng loại yêu cầu?
+\end{enumerate}
+
+\paragraph*{Phạm vi}
+
+Nghiên cứu giới hạn ở phân hệ danh mục và sản phẩm của ShopFlash, trên hai hệ quản trị Oracle Database và Redis (kèm mô-đun RediSearch). Để chênh lệch giữa các cách truy cập đủ lớn để đo được, các thí nghiệm không chạy trên dữ liệu thật của ứng dụng mà trên một tập 200\,000 sản phẩm giả, được sinh theo cùng một công thức ở cả hai hệ quản trị và đặt trong đối tượng riêng (một bảng riêng trên Oracle và các khóa có tiền tố riêng trên Redis), không làm thay đổi dữ liệu của ứng dụng. Kết quả đo được dùng để quyết định cách hiện thực tìm kiếm và lọc trong ShopFlash.
+
+Mục này không xét các truy vấn kết nối nhiều bảng và các báo cáo thống kê; những nội dung đó thuộc về mục~\ref{sec:query} (Query Processing).
+
+\subsubsection{Cơ sở lý thuyết về chỉ mục}\label{sec:ix-theory}
+
+Mục này xây dựng khung lý thuyết để trả lời ba câu hỏi nghiên cứu. Trước hết, chỉ mục được định nghĩa và gắn với ba chiều đánh giá tương ứng với các câu hỏi đó, trên cả hai hệ quản trị. Tiếp theo, các cấu trúc chỉ mục của Oracle và Redis được phân loại theo kiểu truy vấn mà chúng phục vụ. Cuối cùng, mục này so sánh cách hai hệ quản trị lựa chọn cách truy cập và duy trì chỉ mục khi dữ liệu thay đổi.
+
+\paragraph{Chỉ mục và ba chiều đánh giá}\label{sec:ix-dimensions}
+
+Chỉ mục (\emph{index}) là một cấu trúc dữ liệu phụ, được tạo thêm bên cạnh dữ liệu gốc để tìm nhanh các bản ghi thỏa một điều kiện mà không phải duyệt toàn bộ dữ liệu. 
+
+Khi không có chỉ mục, hai hệ quản trị phải duyệt toàn bộ dữ liệu theo hai cách khác nhau. Oracle lưu dữ liệu bảng thành các khối (\emph{block}), thường 8~KB mỗi khối như đã nêu ở mục~\ref{sec:storage}; nếu không có chỉ mục phù hợp, truy vấn phải đọc lần lượt mọi khối của bảng, gọi là quét toàn bảng (\emph{full table scan}), và số khối phải đọc tăng tỉ lệ thuận với kích thước bảng. Redis lưu dữ liệu dưới dạng các cặp key--value trong bộ nhớ và về mặt gốc chỉ tra cứu theo tên key \cite{redisSecondaryIndexing}. Muốn tìm theo giá trị nằm bên trong một tài liệu, chẳng hạn các sản phẩm có giá trong một khoảng, mà không có chỉ mục, thì phải duyệt lần lượt mọi key bằng lệnh \texttt{SCAN} rồi đọc từng tài liệu để kiểm tra điều kiện; đây cũng là cách ``không có chỉ mục'' được dùng làm mốc so sánh trong các thí nghiệm. Với cả hai hệ quản trị, chỉ mục thay việc duyệt toàn bộ bằng việc đi thẳng tới các bản ghi cần tìm.
+
+Lợi ích của chỉ mục phụ thuộc vào độ chọn lọc (\emph{selectivity}) của điều kiện lọc: điều kiện càng chọn ra ít dòng thì độ chọn lọc càng cao. Theo tài liệu của Oracle, đường truy cập qua chỉ mục hiệu quả hơn khi truy vấn lấy một phần nhỏ của bảng, còn khi truy vấn cần phần lớn các khối của bảng thì quét toàn bảng hiệu quả hơn; khi đó bộ tối ưu chọn quét toàn bảng dù có chỉ mục \cite{oracleAccessPaths}. Ảnh hưởng của độ chọn lọc lên cả hai hệ quản trị được khảo sát ở thí nghiệm E2, nơi cùng một kiểu truy vấn được thử với ba từ khóa khớp số dòng rất khác nhau.
+
+Mặt khác, chỉ mục không miễn phí. Vì vậy nghiên cứu đánh giá một chỉ mục trên ba chiều:
+
+\begin{itemize}[label=--,leftmargin=*,itemsep=2pt,topsep=4pt]
+    \item \textbf{Tốc độ truy vấn đọc:} chỉ mục giúp truy vấn nhanh hơn bao nhiêu so với duyệt toàn bộ dữ liệu.
+    \item \textbf{Chi phí duy trì:} dung lượng chỉ mục chiếm thêm, và mức làm chậm các thao tác ghi, vì mỗi lần dữ liệu được thêm, sửa hoặc xóa, hệ quản trị hoặc ứng dụng phải cập nhật cả chỉ mục. Ở Oracle, nhiều chỉ mục trên một bảng làm các thao tác ghi chậm đi vì hệ quản trị phải cập nhật tất cả các chỉ mục đó \cite{oracleIndexes}. Ở Redis, chỉ mục do RediSearch lập được cập nhật cùng với lệnh ghi \cite{redisJsonIndexing}, còn chỉ mục tự dựng thì do ứng dụng cập nhật \cite{redisSecondaryIndexing}.
+    \item \textbf{Tính nhất quán:} thời điểm chỉ mục phản ánh một thay đổi dữ liệu, tức sau bao lâu thì kết quả tìm kiếm qua chỉ mục thấy được thay đổi đó.
+\end{itemize}
+
+Chiều thứ nhất ứng với câu hỏi nghiên cứu (1), hai chiều còn lại ứng với câu hỏi (2). Dung lượng của hai hệ quản trị có bản chất khác nhau: chỉ mục của Oracle nằm trên đĩa, còn chỉ mục của Redis nằm trong bộ nhớ (mục~\ref{sec:storage}), nên hai con số này không thể so sánh trực tiếp với nhau.
+
+\paragraph{Cấu trúc chỉ mục theo kiểu truy vấn}\label{sec:ix-structures}
+
+Mỗi kiểu truy vấn trong Bảng~\ref{tab:ix-query-patterns} cần một cấu trúc chỉ mục khác nhau. Phần này lần lượt giải thích cấu trúc phù hợp với từng kiểu, và Bảng~\ref{tab:ix-index-types} ở cuối phần tóm tắt lại.
+
+\noindent\textbf{Tìm bằng, tìm theo khoảng và sắp xếp.} Oracle dùng chỉ mục B-tree cho các kiểu truy vấn này. Chỉ mục được tổ chức thành một cây nhiều tầng (Hình~\ref{fig:ix-btree}): các khối nhánh (\emph{branch block}) chứa các mốc để điều hướng, còn các khối lá (\emph{leaf block}) chứa giá trị khóa kèm định danh dòng (\emph{ROWID}), tức địa chỉ cho biết dòng dữ liệu nằm ở đâu \cite{oracleIndexes}. Để tìm một khóa, hệ quản trị đi từ gốc xuống lá qua vài tầng. Cây luôn cân bằng, nghĩa là mọi khối lá nằm cùng độ sâu, nên tìm bất kỳ bản ghi nào cũng mất gần như cùng thời gian. Các khối lá còn được nối với nhau theo hai chiều, nên sau khi tìm thấy khóa đầu của một khoảng, hệ quản trị chỉ việc đi ngang qua các lá liên tiếp để lấy cả khoảng; và vì khóa đã được sắp xếp sẵn, kết quả cũng được trả theo thứ tự mà không cần sắp xếp lại \cite{oracleIndexes}.
+
+\begin{figure}[!htbp]
+\centering
+\begin{tikzpicture}[
+  nodebox/.style={draw,rectangle,minimum height=7mm,inner xsep=6pt,font=\small},
+  branch/.style={nodebox,fill=ReportTableHead},
+  leaf/.style={nodebox,fill=white},
+  >=Stealth]
+  \node[branch] (root) at (0,0) {30 \hspace{1em} 60};
+  \node[leaf] (a) at (-4.2,-2) {10 \hspace{1em} 20};
+  \node[leaf] (b) at (0,-2) {30 \hspace{1em} 40 \hspace{1em} 50};
+  \node[leaf] (c) at (4.2,-2) {60 \hspace{1em} 70 \hspace{1em} 80};
+  \draw[->] (root.south) -- (a.north);
+  \draw[->] (root.south) -- (b.north);
+  \draw[->] (root.south) -- (c.north);
+  \draw[<->] (a.east) -- (b.west);
+  \draw[<->] (b.east) -- (c.west);
+  \node[anchor=west,font=\small] at (1.4,0) {khối nhánh (điều hướng)};
+  \node[anchor=north,font=\small] at (0,-2.5) {khối lá (khóa và ROWID), nối với nhau};
+\end{tikzpicture}
+\caption{Cấu trúc B-tree minh họa: khối nhánh dẫn xuống các khối lá, các khối lá nối với nhau để đọc một khoảng giá trị.}\label{fig:ix-btree}
+\end{figure}
+
+Redis, như đã nói, chỉ tra cứu theo tên key, nên chỉ mục phụ phải được dựng thêm. Có hai hướng. Hướng thứ nhất là ứng dụng tự dựng chỉ mục bằng các cấu trúc dữ liệu của Redis \cite{redisSecondaryIndexing}: một key riêng ánh xạ giá trị cần tìm tới mã đối tượng (ví dụ từ SKU tới mã sản phẩm) phục vụ tìm bằng; và Sorted Set, một tập hợp trong đó mỗi phần tử có một điểm số và các phần tử luôn được giữ theo thứ tự điểm. Nếu chọn phần tử là mã sản phẩm và điểm là giá, thì một lệnh \texttt{ZRANGE} kèm \texttt{BYSCORE} trả về các sản phẩm có giá trong một khoảng, đã xếp sẵn theo giá \cite{redisSecondaryIndexing}. Hướng thứ hai là dùng mô-đun RediSearch, trong đó chỉ mục được khai báo bằng lệnh \texttt{FT.CREATE} trên các trường của tài liệu JSON: trường kiểu \texttt{TAG} phục vụ khớp chính xác một giá trị, trường kiểu \texttt{NUMERIC} phục vụ tìm theo khoảng số, và tùy chọn \texttt{SORTABLE} cho phép sắp xếp theo trường với độ trễ rất thấp nhưng tốn thêm bộ nhớ \cite{redisFtCreate}.
+
+\noindent\textbf{Nhiều điều kiện cùng lúc.} Truy vấn thực tế thường có nhiều điều kiện, chẳng hạn ``danh mục số 5 và giá từ 100 đến 500 nghìn đồng''. Oracle dùng chỉ mục nhiều cột (\emph{composite index}): các mục được sắp xếp theo cột thứ nhất, trong cùng một giá trị của cột thứ nhất lại sắp theo cột thứ hai, và cứ thế. Bảng~\ref{tab:ix-composite-example} minh họa trên sáu sản phẩm. Với chỉ mục (danh mục, giá), các sản phẩm cùng một danh mục nằm liền nhau và đã xếp theo giá, nên truy vấn trên chỉ phải đọc đúng đoạn liên tiếp thỏa cả hai điều kiện. Với chỉ mục (giá, danh mục), đoạn thỏa điều kiện giá có cả sản phẩm của danh mục khác (ở ví dụ là mục (300, 2)), nên hệ quản trị phải đọc rồi loại bớt. Vì vậy thứ tự cột là yếu tố quyết định: chỉ mục chỉ được dùng hiệu quả khi truy vấn có điều kiện trên cột đầu hoặc phần đầu của dãy cột. Chẳng hạn, một chỉ mục trên (\texttt{last\_name}, \texttt{job\_id}, \texttt{salary}) không được dùng cho truy vấn không nhắc tới \texttt{last\_name} \cite{oracleIndexes}. Quy tắc thiết kế được kiểm chứng ở thí nghiệm E3 là đặt các cột so sánh bằng trước, các cột khoảng và cột sắp xếp sau.
+
+\begin{table}[!htbp]
+\centering
+\caption{Ví dụ thứ tự các mục trong hai chỉ mục nhiều cột (giá tính bằng nghìn đồng). Chữ đậm là các mục thỏa ``danh mục 5, giá từ 100 đến 500''.}\label{tab:ix-composite-example}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.7\hsize\linewidth=\hsize}L|>{\hsize=1.3\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Cấu trúc} & \reportheader{Các mục theo thứ tự lưu} \\ \hline
+Dữ liệu (danh mục, giá), theo thứ tự thêm vào & (2, 90), (5, 150), (5, 280), (2, 300), (2, 700), (5, 900) \\ \hline
+Chỉ mục (danh mục, giá) & (2, 90), (2, 300), (2, 700), \textbf{(5, 150)}, \textbf{(5, 280)}, (5, 900) \\ \hline
+Chỉ mục (giá, danh mục) & (90, 2), \textbf{(150, 5)}, \textbf{(280, 5)}, (300, 2), (700, 2), (900, 5) \\ \hline
+\end{tabularx}
+\end{table}
+
+Với Redis, RediSearch kết hợp các điều kiện đặt trên từng trường đã khai báo. Còn với chỉ mục tự dựng, một cách là tạo một Sorted Set riêng cho mỗi giá trị của cột so sánh bằng, ví dụ mỗi danh mục một Sorted Set với điểm là giá; truy vấn trên khi đó chỉ cần lấy khoảng giá trong Sorted Set của danh mục số 5. Cách khác là dùng Sorted Set theo thứ tự từ điển, ghép nhiều cột thành một chuỗi khóa \cite{redisSecondaryIndexing}.
+
+\noindent\textbf{Từ nằm trong chuỗi.} Tìm một từ trong tên sản phẩm, chẳng hạn ``sony'', là kiểu truy vấn mà B-tree phục vụ kém. B-tree sắp xếp các chuỗi theo thứ tự từ ký tự đầu, nên chỉ hữu ích khi biết phần đầu của chuỗi, ví dụ các tên bắt đầu bằng ``Tai nghe''. Từ cần tìm lại thường nằm giữa tên, như trong ``Tai nghe Sony Pro'', và điều kiện \texttt{LIKE '\%sony\%'} có ký tự đại diện đứng đầu nên không tận dụng được thứ tự đó. Giải pháp là chỉ mục đảo (\emph{inverted index}): hệ quản trị tách mỗi tên thành các từ, rồi lưu ngược từ mỗi từ tới danh sách các sản phẩm chứa từ đó. Giả sử có ba sản phẩm: (1) Tai nghe Sony Pro, (2) Loa Sony Mini, (3) Tai nghe JBL Pro. Bảng~\ref{tab:ix-inverted-example} là chỉ mục đảo của chúng; tìm ``sony pro'' chỉ cần lấy phần chung của hai danh sách tương ứng, ở ví dụ là sản phẩm 1.
+
+\begin{table}[!htbp]
+\centering
+\caption{Ví dụ chỉ mục đảo trên tên của ba sản phẩm.}\label{tab:ix-inverted-example}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.5\hsize\linewidth=\hsize}L|>{\hsize=1.5\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Từ} & \reportheader{Danh sách sản phẩm chứa từ} \\ \hline
+tai, nghe, pro & 1, 3 \\ \hline
+sony & 1, 2 \\ \hline
+loa, mini & 2 \\ \hline
+jbl & 3 \\ \hline
+\end{tabularx}
+\end{table}
+
+Oracle Text cung cấp chỉ mục đảo với hai loại. CONTEXT dùng toán tử \texttt{CONTAINS} và cần được đồng bộ sau khi bảng thay đổi, còn CTXCAT dùng toán tử \texttt{CATSEARCH} và tự cập nhật trong cùng giao dịch (\emph{transaction}) với bảng. Từ Oracle AI Database 26ai, CTXCAT bị đánh dấu lỗi thời (\emph{deprecated}), tức có thể bị gỡ ở bản sau, và Oracle khuyến nghị dùng CONTEXT \cite{oracleTextIndexes}. Với Redis, RediSearch cung cấp kiểu trường \texttt{TEXT} theo cùng nguyên lý. Mặc định, trường này được stemming theo ngôn ngữ của chỉ mục (mặc định là tiếng Anh), tức đưa các từ về dạng gốc, chẳng hạn ``running'' và ``runs'' đều về ``run''; có thể tắt bằng \texttt{NOSTEM} \cite{redisFtCreate}.
+
+\noindent\textbf{Cột có ít giá trị.} Oracle còn có chỉ mục bitmap cho cột ít giá trị. Vì một khóa của bitmap trỏ tới nhiều dòng, khi cập nhật Oracle khóa tất cả các dòng thuộc khóa đó, nên bitmap không phù hợp với nhiều ứng dụng xử lý giao dịch trực tuyến \cite{oracleIndexes}. ShopFlash là ứng dụng xử lý giao dịch trực tuyến với nhiều phiên ghi đồng thời (đặt hàng, flash sale), nên bitmap không được đưa vào thí nghiệm.
+
+\begin{table}[!htbp]
+\centering
+\caption{Cấu trúc chỉ mục của Oracle và Redis theo kiểu truy vấn.}\label{tab:ix-index-types}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.8\hsize\linewidth=\hsize}L|>{\hsize=1.1\hsize\linewidth=\hsize}L|>{\hsize=1.1\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Kiểu truy vấn} & \reportheader{Oracle Database} & \reportheader{Redis} \\ \hline
+Tìm bằng & B-tree unique & Key riêng tự dựng, hoặc RediSearch \texttt{TAG} \\ \hline
+Khoảng giá trị và sắp xếp & B-tree, trả dữ liệu đã sắp theo khóa & Sorted Set tự dựng, hoặc RediSearch \texttt{NUMERIC} kèm \texttt{SORTABLE} \\ \hline
+Nhiều điều kiện cùng lúc & B-tree nhiều cột; thứ tự cột quyết định hiệu quả & RediSearch kết hợp điều kiện trên từng trường, hoặc Sorted Set tự dựng \\ \hline
+Từ nằm trong chuỗi & Oracle Text: CONTEXT hoặc CTXCAT (chỉ mục đảo) & RediSearch \texttt{TEXT} (chỉ mục đảo) \\ \hline
+Cột có ít giá trị & Bitmap (không hợp ứng dụng ghi nhiều) & \texttt{TAG} hoặc Set \\ \hline
+\end{tabularx}
+\end{table}
+
+\paragraph{Lựa chọn cách truy cập và duy trì chỉ mục}\label{sec:ix-operation}
+
+Ngoài cấu trúc, hai hệ quản trị còn khác nhau ở hai điểm: ai quyết định dùng chỉ mục nào cho một truy vấn, và chỉ mục được cập nhật ra sao khi dữ liệu thay đổi.
+
+\noindent\textbf{Lựa chọn cách truy cập.} Với Oracle, câu lệnh SQL chỉ mô tả dữ liệu cần lấy; việc lấy bằng cách nào (quét toàn bảng hay dùng chỉ mục nào) do bộ tối ưu (\emph{optimizer}) quyết định. Bộ tối ưu của Oracle dựa trên chi phí: nó liệt kê các kế hoạch thực thi (\emph{execution plan}, tức dãy các bước lấy dữ liệu) khả dĩ, gán chi phí cho từng kế hoạch rồi chọn kế hoạch có chi phí thấp nhất \cite{oracleAccessPaths}. Chi phí được ước lượng từ thống kê về dữ liệu, chẳng hạn số dòng của bảng; thống kê cũ có thể khiến bộ tối ưu chọn sai, ví dụ không biết rằng chỉ mục đã hiệu quả hơn quét toàn bảng \cite{oracleAccessPaths}. Kế hoạch được chọn xem được bằng \texttt{EXPLAIN PLAN}, cho kế hoạch ước tính và có thể khác kế hoạch chạy thật, hoặc bằng \texttt{DBMS\_XPLAN.DISPLAY\_CURSOR}, cho kế hoạch của câu đã chạy kèm thống kê thực thi. Hai cột \texttt{E-Rows} (số dòng ước lượng) và \texttt{A-Rows} (số dòng thực tế) cho phép so ước lượng với thực tế; chênh lệch lớn báo hiệu ước lượng sai \cite{oracleExecutionPlans}.
+
+Với Redis, việc chọn cách truy cập thuộc về nhà phát triển: với chỉ mục tự dựng, mã ứng dụng quyết định truy vấn nào dùng chỉ mục nào. Với RediSearch, truy vấn được thực thi theo các điều kiện đã khai báo trên từng trường; trong phạm vi các tài liệu đã tham khảo, không có cơ chế chọn kế hoạch theo thống kê chi phí tương tự bộ tối ưu của Oracle, và lệnh \texttt{FT.EXPLAIN} cho xem cây điều kiện của một truy vấn.
+
+\noindent\textbf{Duy trì chỉ mục.} Oracle tự duy trì chỉ mục B-tree mỗi khi bảng thay đổi, ứng dụng không cần can thiệp \cite{oracleIndexes}. Chỉ mục văn bản CONTEXT thì cập nhật theo một quy trình riêng gọi là đồng bộ (\emph{sync}): dữ liệu mới đã nằm trong bảng nhưng chỉ xuất hiện trong kết quả tìm kiếm văn bản sau khi chỉ mục được đồng bộ. Trong Oracle AI Database 26ai, chỉ mục CONTEXT tạo mới mặc định dùng bảo trì tự động kết hợp \texttt{SYNC (MANUAL)}: Oracle tự gọi đồng bộ ở chế độ nền, và tiến trình lập lịch kiểm tra khối lượng công việc mỗi 3 giây theo mặc định. Có thể chọn \texttt{SYNC (ON COMMIT)} để chỉ mục được đồng bộ ngay khi giao dịch được xác nhận (\emph{commit}), nhưng kiểu này, cũng như \texttt{SYNC (EVERY)}, không dùng được cùng bảo trì tự động mà phải khai báo bảo trì thủ công \cite{oracleTextAutoMaintenance}.
+
+Với Redis, tài liệu JSON mới hoặc vừa sửa được RediSearch lập chỉ mục đồng bộ, nên đã tìm được ngay khi lệnh ghi trả về; riêng các tài liệu đã có sẵn lúc chỉ mục vừa được tạo thì được lập chỉ mục bất đồng bộ ở nền, nên cần một khoảng thời gian mới tìm thấy hết \cite{redisJsonIndexing}. Còn chỉ mục tự dựng do ứng dụng cập nhật nên có thể lệch khỏi dữ liệu: ví dụ, nếu ứng dụng đã sửa giá trong tài liệu nhưng gặp sự cố trước khi cập nhật Sorted Set, chỉ mục vẫn giữ giá cũ và kết quả tìm theo giá sẽ sai. Tài liệu của Redis cũng lưu ý việc giữ chỉ mục luôn đúng là khó và sai lệch có thể phát sinh theo thời gian \cite{redisSecondaryIndexing}.
+
+\subsubsection{Thiết kế thực nghiệm}\label{sec:ix-design}
+
+Mục này mô tả dữ liệu, môi trường, cách đo và các thí nghiệm, đủ chi tiết để người đọc có thể chạy lại. Mã nguồn và kết quả thô nằm trong thư mục \texttt{report/indexing} của kho mã dự án.
+
+\paragraph{Dữ liệu thực nghiệm}\label{sec:ix-data}
+
+Thí nghiệm dùng một tập 200\,000 sản phẩm giả. Tập này được sinh hoàn toàn từ số thứ tự $n$ của sản phẩm (từ 1 đến 200\,000) bằng các công thức cố định, không dùng số ngẫu nhiên, nên mọi lần chạy cho đúng cùng một dữ liệu. Oracle và Redis dùng cùng một công thức nên hai bên chứa đúng cùng một tập sản phẩm. Bảng~\ref{tab:ix-data} liệt kê các cột và ý nghĩa của từng công thức đối với thí nghiệm.
+
+\begin{table}[!htbp]
+\centering
+\caption{Các cột của dữ liệu thực nghiệm và công thức sinh theo số thứ tự $n$.}\label{tab:ix-data}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.6\hsize\linewidth=\hsize}L|>{\hsize=1.2\hsize\linewidth=\hsize}L|>{\hsize=1.2\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Cột} & \reportheader{Công thức theo $n$} & \reportheader{Đặc điểm của dữ liệu sinh ra} \\ \hline
+\texttt{sku} & \texttt{LAB-} nối với $n$ viết đủ 7 chữ số & 200\,000 giá trị khác nhau; dùng cho tìm bằng (E1) \\ \hline
+\texttt{name} & Loại, hãng, hậu tố lấy lần lượt từ ba danh sách 15, 12 và 10 từ, rồi nối một số $(37n) \bmod 997$ & Tên không dấu; các từ như ``pro'' và ``sony'' khớp số dòng rất khác nhau (E2) \\ \hline
+\texttt{category\_id} & $(7n) \bmod 50 + 1$ & 50 danh mục, mỗi danh mục 4\,000 sản phẩm (E3) \\ \hline
+\texttt{price} & $((7919n) \bmod 49951 + 50) \times 1000$ & Rải đều từ 50 nghìn đến 50 triệu đồng (E3) \\ \hline
+\texttt{status} & \texttt{INACTIVE} nếu $n$ chia hết cho 20, ngược lại \texttt{ACTIVE} & 95\% sản phẩm \texttt{ACTIVE}, nên điều kiện này gần như không loại được dòng nào \\ \hline
+\texttt{in\_stock} & 0 nếu $n$ chia hết cho 7, ngược lại 1 & Khoảng 86\% sản phẩm còn hàng \\ \hline
+\end{tabularx}
+\end{table}
+
+Trên Oracle, dữ liệu là một bảng riêng \texttt{IDXLAB\_PRODUCTS}, tạo bằng một câu lệnh \texttt{CREATE TABLE AS SELECT}; ngay sau khi tạo, Oracle thu thập thống kê cho bộ tối ưu (mục~\ref{sec:ix-operation}). Trên Redis, dữ liệu là 200\,000 tài liệu JSON \texttt{idxlab:product:\{n\}}, nạp bằng một script Lua theo 10 đợt, mỗi đợt 20\,000 tài liệu, với cùng công thức. Bảng Oracle chiếm 14~MB (1\,792 khối), dữ liệu Redis chiếm 68,3~MB (358 byte mỗi tài liệu). Cả hai nằm trong đối tượng riêng (bảng riêng, khóa có tiền tố \texttt{idxlab:}), và các chỉ mục thí nghiệm được tạo rồi xóa ngay trong từng script, nên không làm thay đổi dữ liệu của ứng dụng.
+
+
+\paragraph{Môi trường thực nghiệm}\label{sec:ix-env}
+
+Cả hai hệ quản trị chạy trong container Docker trên cùng một máy; phiên bản của các image được ghim theo mã băm (\emph{digest}) trong tệp cấu hình của dự án (Bảng~\ref{tab:ix-env}).
+
+\begin{table}[!htbp]
+\centering
+\caption{Môi trường thực nghiệm.}\label{tab:ix-env}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.5\hsize\linewidth=\hsize}L|>{\hsize=1.5\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Thành phần} & \reportheader{Cấu hình} \\ \hline
+Máy & Intel Core i7-14650HX, RAM 15,6~GB, hệ điều hành Windows, Docker 29.9.2 \\ \hline
+Oracle & Oracle AI Database 26ai Free 23.26.3.0.0 \\ \hline
+Redis & Redis 7.4.7 kèm RediSearch 2.10.20 và RedisJSON 2.8.9; AOF ở chế độ \texttt{appendfsync everysec} \\ \hline
+Ngày đo & 30/10/2026 \\ \hline
+\end{tabularx}
+\end{table}
+
+\paragraph{Phương pháp đo}\label{sec:ix-method}
+
+Phương pháp đo nhằm phản ánh cơ chế của chỉ mục, không phản ánh chi phí mạng hay trình điều khiển (\emph{driver}):
+
+\begin{itemize}[label=--,leftmargin=*,itemsep=2pt,topsep=4pt]
+    \item \textbf{Đo bên trong hệ quản trị.} Trên Oracle, vòng lặp tìm kiếm là một khối PL/SQL bấm giờ bằng \texttt{SYSTIMESTAMP}. Trên Redis, vòng lặp là một script Lua chạy trong máy chủ; thời gian lấy từ hiệu của bộ đếm \texttt{cmdstat\_eval} trong \texttt{INFO commandstats} trước và sau khi chạy, vì trong một lần chạy script, lệnh \texttt{TIME} luôn trả về cùng một giá trị.
+    \item \textbf{Một lần tìm} gồm lấy trang đầu 24 sản phẩm và đếm tổng số kết quả, như một trang kết quả thật: Oracle dùng hai câu SQL, Redis dùng một lệnh \texttt{FT.SEARCH} với \texttt{LIMIT 0 24}. Riêng E1, một lần tìm là tìm một SKU, chọn theo công thức $(997i) \bmod 200\,000 + 1$ để rải đều khắp dữ liệu.
+    \item \textbf{Lặp lại.} Mỗi lượt chạy từ 2 đến 200 lần tìm liên tiếp rồi chia đều. Lượt đầu để khởi động và bị loại; năm lượt sau được báo cáo dưới dạng trung bình $\pm$ độ lệch chuẩn.
+    \item \textbf{Kiểm tra tính đúng.} Mọi cách tìm cho cùng một câu hỏi phải trả cùng số kết quả, bằng số tính trước từ công thức sinh dữ liệu, rồi mới đem thời gian ra so.
+    \item \textbf{Thước đo phụ.} Ngoài thời gian, mỗi chiều đánh giá có thêm thước đo ở Bảng~\ref{tab:ix-metrics}. Số khối đã đọc (\texttt{Buffers}) trong kế hoạch thực thi của Oracle dùng để giải thích vì sao một cách nhanh hơn cách khác; lượng nhật ký redo của Oracle và AOF của Redis \cite{redisPersistence} cho biết chi phí ghi đĩa của việc duy trì chỉ mục.
+\end{itemize}
+
+\begin{table}[!htbp]
+\centering
+\caption{Thước đo cho từng chiều đánh giá.}\label{tab:ix-metrics}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.7\hsize\linewidth=\hsize}L|>{\hsize=1.15\hsize\linewidth=\hsize}L|>{\hsize=1.15\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Chiều đánh giá} & \reportheader{Oracle Database} & \reportheader{Redis} \\ \hline
+Tốc độ truy vấn đọc & Thời gian một lần tìm; kế hoạch thực thi và số khối đã đọc & Thời gian một lần tìm; cây truy vấn (\texttt{FT.EXPLAIN}) \\ \hline
+Dung lượng & Dung lượng đoạn lưu trữ (\texttt{USER\_SEGMENTS}) & \texttt{MEMORY USAGE}; \texttt{FT.INFO} \\ \hline
+Chi phí ghi & Thời gian thêm, sửa; lượng redo & Thời gian thêm, sửa; lượng AOF \\ \hline
+Tính nhất quán & Kết quả tìm ngay sau khi ghi, ở phiên khác, trước và sau \texttt{COMMIT} & Kết quả tìm ngay sau khi ghi, lúc đang dựng chỉ mục, và khi ứng dụng dừng giữa hai lệnh \\ \hline
+\end{tabularx}
+\end{table}
+
+\paragraph{Sáu thí nghiệm}\label{sec:ix-experiments}
+
+Ở E1 đến E3, cấu hình đầu tiên là cách không dùng chỉ mục, làm mốc; các cấu hình sau thêm chỉ mục từ đơn giản đến phức tạp. E2 thử ba từ khóa có độ chọn lọc rất khác nhau, mỗi từ khớp nguyên từ: ``615'' (200 sản phẩm), ``sony pro'' (1\,679) và ``pro'' (20\,159). E3 dùng ba câu hỏi, cả ba chỉ lấy sản phẩm đang bán: A (danh mục 5, giá từ 1 đến 5 triệu đồng, 321 kết quả), B (chỉ giá từ 1 đến 5 triệu đồng, 15\,218 kết quả) và C (chỉ danh mục 5, 4\,000 kết quả). E4 so năm cấu hình ở mỗi bên; E5 không có kịch bản riêng mà đo kèm E1 đến E3; E6 mô tả hành vi, không đo tốc độ. Các cấu hình cụ thể được nêu cùng kết quả ở mục~\ref{sec:ix-results}.
+
+\paragraph{Giới hạn của phép đo}\label{sec:ix-limits}
+
+\begin{itemize}[label=--,leftmargin=*,itemsep=2pt,topsep=4pt]
+    \item Số liệu là độ trễ của từng truy vấn chạy riêng lẻ; phép đo chưa xét nhiều người truy vấn cùng lúc, nên không cho biết mỗi hệ quản trị phục vụ được bao nhiêu truy vấn mỗi giây.
+    \item Dữ liệu đã nằm trong bộ đệm (lượt khởi động bị loại) và là dữ liệu giả rải đều, tên không dấu, từ vựng nhỏ; vì vậy thứ hạng và bậc độ lớn của chênh lệch đáng tin hơn các số tuyệt đối.
+    \item Hai hệ quản trị được đo bằng hai cơ chế khác nhau (PL/SQL và Lua) và cùng chạy trên một máy; chênh lệch vài micro giây nằm trong sai số, nên chỉ nên so bậc độ lớn.
+    \item Mức bền khi ghi khác nhau: Oracle ghi redo xuống đĩa khi \texttt{COMMIT}, còn Redis ghi AOF mỗi giây; ở E4, Oracle chỉ \texttt{COMMIT} một lần cho 10\,000 dòng. So sánh chi phí ghi giữa hai hệ quản trị vì vậy chỉ mang tính tương đối.
+    \item Mỗi phép đo chỉ có năm lượt; với thao tác vài micro giây, độ lệch chuẩn có ô gần 20\% giá trị trung bình.
+\end{itemize}
+
+\subsubsection{Kết quả thực nghiệm}\label{sec:ix-results}
+
+Mục này trình bày kết quả E1 đến E6, số liệu của Oracle và Redis đặt cạnh nhau. Thời gian là thời gian của \emph{một lần tìm}, tính từ trung bình năm lượt đo. Mọi cách trong cùng một thí nghiệm đều trả cùng số kết quả.
+
+\paragraph{E1: Tìm theo SKU}\label{sec:ix-e1}
+
+\begin{table}[!htbp]
+\centering
+\caption{E1: thời gian một lần tìm theo SKU trên 200\,000 sản phẩm.}\label{tab:ix-e1}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|l|L|r|r|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Hệ quản trị} & \reportheader{Cách truy cập} & \reportheader{Một lần tìm} & \reportheader{Nhanh hơn so với không chỉ mục} \\ \hline
+Oracle & Quét toàn bảng (không chỉ mục) & 3,214~ms & --- \\ \hline
+Oracle & B-tree unique trên \texttt{sku} & 0,0060~ms & khoảng 530 lần \\ \hline
+Redis & \texttt{SCAN} kèm \texttt{JSON.GET} (không chỉ mục) & 382,03~ms & --- \\ \hline
+Redis & Key tự dựng \texttt{idxlab:sku:\{sku\}} & 0,0035~ms & khoảng 109\,000 lần \\ \hline
+Redis & RediSearch \texttt{TAG} & 0,0097~ms & khoảng 39\,000 lần \\ \hline
+\end{tabularx}
+\end{table}
+
+Không có chỉ mục, Oracle quét toàn bảng và đọc 1\,754 khối; có B-tree, Oracle đi qua ba tầng của cây rồi đọc một khối của bảng, tổng cộng 4 khối. Câu SQL không đổi: Oracle tự chuyển sang kế hoạch mới khi chỉ mục xuất hiện. Không có chỉ mục, Redis chậm hơn Oracle khoảng 119 lần dù dữ liệu nằm trong RAM, vì phải gọi \texttt{JSON.GET} và phân tích JSON cho từng trong 200\,000 tài liệu; Redis không được thiết kế để tìm theo giá trị khi không có chỉ mục. Có chỉ mục, cả ba cách chỉ mất vài micro giây, nên chỉ kết luận được là cùng bậc độ lớn (mục~\ref{sec:ix-limits}).
+
+\paragraph{E2: Tìm từ trong tên sản phẩm}\label{sec:ix-e2}
+
+\begin{table}[!htbp]
+\centering
+\caption{E2: thời gian một lần tìm từ khóa trong tên sản phẩm (ms).}\label{tab:ix-e2}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=1.2\hsize\linewidth=\hsize}L|>{\hsize=0.96\hsize\raggedleft\arraybackslash}X|>{\hsize=0.96\hsize\raggedleft\arraybackslash}X|>{\hsize=0.96\hsize\raggedleft\arraybackslash}X|>{\hsize=0.96\hsize\raggedleft\arraybackslash}X|>{\hsize=0.96\hsize\raggedleft\arraybackslash}X|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Từ khóa (số kết quả)} & \reportheader{Oracle \texttt{LIKE}} & \reportheader{Oracle CONTEXT} & \reportheader{Oracle CTXCAT} & \reportheader{Redis \texttt{SCAN}} & \reportheader{RediSearch \texttt{TEXT}} \\ \hline
+``615'' (200) & 37,02 & 1,00 & 0,40 & 424,33 & 0,056 \\ \hline
+``sony pro'' (1\,679) & 33,69 & 1,20 & 1,66 & 435,48 & 0,908 \\ \hline
+``pro'' (20\,159) & 34,19 & 6,36 & 5,64 & 430,67 & 0,709 \\ \hline
+\end{tabularx}
+\end{table}
+
+\texttt{LIKE '\%từ\%'} mất 34 đến 37~ms với mọi từ khóa vì luôn quét toàn bảng (1\,753 khối) và so chuỗi trên 200\,000 tên. Chỉ mục đảo giúp nhiều nhất khi từ khóa hiếm: CONTEXT nhanh hơn \texttt{LIKE} khoảng 37 lần với ``615'' nhưng chỉ 5,4 lần với ``pro'', vì danh sách tài liệu của từ phổ biến dài hơn nhiều. Giữa CONTEXT và CTXCAT, chênh lệch không theo một chiều (CTXCAT nhanh hơn với ``615'' và ``pro'', chậm hơn với ``sony pro''), trong khi CTXCAT tốn dung lượng gấp hơn ba lần (E5) và đã bị đánh dấu lỗi thời từ 26ai. Với \texttt{LIKE}, bộ tối ưu ước lượng 500 dòng trong khi thực tế là 1\,679, vì nó không biết nội dung chuỗi; đây là ví dụ của ước lượng sai khi thiếu thống kê phù hợp.
+
+Không có chỉ mục, Redis mất khoảng 430~ms, chậm hơn \texttt{LIKE} khoảng 12 lần. RediSearch nhanh hơn Oracle Text ở cả ba từ khóa (khoảng 18 lần với ``615'', 1,3 lần với ``sony pro'' và 9 lần với ``pro''), một phần vì Redis trả cả trang lẫn tổng số trong một lệnh còn Oracle chạy hai câu SQL. Mọi cách có chỉ mục đều dưới 10~ms. \texttt{FT.EXPLAIN} cho thấy RediSearch mặc định stemming tiếng Anh (``sony'' được mở rộng thành ``soni''), điều cần cân nhắc với tên tiếng Việt.
+
+\paragraph{E3: Lọc, sắp xếp và phân trang}\label{sec:ix-e3}
+
+\begin{table}[!htbp]
+\centering
+\caption{E3: thời gian một lần lọc, sắp xếp, phân trang (ms). Câu A: 321 kết quả; B: 15\,218; C: 4\,000.}\label{tab:ix-e3}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=2.4\hsize\linewidth=\hsize}L|>{\hsize=0.53\hsize\raggedleft\arraybackslash}X|>{\hsize=0.53\hsize\raggedleft\arraybackslash}X|>{\hsize=0.53\hsize\raggedleft\arraybackslash}X|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Hệ quản trị và cách truy cập} & \reportheader{A} & \reportheader{B} & \reportheader{C} \\ \hline
+Oracle, không chỉ mục & 4,941 & 6,712 & 4,585 \\ \hline
+Oracle, hai chỉ mục đơn (danh mục), (giá) & 0,582 & 2,952 & 0,679 \\ \hline
+Oracle, ghép đúng thứ tự (danh mục, trạng thái, giá) & \textbf{0,024} & 6,878 & \textbf{0,101} \\ \hline
+Oracle, ghép đảo thứ tự (giá, danh mục, trạng thái) & 0,484 & \textbf{0,508} & 2,837 \\ \hline
+Redis, không chỉ mục (\texttt{SCAN}) & 652,11 & 701,23 & 672,56 \\ \hline
+Redis, Sorted Set tự dựng & 0,021$^{*}$ & 0,005 & 0,004 \\ \hline
+Redis, RediSearch (\texttt{NUMERIC}, \texttt{SORTABLE}, \texttt{TAG}) & 1,041 & 2,990 & 1,023 \\ \hline
+\end{tabularx}
+\end{table}
+
+\noindent$^{*}$ Có một lượt đo nhiễu (1,62~ms so với 0,11 đến 0,15~ms ở bốn lượt còn lại); trung vị khoảng 0,006~ms.
+
+\noindent\textbf{Thứ tự cột quyết định hiệu quả.} Cùng ba cột, cùng 6~MB, chỉ mục (danh mục, trạng thái, giá) làm câu A nhanh hơn không chỉ mục khoảng 200 lần: cả bốn điều kiện đều dùng để đi thẳng tới đúng đoạn trong chỉ mục, kết quả đã xếp theo giá nên Oracle dừng ở dòng thứ 24, và câu đếm chỉ đọc chỉ mục (4 khối). Nhưng với câu B, không có điều kiện danh mục, bộ tối ưu bỏ chỉ mục này và quét toàn bảng. Chỉ mục đảo thứ tự bắt đầu bằng giá thì chậm hơn khoảng 20 lần ở câu A nhưng tốt nhất ở câu B. Không chỉ mục nào tốt nhất cho mọi câu hỏi, nên chỉ mục phải được thiết kế theo các câu hỏi thường gặp; trong mọi cấu hình, bộ tối ưu đều chọn kế hoạch hợp lý. Ở câu A, bộ tối ưu ước lượng 160 dòng trong khi thực tế là 321, vì không có histogram nên coi \texttt{status = 'ACTIVE'} chỉ giữ 50\% dòng trong khi thực tế là 95\%.
+
+\noindent\textbf{Redis.} RediSearch chậm hơn chỉ mục ghép đúng thứ tự của Oracle khoảng 43 lần ở câu A và 10 lần ở câu C, và ngang hai chỉ mục đơn ở câu B. RediSearch không có chỉ mục nhiều cột: mỗi trường có cấu trúc riêng và truy vấn lấy giao của các danh sách (\texttt{FT.EXPLAIN}); điều kiện trạng thái khớp tới 95\% tài liệu, và kết quả phải được sắp xếp, đếm trước khi trả trang đầu. Sorted Set tự dựng nhanh nhất (4 đến 21 micro giây) vì được dựng riêng cho đúng các câu hỏi này, mỗi danh mục một Sorted Set chỉ chứa sản phẩm đang bán; đổi lại tốn 31,7~MB, mỗi tổ hợp bộ lọc mới cần thêm key, và ứng dụng phải tự cập nhật (E6). Như vậy E3 ngược với E2: tìm toàn văn thì RediSearch nhanh hơn, lọc có cấu trúc kèm sắp xếp thì chỉ mục ghép của Oracle nhanh hơn.
+
+\paragraph{E4: Chi phí ghi}\label{sec:ix-e4}
+
+Thí nghiệm thêm 10\,000 sản phẩm và sửa giá 10\,000 sản phẩm, mỗi câu lệnh một dòng, trên các cấu hình có số chỉ mục tăng dần (Bảng~\ref{tab:ix-e4-oracle} và \ref{tab:ix-e4-redis}).
+
+\begin{table}[!htbp]
+\centering
+\caption{E4 trên Oracle: thời gian mỗi dòng ($\mu$s) và lượng redo cho 10\,000 dòng.}\label{tab:ix-e4-oracle}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=2.2\hsize\linewidth=\hsize}L|>{\hsize=0.7\hsize\raggedleft\arraybackslash}X|>{\hsize=0.7\hsize\raggedleft\arraybackslash}X|>{\hsize=0.7\hsize\raggedleft\arraybackslash}X|>{\hsize=0.7\hsize\raggedleft\arraybackslash}X|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Cấu hình} & \reportheader{Thêm} & \reportheader{Redo thêm} & \reportheader{Sửa giá} & \reportheader{Redo sửa giá} \\ \hline
+C0: chỉ khóa chính & 9,8 & 5,5~MB & 6,6 & 2,7~MB \\ \hline
+C1: C0 và chỉ mục \texttt{sku} & 11,1 & 7,9~MB & 6,1 & 2,7~MB \\ \hline
+C2: C1 và chỉ mục ghép ba cột, chỉ mục giá & 19,3 & 12,7~MB & 17,3 & 12,0~MB \\ \hline
+C3: C2 và Oracle Text CTXCAT & 1\,014,8 & 33,1~MB & 635,8 & 12,0~MB \\ \hline
+C4: C2 và CONTEXT \texttt{SYNC (ON COMMIT)} & 48,1 & 21,7~MB & 43,3$^{*}$ & 12,0~MB \\ \hline
+\end{tabularx}
+\end{table}
+
+\begin{table}[!htbp]
+\centering
+\caption{E4 trên Redis: thời gian mỗi tài liệu ($\mu$s) và lượng AOF cho 10\,000 tài liệu.}\label{tab:ix-e4-redis}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=2.2\hsize\linewidth=\hsize}L|>{\hsize=0.7\hsize\raggedleft\arraybackslash}X|>{\hsize=0.7\hsize\raggedleft\arraybackslash}X|>{\hsize=0.7\hsize\raggedleft\arraybackslash}X|>{\hsize=0.7\hsize\raggedleft\arraybackslash}X|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Cấu hình} & \reportheader{Thêm} & \reportheader{AOF thêm} & \reportheader{Sửa giá} & \reportheader{AOF sửa giá} \\ \hline
+R0: không chỉ mục phụ & 5,6 & 1,8~MB & 2,6 & 0,7~MB \\ \hline
+R1: key tự dựng cho \texttt{sku} & 6,5 & 2,3~MB & 2,5 & 0,7~MB \\ \hline
+R2: R1 và Sorted Set theo giá & 11,7 & 3,5~MB & 6,8 & 1,9~MB \\ \hline
+R3: RediSearch chỉ trường \texttt{sku} & 8,2 & 1,8~MB & 6,3 & 0,7~MB \\ \hline
+R4: RediSearch đầy đủ (có \texttt{name} kiểu \texttt{TEXT}) & 14,3 & 1,8~MB & 15,4$^{*}$ & 0,7~MB \\ \hline
+\end{tabularx}
+\end{table}
+
+\noindent$^{*}$ Có một lượt đo bất thường, độ lệch chuẩn lớn hơn cả trung bình (C4) hoặc khoảng 40\% (R4); chỉ nên xem là giá trị tham khảo.
+
+\noindent\textbf{Mỗi chỉ mục làm ghi chậm đi.} Ba chỉ mục B-tree (C2) làm việc thêm dòng chậm gần gấp đôi và tăng redo 2,3 lần so với chỉ có khóa chính; ba cấu trúc tự dựng trên Redis (R2) chậm khoảng 2,1 lần. Mọi giá trị vẫn chỉ vài đến vài chục micro giây mỗi dòng, trừ CTXCAT.
+
+\noindent\textbf{Sửa giá.} Oracle chỉ cập nhật chỉ mục có chứa cột bị sửa: C1 sửa giá nhanh như C0 và sinh cùng lượng redo, còn C2 có hai chỉ mục chứa giá nên chậm 2,6 lần, redo tăng 4,4 lần. RediSearch thì lập chỉ mục lại cả tài liệu: R3 chỉ chỉ mục \texttt{sku} nhưng sửa giá vẫn chậm 2,4 lần so với R0, và R4 (có tên kiểu \texttt{TEXT}) chậm khoảng 6 lần. Trong ShopFlash, tồn kho nằm cùng tài liệu với các trường được chỉ mục, nên mỗi lần cập nhật tồn kho cũng kéo theo lập lại chỉ mục.
+
+\noindent\textbf{Oracle Text.} CTXCAT làm việc thêm dòng chậm khoảng 53 lần và sửa giá (không đổi tên) chậm khoảng 37 lần so với C2, dù lượng redo khi sửa giá không tăng; nguyên nhân chưa được kiểm chứng. CONTEXT với \texttt{SYNC (ON COMMIT)} rẻ hơn nhiều (thêm dòng 48~$\mu$s, khoảng 2,5 lần C2).
+
+\noindent\textbf{Nhật ký.} Redo của Oracle tăng theo từng chỉ mục (5,5 đến 33,1~MB khi thêm), vì Oracle ghi nhật ký cả cho chỉ mục. AOF của Redis bằng nhau ở R0, R3 và R4: RediSearch không ghi chỉ mục vào AOF, nên khi khởi động lại, Redis phải lập chỉ mục lại toàn bộ (với 200\,000 tài liệu mất khoảng 4 đến 5 giây). Ở cấu hình tương đương, Redis ghi nhanh hơn (R4 14~$\mu$s so với C4 48~$\mu$s), nhưng hai bên bảo đảm độ bền khác nhau (mục~\ref{sec:ix-limits}).
+
+\paragraph{E5: Dung lượng chỉ mục}\label{sec:ix-e5}
+
+\begin{table}[!htbp]
+\centering
+\caption{E5: dung lượng chỉ mục, so với dữ liệu gốc (Oracle 14~MB trên đĩa, Redis 68,3~MB trong RAM).}\label{tab:ix-e5}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|l|L|l|r|r|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Hệ} & \reportheader{Chỉ mục (thí nghiệm)} & \reportheader{Nơi lưu} & \reportheader{Dung lượng} & \reportheader{So với dữ liệu} \\ \hline
+Oracle & B-tree \texttt{sku} (E1) & Đĩa & 5~MB & 36\% \\ \hline
+Oracle & CONTEXT trên \texttt{name} (E2) & Đĩa & 21,8~MB & 156\% \\ \hline
+Oracle & CTXCAT trên \texttt{name} (E2) & Đĩa & 73~MB & 520\% \\ \hline
+Oracle & Hai chỉ mục đơn: danh mục, giá (E3) & Đĩa & 8~MB & 57\% \\ \hline
+Oracle & Chỉ mục ghép ba cột (E3) & Đĩa & 6~MB & 43\% \\ \hline
+Redis & Key tự dựng cho \texttt{sku} (E1) & RAM & 12,2~MB & 18\% \\ \hline
+Redis & RediSearch \texttt{TAG} trên \texttt{sku} (E1) & RAM & 49,5~MB & 72\% \\ \hline
+Redis & RediSearch \texttt{TEXT} trên \texttt{name} (E2) & RAM & 34,9~MB & 51\% \\ \hline
+Redis & Sorted Set tự dựng (E3) & RAM & 31,7~MB & 46\% \\ \hline
+Redis & RediSearch ba trường (E3) & RAM & 33,6~MB & 49\% \\ \hline
+\end{tabularx}
+\end{table}
+
+Cho cùng cột \texttt{sku}, RediSearch chiếm gần 10 lần dung lượng của B-tree, và là RAM chứ không phải đĩa. Khoảng 27~MB trong mỗi chỉ mục RediSearch là chi phí cố định cho 200\,000 tài liệu (bảng tài liệu 20,9~MB và bảng key 6,0~MB), không phụ thuộc số trường; vì thế chỉ mục ba trường ở E3 còn nhỏ hơn chỉ mục \texttt{TAG} trên \texttt{sku}, cột có 200\,000 giá trị khác nhau. CTXCAT chiếm 73~MB, gấp hơn ba lần CONTEXT. Về thời gian dựng, B-tree mất 0,1 đến 0,2 giây, Oracle Text 2,6 đến 3,4 giây và RediSearch 4,3 đến 4,7 giây.
+
+\paragraph{E6: Thời điểm chỉ mục cập nhật}\label{sec:ix-e6}
+
+Phía Oracle, ``phiên khác'' được giả lập bằng một giao dịch tự trị (\texttt{AUTONOMOUS\_TRANSACTION}), chỉ thấy dữ liệu đã \texttt{COMMIT}.
+
+\begin{table}[!htbp]
+\centering
+\caption{E6 trên Oracle: sản phẩm mới có xuất hiện trong kết quả tìm kiếm hay không.}\label{tab:ix-e6-oracle}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.8\hsize\linewidth=\hsize}L|>{\hsize=1.6\hsize\linewidth=\hsize}L|>{\hsize=0.6\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Chỉ mục} & \reportheader{Tình huống} & \reportheader{Số dòng tìm thấy} \\ \hline
+B-tree \texttt{sku} & \texttt{INSERT}, chưa \texttt{COMMIT}: tìm trong chính phiên đó / từ phiên khác & 1 / 0 \\ \hline
+B-tree \texttt{sku} & Sau \texttt{ROLLBACK}, trong chính phiên đó & 0 \\ \hline
+B-tree \texttt{sku} & \texttt{INSERT} lại và \texttt{COMMIT}, từ phiên khác & 1 \\ \hline
+CONTEXT mặc định & Đã \texttt{COMMIT}: tìm bằng \texttt{LIKE} / bằng \texttt{CONTAINS} ngay sau đó & 1 / 0 \\ \hline
+CONTEXT mặc định & Tìm lại mỗi giây & Thấy sau khoảng 3,0~s \\ \hline
+CONTEXT \texttt{SYNC (ON COMMIT)} & Chưa \texttt{COMMIT}: B-tree / \texttt{CONTAINS} trong chính phiên đó & 1 / 0 \\ \hline
+CONTEXT \texttt{SYNC (ON COMMIT)} & Sau \texttt{COMMIT}, \texttt{CONTAINS} & 1 \\ \hline
+\end{tabularx}
+\end{table}
+
+\begin{table}[!htbp]
+\centering
+\caption{E6 trên Redis: hành vi của chỉ mục khi dựng và khi ghi.}\label{tab:ix-e6-redis}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=1.2\hsize\linewidth=\hsize}L|>{\hsize=1.2\hsize\linewidth=\hsize}L|>{\hsize=0.6\hsize\linewidth=\hsize}L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Chỉ mục} & \reportheader{Tình huống} & \reportheader{Kết quả} \\ \hline
+RediSearch vừa \texttt{FT.CREATE} & Đếm tài liệu tìm thấy, bốn lần cách nhau khoảng 0,3~s & 78; 9\,982; 21\,148; 32\,736 trên 200\,000 \\ \hline
+RediSearch khi ghi & Thêm, đổi giá, xóa tài liệu rồi tìm ngay từ client khác & Thấy thay đổi ngay \\ \hline
+Sorted Set tự dựng & Dừng sau \texttt{JSON.SET} giá mới, trước \texttt{ZADD}: giá trong dữ liệu / trong chỉ mục & 9\,999\,000 / 7\,142\,000 \\ \hline
+Sorted Set tự dựng & Lọc theo giá mới / theo giá cũ & 0 / 1 (đúng phải là 1 / 0) \\ \hline
+\texttt{MULTI}, \texttt{JSON.SET}, \texttt{ZADD} lỗi, \texttt{EXEC} & Giá trong dữ liệu / trong chỉ mục & 5\,555\,000 / 9\,999\,000 \\ \hline
+\end{tabularx}
+\end{table}
+
+B-tree của Oracle tuân theo giao dịch: phiên thực hiện thấy thay đổi chưa \texttt{COMMIT}, phiên khác thì không, và \texttt{ROLLBACK} đưa cả bảng lẫn chỉ mục về như cũ, nên chỉ mục không bao giờ lệch khỏi bảng. Oracle Text thì không thấy dòng chưa \texttt{COMMIT} ngay cả trong chính phiên đó. CONTEXT tạo không tham số báo kiểu đồng bộ \texttt{MANUAL} nhưng vẫn tự thấy dòng mới khoảng 3 giây sau \texttt{COMMIT}, khớp với cơ chế bảo trì tự động của 26ai \cite{oracleTextAutoMaintenance}.
+
+RediSearch thấy thay đổi ngay sau mỗi lệnh ghi, vì Redis không có khái niệm ``chưa \texttt{COMMIT}''. Nhưng ngay sau khi tạo chỉ mục (hoặc khi Redis khởi động lại, E4), việc dựng chạy ở nền và tìm kiếm chỉ thấy một phần dữ liệu mà không báo lỗi. Chỉ mục tự dựng có thể lệch khỏi dữ liệu mà không ai biết khi ứng dụng dừng giữa hai lệnh, và \texttt{MULTI}/\texttt{EXEC} không cứu được: lệnh lỗi sau \texttt{EXEC} không làm hoàn tác các lệnh trước \cite{cc-redis-transactions}. Đây là rủi ro lớn nhất của chỉ mục tự dựng.
+
+\subsubsection{Đánh giá tổng hợp và định hướng sử dụng DBMS}\label{sec:ix-conclusion}
+
+\paragraph{So sánh tổng hợp}\label{sec:ix-compare}
+
+\begin{table}[!htbp]
+\centering
+\caption{So sánh Oracle và Redis (kèm RediSearch) về chỉ mục theo từng tiêu chí; thời gian là một lần tìm trên 200\,000 sản phẩm.}\label{tab:ix-compare}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=0.8\hsize\linewidth=\hsize}L|>{\hsize=1.1\hsize\linewidth=\hsize}L|>{\hsize=1.1\hsize\linewidth=\hsize}L|c|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Tiêu chí} & \reportheader{Oracle Database} & \reportheader{Redis và RediSearch} & \reportheader{Thí nghiệm} \\ \hline
+Tìm một khóa (có / không chỉ mục) & 0,006~ms / 3,2~ms & 0,0035--0,0097~ms / 382~ms & E1 \\ \hline
+Tìm từ trong tên (có / không chỉ mục) & 0,4--6,4~ms / 34--37~ms & \textbf{0,06--0,9~ms} / 424--435~ms & E2 \\ \hline
+Lọc danh mục, giá, sắp xếp, phân trang & \textbf{0,02--0,1~ms} (chỉ mục ghép đúng thứ tự) & 1,0~ms & E3 \\ \hline
+Ai chọn cách truy cập & Bộ tối ưu theo chi phí; tự bỏ chỉ mục khi không có lợi & Chạy theo chỉ mục đã khai báo & E1--E3 \\ \hline
+Chi phí ghi & Chỉ cập nhật chỉ mục chứa cột bị sửa & Sửa một trường là lập lại chỉ mục cả tài liệu & E4 \\ \hline
+Nhật ký và khôi phục & Chỉ mục có trong redo & Chỉ mục RediSearch không có trong AOF, phải dựng lại khi khởi động & E4 \\ \hline
+Dung lượng & B-tree 4--6~MB, CONTEXT 21,8~MB (đĩa) & RediSearch 33--50~MB (RAM) & E5 \\ \hline
+Nhất quán & B-tree theo giao dịch; Oracle Text trễ khoảng 3~s & Thấy ngay sau lệnh ghi; thiếu dữ liệu khi đang dựng; chỉ mục tự dựng có thể lệch & E6 \\ \hline
+\end{tabularx}
+\end{table}
+
+Không bên nào thắng mọi loại truy vấn: RediSearch nhanh hơn Oracle Text từ 1,3 đến 18 lần khi tìm từ khóa, còn chỉ mục ghép của Oracle nhanh hơn RediSearch từ 10 đến 43 lần khi lọc có cấu trúc kèm sắp xếp. Mọi cách có chỉ mục đều dưới 10~ms, nên khác biệt chỉ có ý nghĩa khi nhiều người tìm cùng lúc, điều chưa được đo. Oracle mạnh về tính đúng (chỉ mục luôn khớp dữ liệu, dữ liệu là bản gốc); Redis mạnh về tìm toàn văn trên RAM nhưng tốn bộ nhớ và phải đồng bộ bản sao. Bị loại: CTXCAT (dung lượng lớn, ghi chậm, lỗi thời từ 26ai), bitmap (không hợp ứng dụng xử lý giao dịch trực tuyến, không được đo) và chỉ mục tự dựng bằng Sorted Set (có thể lệch âm thầm, E6).
+
+\paragraph{Định hướng sử dụng DBMS}\label{sec:ix-direction}
+
+ShopFlash để mỗi hệ quản trị làm việc nó giỏi nhất: mỗi yêu cầu tìm kiếm được gửi tới đúng một nguồn theo loại truy vấn, và kết quả hai nguồn không bị trộn (Bảng~\ref{tab:ix-routing}).
+
+\begin{table}[!htbp]
+\centering
+\caption{Định tuyến tìm kiếm sản phẩm trong ShopFlash.}\label{tab:ix-routing}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|>{\hsize=1.1\hsize\linewidth=\hsize}L|>{\hsize=0.7\hsize\linewidth=\hsize}L|>{\hsize=1.2\hsize\linewidth=\hsize}L|c|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Yêu cầu của khách} & \reportheader{Nguồn} & \reportheader{Chỉ mục dùng} & \reportheader{Căn cứ} \\ \hline
+Có từ khóa, có hoặc không kèm lọc danh mục, giá, còn hàng & RediSearch & \texttt{idx:products} & E2 \\ \hline
+Không có từ khóa, duyệt theo danh mục, có thể kèm khoảng giá & Oracle & \texttt{ix\_products\_cat\_\allowbreak status\_\allowbreak price} & E3 \\ \hline
+Không có từ khóa, chỉ lọc giá & Oracle & Bộ tối ưu tự chọn trong các chỉ mục có sẵn & E3 \\ \hline
+Trang chi tiết sản phẩm, tồn kho & Oracle & Khóa chính & Dữ liệu gốc \\ \hline
+Có từ khóa nhưng Redis không truy cập được & Oracle Text & \texttt{ix\_products\_name\_text} & E2, E6 \\ \hline
+\end{tabularx}
+\end{table}
+
+\noindent\textbf{Chỉ mục trên Oracle.} Migration \texttt{V3} thêm hai chỉ mục vào bảng \texttt{PRODUCTS}. Chỉ mục ghép \texttt{ix\_products\_cat\_status\_price} đặt các cột so sánh bằng (\texttt{category\_id}, \texttt{status}) trước cột khoảng và sắp xếp (\texttt{base\_price}), theo quy tắc rút ra từ E3; cột \texttt{product\_id} ở cuối giữ thứ tự ổn định khi nhiều sản phẩm cùng giá. Vì bắt đầu bằng \texttt{category\_id}, nó cũng là chỉ mục cho khóa ngoại tới bảng danh mục, nên chỉ mục cũ \texttt{ix\_products\_category\_status} trở nên thừa; nhóm tạm giữ chỉ mục cũ vì bỏ nó là thay đổi lược đồ chung. Chỉ mục CONTEXT \texttt{ix\_products\_name\_text} phục vụ đường dự phòng và được Oracle 26ai tự đồng bộ ở nền (E6). Trên cơ sở dữ liệu đang chạy, migration \texttt{V3} đã được áp dụng, hai chỉ mục có đúng định nghĩa trên và đều hợp lệ. Với dữ liệu thật (195 sản phẩm), câu duyệt danh mục dùng \texttt{INDEX RANGE SCAN} trên chỉ mục ghép và lấy đủ 24 dòng mà không sắp xếp (\texttt{WINDOW NOSORT STOPKEY}); câu chỉ lọc giá được bộ tối ưu cho quét nhanh toàn bộ chỉ mục ghép rồi sắp xếp, không dùng \texttt{ix\_products\_price} do bảng quá nhỏ.
+
+\noindent\textbf{Chỉ mục trên Redis.} ShopFlash dùng chỉ mục \texttt{idx:products} do script khởi tạo Redis (\texttt{init.lua}) tạo trên các tài liệu \texttt{product:\{id\}}, gồm \texttt{name} (\texttt{TEXT}), \texttt{sku}, \texttt{categoryName}, \texttt{status}, \texttt{inStock} (\texttt{TAG}), \texttt{categoryId} (\texttt{NUMERIC}) và \texttt{price} (\texttt{NUMERIC SORTABLE}). Tài liệu do phân hệ quản lý sản phẩm ghi; phân hệ tìm kiếm chỉ đọc. Chỉ mục tự dựng bằng Sorted Set không được dùng.
+
+\noindent\textbf{Truy vấn.} Hai nguồn tách từ khóa giống nhau: tối đa 5 từ, mỗi từ ít nhất 2 ký tự, chỉ giữ chữ và số (kể cả chữ có dấu), chữ thường, bỏ trùng, bỏ toán tử của Oracle Text và stopword của RediSearch; các từ nối bằng AND và khớp theo tiền tố. Ví dụ ``tai nghe'' thành \texttt{@name:(tai* nghe*) @status:\{ACTIVE\}} trên RediSearch và \texttt{CONTAINS(p.name, :textQuery) > 0} với \texttt{:textQuery = 'tai\% AND nghe\%'} trên Oracle Text. Mọi giá trị của người dùng đi qua biến ràng buộc (\emph{bind variable}), không nối vào câu lệnh. Nếu tách xong không còn từ nào, yêu cầu được xử lý như không có từ khóa. Mọi truy vấn chỉ trả sản phẩm \texttt{ACTIVE}. Lệnh \texttt{FT.SEARCH} luôn kèm \texttt{TIMEOUT 0}, vì cấu hình của Redis Stack trong dự án (\texttt{TIMEOUT 500}, \texttt{ON\_TIMEOUT RETURN}) cho phép truy vấn quá 500~ms trả một phần kết quả mà không báo lỗi.
+
+\noindent\textbf{Dự phòng và theo dõi.} Khi Redis không truy cập được hoặc chưa có chỉ mục, yêu cầu có từ khóa tự chuyển sang Oracle Text và phản hồi ghi rõ lý do; hành vi này đã được kiểm tra bằng kiểm thử đơn vị và bằng cách tắt Redis khi ứng dụng đang chạy. Mỗi phản hồi tìm kiếm kèm phần \texttt{meta} (nguồn, loại truy vấn, thời gian, số lượt gọi cơ sở dữ liệu, câu lệnh), được giao diện in ra bảng điều khiển của trình duyệt. Ứng dụng không có trang so sánh tốc độ hai hệ quản trị, vì trên khoảng 200 sản phẩm thật, thời gian đo qua ứng dụng chủ yếu phản ánh số lượt gọi và chi phí kết nối chứ không phản ánh hiệu quả chỉ mục; việc so sánh dựa vào E1 đến E6.
+
+\paragraph{Rủi ro và hạn chế}\label{sec:ix-risks}
+
+\begin{itemize}[label=--,leftmargin=*,itemsep=2pt,topsep=4pt]
+    \item \textbf{Bản sao trên Redis có thể cũ.} Phân hệ quản lý sản phẩm ghi lại tài liệu \texttt{product:\{id\}} sau khi Oracle \texttt{COMMIT} các thay đổi của quản trị viên; bước đặt hàng trừ tồn kho trong Oracle nhưng không cập nhật bản sao, nên \texttt{inStock} trong kết quả tìm theo từ khóa có thể cũ. Trang chi tiết và đặt hàng luôn đọc Oracle.
+    \item \textbf{Chỉ mục Redis lúc đang dựng.} Khi \texttt{idx:products} được tạo lại hoặc Redis khởi động lại, vài giây đầu tìm theo từ khóa chỉ thấy một phần sản phẩm (E6); mỗi lần cập nhật giá hay tồn kho cũng làm RediSearch lập lại chỉ mục cả tài liệu (E4).
+    \item \textbf{Phân trang trên RediSearch.} Sắp theo giá chỉ dùng \texttt{SORTBY price}, sắp theo độ liên quan không có \texttt{SORTBY}; tài liệu Redis lưu ý \texttt{LIMIT} không kèm sắp xếp cho kết quả không xác định \cite{redisFtSearch}, nên chuyển trang có thể lặp hoặc sót sản phẩm. Điều này chưa được kiểm tra bằng thực nghiệm; Oracle không gặp vì luôn sắp kèm \texttt{product\_id}.
+    \item \textbf{Ngôn ngữ.} \texttt{idx:products} dùng stemming tiếng Anh mặc định; tìm không dấu chưa được hỗ trợ ở cả hai nguồn.
+    \item \textbf{Truy vấn của ứng dụng khác truy vấn đã đo.} Ứng dụng khớp theo tiền tố, còn E2 đo khớp nguyên từ; trường hợp từ khóa kèm bộ lọc cũng chưa được đo.
+    \item \textbf{Giới hạn 10\,000 kết quả.} RediSearch của dự án có \texttt{MAXSEARCHRESULTS} bằng 10\,000, nên mọi nguồn giới hạn tích số trang nhân kích thước trang ở 10\,000.
+\end{itemize}
+
+\paragraph{Kết luận}\label{sec:ix-summary}
+
+Trả lời ba câu hỏi ở mục~\ref{sec:ix-goal}: (1) trên 200\,000 sản phẩm, chỉ mục làm truy vấn nhanh hơn từ khoảng 5 lần (từ khóa phổ biến, Oracle Text) đến khoảng 530 lần (tìm SKU trên Oracle), còn trên Redis là hàng chục nghìn lần so với \texttt{SCAN} khi tìm SKU (E1); hiệu quả phụ thuộc độ chọn lọc và thứ tự cột của chỉ mục ghép. (2) Cái giá là ghi chậm đi vài micro giây mỗi dòng (CTXCAT chậm hàng chục lần), dung lượng thêm (đĩa với Oracle, RAM với Redis), và độ trễ hoặc nguy cơ lệch giữa chỉ mục với dữ liệu tùy cơ chế. (3) ShopFlash giao tìm theo từ khóa cho RediSearch, duyệt và lọc theo danh mục, giá cho chỉ mục ghép của Oracle, giữ Oracle làm nguồn gốc cho các trang cần dữ liệu mới nhất, và dùng Oracle Text làm đường dự phòng.
+
+\endgroup

@@ -4,11 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.shopflash.common.web.ApiException;
-import com.shopflash.modules.indexing.model.OracleVariant;
-import com.shopflash.modules.indexing.model.RedisVariant;
 import com.shopflash.modules.indexing.model.Route;
 import com.shopflash.modules.indexing.model.SearchQuery;
-import com.shopflash.modules.indexing.model.SearchSource;
 import com.shopflash.modules.indexing.model.SortOrder;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
@@ -81,17 +78,5 @@ class SearchQueryFactoryCoreTest {
                 .satisfies(e -> assertField(e, "page"));
         assertThatThrownBy(() -> parse("x".repeat(101), null, null, null, null, null, null, null))
                 .satisfies(e -> assertField(e, "q"));
-    }
-
-    @Test
-    void labParameters() {
-        assertThat(factory.source(null)).isEmpty();
-        assertThat(factory.source("AUTO")).isEmpty();
-        assertThat(factory.source("Redis")).contains(SearchSource.REDIS);
-        assertThat(factory.oracleVariant("full")).isEqualTo(OracleVariant.FULL);
-        assertThat(factory.oracleVariant(null)).isEqualTo(OracleVariant.AUTO);
-        assertThat(factory.redisVariant("scan")).isEqualTo(RedisVariant.SCAN);
-        assertThatThrownBy(() -> factory.source("mysql")).satisfies(e -> assertField(e, "source"));
-        assertThatThrownBy(() -> factory.redisVariant("x")).satisfies(e -> assertField(e, "redisVariant"));
     }
 }

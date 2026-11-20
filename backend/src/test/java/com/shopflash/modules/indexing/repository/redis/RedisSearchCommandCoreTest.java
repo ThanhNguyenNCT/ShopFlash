@@ -39,7 +39,6 @@ class RedisSearchCommandCoreTest {
                 "@name:(pro*) @status:{ACTIVE}", "SORTBY", "price", "DESC", "LIMIT", "24", "24", "TIMEOUT", "0");
         SearchQuery relevance = new SearchQuery("pro", List.of("pro"), null, null, null, false, SortOrder.RELEVANCE, 1, 24);
         assertThat(RedisSearchCommand.search(relevance)).doesNotContain("SORTBY");
-        assertThat(RedisSearchCommand.profile(relevance)).startsWith("FT.PROFILE", "idx:products", "SEARCH", "QUERY");
     }
 
     @Test
@@ -58,18 +57,5 @@ class RedisSearchCommandCoreTest {
         assertThat(first.inStock()).isTrue();
         assertThat(first.categoryName()).isEqualTo("Tai nghe");
         assertThat(page.items().get(1).inStock()).isFalse();
-    }
-
-    @Test
-    void scanFilterMatchesSameRulesAsQuery() {
-        RedisProductDoc doc = new RedisProductDoc(1L, "S", "Tai nghe Sony Pro 37", 5L, "x",
-                new BigDecimal("2000000"), "ACTIVE", true, null);
-        SearchQuery prefix = new SearchQuery("so pr", List.of("so", "pr"), 5L, new BigDecimal("1000000"),
-                new BigDecimal("3000000"), true, SortOrder.RELEVANCE, 1, 24);
-        assertThat(RedisProductSearchRepository.matches(prefix, doc)).isTrue();
-        SearchQuery inside = new SearchQuery("ony", List.of("ony"), null, null, null, false, SortOrder.RELEVANCE, 1, 24);
-        assertThat(RedisProductSearchRepository.matches(inside, doc)).isFalse();
-        SearchQuery otherCategory = new SearchQuery(null, List.of(), 6L, null, null, false, SortOrder.PRICE_ASC, 1, 24);
-        assertThat(RedisProductSearchRepository.matches(otherCategory, doc)).isFalse();
     }
 }

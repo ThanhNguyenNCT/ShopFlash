@@ -2,15 +2,10 @@ package com.shopflash.modules.indexing.service;
 
 import com.shopflash.common.web.ApiException;
 import com.shopflash.modules.indexing.model.Keywords;
-import com.shopflash.modules.indexing.model.OracleVariant;
-import com.shopflash.modules.indexing.model.RedisVariant;
 import com.shopflash.modules.indexing.model.SearchQuery;
-import com.shopflash.modules.indexing.model.SearchSource;
 import com.shopflash.modules.indexing.model.SortOrder;
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 /**
@@ -51,28 +46,6 @@ public class SearchQueryFactory {
         return new SearchQuery(text, keywords, category, min, max, onlyInStock, order, p, s);
     }
 
-    /** Nguồn cho trang Lab: rỗng hoặc "auto" = định tuyến như API công khai. */
-    public Optional<SearchSource> source(String value) {
-        String v = blankToNull(value);
-        if (v == null || v.equalsIgnoreCase("auto")) {
-            return Optional.empty();
-        }
-        for (SearchSource s : SearchSource.values()) {
-            if (s.slug().equalsIgnoreCase(v)) {
-                return Optional.of(s);
-            }
-        }
-        throw ApiException.badRequest("source", "source phải là auto, oracle hoặc redis");
-    }
-
-    public OracleVariant oracleVariant(String value) {
-        return enumValue("oracleVariant", value, OracleVariant.class, OracleVariant.AUTO, "AUTO, LIKE hoặc FULL");
-    }
-
-    public RedisVariant redisVariant(String value) {
-        return enumValue("redisVariant", value, RedisVariant.class, RedisVariant.SEARCH, "SEARCH hoặc SCAN");
-    }
-
     private static SortOrder sort(String value, boolean hasKeywords) {
         String v = blankToNull(value);
         if (v == null) {
@@ -84,19 +57,6 @@ public class SearchQueryFactory {
             throw ApiException.badRequest("sort", "Chỉ xếp theo độ liên quan khi có từ khóa");
         }
         return order;
-    }
-
-    private static <E extends Enum<E>> E enumValue(String field, String value, Class<E> type, E fallback,
-            String allowed) {
-        String v = blankToNull(value);
-        if (v == null) {
-            return fallback;
-        }
-        try {
-            return Enum.valueOf(type, v.toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            throw ApiException.badRequest(field, field + " phải là " + allowed);
-        }
     }
 
     private static Long positiveLong(String field, String value) {

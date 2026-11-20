@@ -3,10 +3,10 @@ package com.shopflash.modules.indexing.dto.response;
 import java.time.OffsetDateTime;
 
 /**
- * Cách một yêu cầu đã được chạy, để trang Lab và báo cáo thấy rõ nguồn, index và chi phí.
+ * Cách một yêu cầu đã được chạy, để console demo và báo cáo thấy rõ nguồn, index và chi phí.
  *
  * @param route      KEYWORD (có từ khóa) hoặc BROWSE
- * @param variant    biến thể đã chạy: AUTO/LIKE/FULL (Oracle) hoặc SEARCH/SCAN (Redis)
+ * @param variant    cách đã chạy: AUTO (Oracle) hoặc SEARCH (Redis)
  * @param elapsedMs  thời gian gọi DB và đọc kết quả, không tính serialize HTTP
  * @param roundTrips số lần gửi lệnh/câu SQL tới DB
  * @param statement  câu SQL (giữ tên bind) hoặc lệnh Redis đã gửi

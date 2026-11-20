@@ -2,13 +2,10 @@ package com.shopflash.modules.indexing.repository.redis;
 
 import com.shopflash.common.web.ApiException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
-import redis.clients.jedis.AbstractPipeline;
 import redis.clients.jedis.RedisClient;
-import redis.clients.jedis.Response;
 import redis.clients.jedis.commands.ProtocolCommand;
 import redis.clients.jedis.exceptions.JedisConnectionException;
 import redis.clients.jedis.exceptions.JedisDataException;
@@ -34,24 +31,6 @@ public class IndexingRedis {
     public Object call(String... args) {
         try {
             return client.sendCommand(command(args[0]), tail(args));
-        } catch (RuntimeException e) {
-            throw translate(e);
-        }
-    }
-
-    /** Nhiều lệnh trong một pipeline (một round-trip); reply theo đúng thứ tự gửi. */
-    public List<Object> pipeline(List<String[]> commands) {
-        try (AbstractPipeline p = client.pipelined()) {
-            List<Response<Object>> responses = new ArrayList<>(commands.size());
-            for (String[] args : commands) {
-                responses.add(p.sendCommand(command(args[0]), tail(args)));
-            }
-            p.sync();
-            List<Object> out = new ArrayList<>(responses.size());
-            for (Response<Object> r : responses) {
-                out.add(r.get());
-            }
-            return out;
         } catch (RuntimeException e) {
             throw translate(e);
         }

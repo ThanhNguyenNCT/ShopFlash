@@ -23,12 +23,16 @@ export default function FlashCountdown({ endsAt, title = 'FLASH SALE', onEnd }) 
     return () => clearInterval(id);
   }, [endsAt]);
 
-  const [hh, mm, ss] = splitDuration(left);
+  // Còn từ 1 ngày trở lên thì tách ô ngày, để giờ luôn dưới 24 (tránh "9757:44:16").
+  const days = Math.floor(left / 86400);
+  const [hh, mm, ss] = splitDuration(left % 86400);
   return (
     <div className="sf-flash">
       <strong className="sf-flash__title">{title}</strong>
       {left > 0 ? (
-        <span className="sf-flash__clock sf-num" role="timer" aria-label={`Còn ${hh} giờ ${mm} phút ${ss} giây`}>
+        <span className="sf-flash__clock sf-num" role="timer"
+          aria-label={`Còn ${days > 0 ? `${days} ngày ` : ''}${hh} giờ ${mm} phút ${ss} giây`}>
+          {days > 0 && <span className="sf-flash__days">{days} ngày</span>}
           <span>{hh}</span>:<span>{mm}</span>:<span>{ss}</span>
         </span>
       ) : (

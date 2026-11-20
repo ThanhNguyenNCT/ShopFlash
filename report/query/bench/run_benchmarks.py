@@ -1,6 +1,6 @@
 """Đo số liệu cho mục 3.3 (Query processing) qua API của module query.
 
-Điều kiện: stack Docker đang chạy, backend ở :8080, đã nạp dữ liệu (report/query/oracle/seed) và đã
+Điều kiện: stack Docker đang chạy, backend ở :8080, đã nạp dữ liệu (backend/src/main/resources/db/history-seed) và đã
 rebuild read model Redis. Chạy từ thư mục gốc repo:
 
     python report/query/bench/run_benchmarks.py [--runs 5] [--warmup 1]

@@ -35,7 +35,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SEED_DIR = ROOT / "report" / "query" / "oracle" / "seed"
+SEED_DIR = ROOT / "backend" / "src" / "main" / "resources" / "db" / "history-seed"
 VN = timezone(timedelta(hours=7))
 
 ADMIN_EMAIL = os.environ.get("SHOPFLASH_ADMIN_EMAIL", "admin@shopflash.local")

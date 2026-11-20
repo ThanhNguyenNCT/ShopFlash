@@ -1,7 +1,7 @@
 # Dữ liệu benchmark cho module query (Oracle)
 
 Script SQL*Plus sinh dữ liệu lớn cho báo cáo F5 (doanh thu) và F6 (top bán chạy, khách VIP).
-Đây là script **chạy tay**, **không phải migration Flyway**. Không đặt vào `backend/src/main/resources/db/`.
+Đây là script **chạy tay**, **không phải migration Flyway**: thư mục này nằm cạnh `db/migration` nhưng không có trong `spring.flyway.locations`, nên backend không tự chạy.
 
 ## File
 
@@ -30,12 +30,12 @@ Dữ liệu lõi (ID < 10000, từ `R__00_core_seed.sql`) không bị đụng t�
 ## Cách chạy
 
 Từ thư mục gốc repo, stack Docker Compose đang chạy và backend đã chạy ít nhất một lần (Flyway tạo bảng). Trên Git Bash
-(macOS/Linux: bỏ `MSYS_NO_PATHCONV=1` và thay `"$(cygpath -w report/query/oracle/seed)"` bằng `report/query/oracle/seed`):
+(macOS/Linux: bỏ `MSYS_NO_PATHCONV=1` và thay `"$(cygpath -w backend/src/main/resources/db/history-seed)"` bằng `backend/src/main/resources/db/history-seed`):
 
 ```bash
 cid=$(docker compose ps -q oracle)
 MSYS_NO_PATHCONV=1 docker exec -u 0 "$cid" rm -rf /tmp/seed
-MSYS_NO_PATHCONV=1 docker cp "$(cygpath -w report/query/oracle/seed)" "$cid:/tmp/seed"
+MSYS_NO_PATHCONV=1 docker cp "$(cygpath -w backend/src/main/resources/db/history-seed)" "$cid:/tmp/seed"
 docker compose exec -T oracle bash -c 'printf "connect shop/%s@//localhost:1521/FREEPDB1\n@/tmp/seed/01_generate.sql\nexit\n" "$SHOP_PASSWORD" | sqlplus -s -L /nolog'
 ```
 

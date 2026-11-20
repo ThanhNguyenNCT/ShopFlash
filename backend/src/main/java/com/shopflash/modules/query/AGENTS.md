@@ -201,4 +201,4 @@ Request (`Content-Type: application/json`) `{ "action": "GATHER" | "DELETE" }`. 
 
 - `backend/pom.xml`: thêm `redis.clients:jedis` (đã báo nhóm).
 - Frontend: khung `src/app`, `shared/api`, `shared/layouts` chưa ai dựng; module này dựng bản tối thiểu và báo nhóm.
-- Dữ liệu demo: `report/query/oracle/seed/` sinh danh mục, sản phẩm, khách, đơn. Chỉ chạy tay ở máy local, không phải migration.
+- Dữ liệu demo: `backend/src/main/resources/db/history-seed/` sinh danh mục, sản phẩm, khách, đơn. Chỉ chạy tay ở máy local, không phải migration.

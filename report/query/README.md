@@ -6,13 +6,14 @@ Module `query` (F5 báo cáo doanh thu, F6 top bán chạy / khách VIP / sản 
 
 ```text
 report/query/
-├── oracle/seed/          script sinh dữ liệu benchmark (100k đơn), chạy tay, không phải migration
 ├── bench/run_benchmarks.py   đo và lưu số liệu, kế hoạch thực thi
 ├── tests/contract_test.py    kiểm tra API theo contract (165 kiểm tra, có kịch bản D6 và cache)
 ├── demo/d6-order.sh      chèn/xóa đơn demo cho bước Nhất quán khi thuyết trình
 ├── results/              số liệu thô .csv, bảng tóm tắt, môi trường đo, kế hoạch thực thi (plans/), cache-summary.md
 └── images/               ảnh chụp giao diện (3.3-xx-*.png)
 ```
+
+Script sinh 100k đơn nằm ở `backend/src/main/resources/db/history-seed/`, chạy tay, không phải migration.
 
 ## Chạy từ đầu
 
@@ -28,7 +29,7 @@ Từ thư mục gốc repo, sau khi làm theo `db/README.md` (pull image, `.env`
 
    Trên Windows có thể thay bước này và bước 4 bằng `powershell -ExecutionPolicy Bypass -File scripts\dev.ps1`.
 
-2. **Nạp dữ liệu Oracle** (khoảng 1,5 phút, chạy trong Git Bash): xem `oracle/seed/README.md`.
+2. **Nạp dữ liệu Oracle** (khoảng 1,5 phút, chạy trong Git Bash): xem `../../backend/src/main/resources/db/history-seed/README.md`.
 3. **Dựng read model Redis** (khoảng 20–35 giây cho 100k đơn). API quản trị cần token của tài khoản ADMIN, nên làm một trong hai cách:
    - Trên giao diện: đăng nhập admin, vào **Query Lab**, tab **Nhất quán**, bấm **Dựng lại read model Redis**.
    - Bằng lệnh:

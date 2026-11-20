@@ -50,14 +50,17 @@ Migration `V<n>__concurrency_flash_sale.sql` (`n` là số còn trống lúc m�
 
 Migration `V<n+1>__concurrency_lab.sql`: bảng `cc_lab_items (lab_item_id PK, allocated, sold, version)` có `CHECK (sold >= 0 AND sold <= allocated)`. Lab chỉ ghi bảng này, không đụng dữ liệu bán hàng.
 
-Seed `db/dev-seed/R__10_concurrency_seed.sql` (dùng `MERGE`, ID 9001–9500; `transaction` dùng 101–106):
+Seed `db/dev-seed/R__10_concurrency_seed.sql` (chạy sau seed catalog; ID 9001–9500, 9101, 9111–9114; `transaction` dùng 101–106):
 
 - Khách hàng 9001–9500, vai trò `CUSTOMER`, mật khẩu giống seed lõi, để thử giới hạn mỗi người và test tải.
-- Sản phẩm 9101–9103, có tồn kho, thuộc danh mục có sẵn trong seed lõi.
-- Chương trình 9101 `ACTIVE` từ 2026-10-01 đến 2027-12-31, ba sản phẩm với quota 10, 50, 100. `reserved_flash_quantity` khớp với view bất biến. Khung giờ dài để lần chạy nào cũng còn hiệu lực, vì seed repeatable chỉ chạy lại khi file đổi.
-- Chương trình 9102 `DRAFT` để demo màn hình admin.
+- Chương trình 9111 `ACTIVE` từ 2026-10-01 đến hết 2026-11-30, bán sản phẩm có ảnh của seed catalog: item 9111 Apple Airpods (2100, quota 10), 9112 Boxed Blender (2051, quota 50), 9113 Lunch Box (2065, quota 100). Seed repeatable chỉ chạy lại khi file đổi và chỉ thêm chương trình khi chưa có, nên qua ngày đó trang flash sale trống: tạo chương trình mới ở trang admin, hoặc lùi `end_at` trong seed kèm lệnh cập nhật cho DB đã có 9111.
+- Khi thêm item vào chương trình đang chạy, seed cộng `on_hand_quantity` và `reserved_flash_quantity` cùng một lượng bằng quota (nhập hàng cho flash sale), nên số hàng bán thường của sản phẩm catalog không đổi và view bất biến không có dòng nào. Item đã có thì không cộng lại.
+- Chương trình 9112 `DRAFT` (item 9114 Microwave Oven, 2066, quota 20) để demo màn hình admin.
+- Danh mục 9101 `INACTIVE` chỉ để test tích hợp tạo sản phẩm tạm.
 
-Không dùng sản phẩm 1 của seed lõi: seed lõi đặt lại `reserved_flash_quantity = 0` cho sản phẩm này mỗi khi file chạy lại.
+Không dùng sản phẩm 2101 và 2123: seed lõi dùng cho đơn mẫu và Flash Sale #1. Seed catalog chỉ chèn tồn kho khi chưa có (`WHEN NOT MATCHED`); nếu sau này seed catalog ghi đè `on_hand_quantity` hoặc `reserved_flash_quantity` của bốn sản phẩm trên thì bất biến sẽ lệch.
+
+Bản seed trước (tới 2026-11-20) dùng sản phẩm riêng 9101–9104 không có ảnh, chương trình 9101 `ACTIVE` và 9102 `DRAFT`. Trên DB đã chạy bản đó, seed đặt `end_at` của 9101 về lúc chạy (job tự chuyển `ENDED`, trả hàng, xóa runtime Redis), hủy 9102 và đổi sản phẩm 9101–9104 sang `INACTIVE`. Thực nghiệm E4, E5 trong báo cáo chạy trên chương trình 9101 cũ.
 
 ### Redis
 
@@ -209,11 +212,11 @@ Base khách hàng: `/api/flash-sales`. Base admin: `/api/admin/flash-sales`, `/a
 {
   "serverTime": "2026-10-24T20:00:00+07:00",
   "sales": [{
-    "flashSaleId": 9101, "name": "Flash sale cuối tuần", "phase": "LIVE",
-    "startAt": "2026-10-01T09:00:00+07:00", "endAt": "2027-12-31T23:59:59+07:00",
+    "flashSaleId": 9111, "name": "Flash sale cuối tuần", "phase": "LIVE",
+    "startAt": "2026-10-01T09:00:00+07:00", "endAt": "2026-11-30T23:59:59+07:00",
     "maxQuantityPerUser": 1, "reservationTimeoutSeconds": 60,
-    "items": [{ "itemId": 9101, "productId": 9101, "productName": "...", "thumbnailUrl": "...",
-                "basePrice": 1000000, "salePrice": 499000, "allocated": 10, "remaining": 3 }]
+    "items": [{ "itemId": 9112, "productId": 2051, "productName": "Boxed Blender", "thumbnailUrl": "https://...",
+                "basePrice": 1000000, "salePrice": 490000, "allocated": 10, "remaining": 3 }]
   }]
 }
 ```
@@ -221,8 +224,8 @@ Base khách hàng: `/api/flash-sales`. Base admin: `/api/admin/flash-sales`, `/a
 `phase`: `UPCOMING` (chưa tới `startAt`) hoặc `LIVE`, so theo đồng hồ Redis. `remaining` lấy từ Redis; chương trình chưa nạp runtime thì lấy `allocated - sold` trong Oracle. Redis không kết nối được thì `/active` vẫn trả `200` với `allocated - sold` và giờ của backend (`/stock` và giữ suất vẫn `503 REDIS_UNAVAILABLE`). Reservation trả về:
 
 ```json
-{ "reservationId": "3f1c...", "flashSaleId": 9101, "itemId": 9101, "productId": 9101,
-  "productName": "...", "thumbnailUrl": null, "quantity": 1, "salePrice": 499000, "totalAmount": 499000,
+{ "reservationId": "3f1c...", "flashSaleId": 9111, "itemId": 9112, "productId": 2051,
+  "productName": "Boxed Blender", "thumbnailUrl": "https://...", "quantity": 1, "salePrice": 490000, "totalAmount": 490000,
   "status": "PENDING", "expiresAt": "2026-10-24T20:01:00+07:00", "serverTime": "2026-10-24T20:00:00+07:00" }
 ```
 

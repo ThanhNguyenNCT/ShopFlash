@@ -14,4 +14,5 @@
   padding: 3px 6px;
   border-radius: var(--sf-radius-sm);
 }
+.sf-flash__clock .sf-flash__days { margin-right: var(--sf-space-1); }
 .sf-flash__ended { font-size: var(--sf-text-caption-size); font-weight: 600; }

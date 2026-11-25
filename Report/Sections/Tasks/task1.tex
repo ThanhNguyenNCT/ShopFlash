@@ -22,11 +22,13 @@ Mục tiêu so sánh ở phần này không nhằm tìm ra một hệ quản tr�
 Oracle áp dụng mô hình dữ liệu quan hệ với cơ chế lưu trữ bền vững trên đĩa cứng \cite{oracleLogicalStorage}. Về mặt lưu trữ logic, dữ liệu bảng và chỉ mục được tổ chức theo cấu trúc phân cấp từ trên xuống dưới:
 
 \begin{itemize}[label=--]
-    \item \textbf{Data Block:} Đơn vị I/O nhỏ nhất của Oracle (thường là 8 KB), chứa các dòng dữ liệu thực tế cùng thông tin quản lý header và không gian trống dành cho việc cập nhật dòng \cite{oracleLogicalStorage}.
-    
+    \item \textbf{Tablespace:} Vùng lưu trữ logic cao nhất, chứa các segment của cơ sở dữ liệu và được ánh xạ xuống một hoặc nhiều data file ở phía vật lý \cite{oracleLogicalStorage}.
+
+    \item \textbf{Segment:} Tập hợp các extent dành riêng cho một đối tượng cơ sở dữ liệu cụ thể như \texttt{TABLE segment}, \texttt{INDEX segment} hoặc \texttt{LOB segment}. Dữ liệu của một segment có thể trải dài trên nhiều datafile khác nhau \cite{oracleLogicalStorage}.
+
     \item \textbf{Extent:} Tập hợp các data block liên tục được cấp phát trong một lần mở rộng không gian lưu trữ, giúp giảm chi phí cấp phát đĩa cứng khi dữ liệu phát triển \cite{oracleLogicalStorage}.
     
-    \item \textbf{Segment:} Tập hợp các extent dành riêng cho một đối tượng cơ sở dữ liệu cụ thể như \texttt{TABLE segment}, \texttt{INDEX segment} hoặc \texttt{LOB segment}. Dữ liệu của một segment có thể trải dài trên nhiều datafile khác nhau \cite{oracleLogicalStorage}.
+    \item \textbf{Data Block:} Đơn vị I/O nhỏ nhất của Oracle (thường là 8 KB), chứa các dòng dữ liệu thực tế cùng thông tin quản lý header và không gian trống dành cho việc cập nhật dòng \cite{oracleLogicalStorage}.
 \end{itemize}
 
 \begin{figure}[htbp]

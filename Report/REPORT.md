@@ -50,13 +50,13 @@ Có **22 bảng, 15 đoạn mã, 10 khối kết quả và 3 biểu đồ** theo
 
 **Đã ghép vào LaTeX (19/11/2026):** `Sections/Tasks/task5.tex` ghép bốn file trong `Sections/Tasks/Concurrency/`; số đo, script, nhật ký và cách chạy lại ở [report/concurrency](../report/concurrency/README.md).
 
-- 2.5.1. Cơ sở lý thuyết (hiện tượng bất thường, mức cô lập, Saga/TCC).
+- 2.5.1. Cơ sở lý thuyết (hiện tượng bất thường, mức cô lập; các kỹ thuật theo giáo trình: khả tuần tự và đồ thị ưu tiên, 2PL và biến thể, bế tắc và chết đói, nhãn thời gian, đa phiên bản, lạc quan, khóa đa mức, bóng ma; bảng đối chiếu với Oracle, Redis và ShopFlash; Saga/TCC).
 - 2.5.2. Cơ chế trên Oracle; 2.5.3. Cơ chế trên Redis.
 - 2.5.4. Thiết kế Flash Sale trên hai DBMS (chia dữ liệu, vòng đời, Try–Confirm–Cancel).
 - 2.5.5. Thiết kế thí nghiệm (Concurrency Lab, 10 chiến lược); 2.5.6. Kết quả E1–E5.
 - 2.5.7. So sánh và lựa chọn DBMS trong ShopFlash.
 
-Có **9 bảng, 7 mã nguồn và 4 hình**, mang tiền tố 2.5. Số đo E1–E5 đo ngày 16/11/2026, giữ nguyên.
+Có **12 bảng, 7 mã nguồn và 4 hình**, mang tiền tố 2.5. Số đo E1–E5 đo ngày 16/11/2026, giữ nguyên.
 
 ## 2.6. Data Backup & Recovery
 

@@ -44,7 +44,7 @@ export default function AdminLayout({ menu }) {
   };
   const doLogout = () => {
     logout();
-    navigate('/');
+    navigate('/login', { replace: true });
   };
 
   return (

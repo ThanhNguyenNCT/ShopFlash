@@ -18,7 +18,9 @@ export default function ProductCard({
       </button>
       <div className="sf-card__body">
         <h3 className="sf-card__name" title={name}>{name}</h3>
-        <PriceTag price={price} originalPrice={originalPrice} />
+        <PriceTag price={price} originalPrice={originalPrice} stacked />
+        {/* Thanh suất và nút luôn nằm ở đáy thẻ để các thẻ cùng hàng thẳng nhau dù giá dài ngắn khác nhau. */}
+        <div className="sf-card__foot">
         {isFlash && <StockBar sold={sold} quota={quota} />}
         {(onBuy || onAddToCart) && (
           <div className="sf-card__actions">
@@ -30,6 +32,7 @@ export default function ProductCard({
             {onAddToCart && <Button onClick={onAddToCart} block>Thêm vào giỏ</Button>}
           </div>
         )}
+        </div>
       </div>
     </article>
   );

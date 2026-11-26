@@ -19,8 +19,10 @@ export default function LoginPage() {
     setError('');
     try {
       const account = await login(values);
-      if (next && (!needsAdmin || account.role === 'ADMIN')) navigate(next, { replace: true });
-      else navigate(account.role === 'ADMIN' ? '/admin' : '/', { replace: true });
+      // ADMIN luôn vào khu quản trị (giữ next nếu next là trang quản trị); khách thì về trang đang xem.
+      if (account.role === 'ADMIN') navigate(needsAdmin ? next : '/admin', { replace: true });
+      else if (next && !needsAdmin) navigate(next, { replace: true });
+      else navigate('/', { replace: true });
     } catch (problem) {
       setError(problem.message ?? 'Không đăng nhập được. Vui lòng thử lại.');
     } finally {

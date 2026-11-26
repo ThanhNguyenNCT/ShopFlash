@@ -1,4 +1,6 @@
 .sf-price { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: var(--sf-space-2); }
+.sf-price--stacked { flex-direction: column; align-items: flex-start; gap: var(--sf-space-1); }
+.sf-price__extra { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--sf-space-2); }
 .sf-price__now { color: var(--sf-color-brand); font-weight: var(--sf-text-price-weight); }
 .sf-price--md .sf-price__now { font-size: var(--sf-text-price-size); line-height: var(--sf-text-price-line); }
 .sf-price--sm .sf-price__now { font-size: var(--sf-text-heading-size); line-height: var(--sf-text-heading-line); }

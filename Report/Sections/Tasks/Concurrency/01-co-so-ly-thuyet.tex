@@ -49,13 +49,102 @@ SERIALIZABLE & & & \\ \hline
 \end{tabular}
 \end{table}
 
-\paragraph{Các nhóm cơ chế}
-\begin{description}[style=nextline, leftmargin=1.25cm]
-  \item[Khóa bi quan.] Khóa dữ liệu trước khi đọc để ghi, người đến sau phải chờ. Khóa hai pha (2PL) cho tính khả tuần tự nhưng có thể gây bế tắc (\emph{deadlock}): hai transaction mỗi bên giữ một khóa và chờ khóa của bên kia.
-  \item[Kiểm soát lạc quan.] Không khóa khi đọc; lúc ghi mới kiểm tra dữ liệu có bị người khác đổi chưa (so sánh cột \texttt{version} hoặc giá trị cũ). Bị đổi thì thử lại. Rẻ khi ít tranh chấp, tốn kém khi tranh chấp cao vì thử lại nhiều.
-  \item[MVCC.] Lưu nhiều phiên bản của dữ liệu để người đọc thấy một bản chụp nhất quán; đọc không chặn ghi và ghi không chặn đọc.
-  \item[Thao tác nguyên tử.] Gom ``kiểm tra rồi ghi'' vào một lệnh duy nhất, ví dụ \texttt{UPDATE \ldots{} SET sold = sold + 1 WHERE sold + 1 <= allocated}. Không còn khoảng hở giữa lúc đọc và lúc ghi nên không còn race condition.
-\end{description}
+\paragraph{Lịch thao tác và tính khả tuần tự}
+Một \emph{lịch} (schedule) là thứ tự đan xen các thao tác của nhiều transaction, giữ nguyên thứ tự bên trong từng transaction; lịch \emph{tuần tự} chạy hết transaction này rồi mới tới transaction khác. Hai thao tác \emph{xung đột} khi chúng thuộc hai transaction khác nhau, cùng truy cập một mục dữ liệu và ít nhất một thao tác là ghi. Lịch là \emph{khả tuần tự xung đột} nếu đổi chỗ được các cặp thao tác liền kề không xung đột để thành một lịch tuần tự. Cách kiểm tra là đồ thị ưu tiên (\emph{precedence graph}): mỗi transaction là một đỉnh, có cạnh $T_i \rightarrow T_j$ khi một thao tác của $T_i$ xung đột với và đứng trước một thao tác của $T_j$. Lịch khả tuần tự xung đột khi và chỉ khi đồ thị không có chu trình; thứ tự tô-pô của đồ thị là lịch tuần tự tương đương \cite{cc-silberschatz2019, cc-elmasri2016}.
+
+Ví dụ, lịch mất cập nhật ở Bảng~\ref{tab:cc-hien-tuong} là $r_1(X)\, r_2(X)\, w_1(X)\, w_2(X)$. Đồ thị có cạnh $T_1 \rightarrow T_2$ (vì $r_1(X)$ đứng trước $w_2(X)$) và cạnh $T_2 \rightarrow T_1$ (vì $r_2(X)$ đứng trước $w_1(X)$), tạo thành chu trình nên lịch không khả tuần tự. Khả tuần tự view là khái niệm rộng hơn, nhưng kiểm tra nó là bài toán NP-đầy đủ, nên các DBMS nhắm tới khả tuần tự xung đột.
+
+Lịch còn phải khôi phục được khi có transaction bị hủy. Lịch \emph{khả phục hồi} (recoverable) yêu cầu transaction đọc dữ liệu do $T_i$ ghi chỉ được commit sau $T_i$. Lịch \emph{không rollback dây chuyền} (cascadeless) chỉ đọc dữ liệu đã commit. Lịch \emph{nghiêm ngặt} (strict) không đọc, không ghi một mục cho tới khi transaction ghi mục đó gần nhất đã commit hoặc hủy. Mỗi loại sau là trường hợp riêng của loại trước.
+
+\paragraph{Khóa và giao thức khóa hai pha}
+Khóa chia sẻ (S, khóa đọc) cho nhiều transaction cùng đọc một mục; khóa độc quyền (X, khóa ghi) chỉ một transaction được giữ (hai dòng S và X của Bảng~\ref{tab:cc-mgl}). Giao thức khóa hai pha (2PL) chia mỗi transaction thành pha tăng, chỉ xin khóa, và pha giảm, chỉ nhả khóa: đã nhả một khóa thì không xin thêm khóa nào. Mọi lịch mà các transaction đều tuân 2PL là khả tuần tự xung đột, với thứ tự tương đương là thứ tự các điểm khóa (\emph{lock point}) \cite{cc-silberschatz2019}. 2PL không ngăn được bế tắc, và bản cơ bản không ngăn được rollback dây chuyền; các biến thể ở Bảng~\ref{tab:cc-2pl} khắc phục từng điểm.
+
+\begin{table}[!htbp]
+\centering
+\caption{Các biến thể của khóa hai pha \cite{cc-silberschatz2019, cc-elmasri2016}.}\label{tab:cc-2pl}
+\reporttablesetup
+\begin{tabularx}{\linewidth}{|P{0.2\linewidth}|L|P{0.14\linewidth}|P{0.2\linewidth}|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Biến thể} & \reportheader{Quy tắc} & \reportheader{Tránh bế tắc} & \reportheader{Tránh rollback dây chuyền} \\ \hline
+Cơ bản & Hai pha như trên & Không & Không \\ \hline
+Bảo thủ (tĩnh) & Khai báo trước tập đọc và tập ghi, xin đủ mọi khóa trước khi chạy; thiếu một khóa thì không giữ khóa nào & Có & Không \\ \hline
+Nghiêm ngặt (strict) & Giữ mọi khóa X tới khi commit hoặc hủy & Không & Có \\ \hline
+Chặt chẽ (rigorous) & Giữ mọi khóa, cả S lẫn X, tới khi commit hoặc hủy; thứ tự tuần tự tương đương trùng thứ tự commit & Không & Có \\ \hline
+\end{tabularx}
+\end{table}
+
+\paragraph{Bế tắc và chết đói}
+Bế tắc (\emph{deadlock}) xảy ra khi các transaction chờ khóa của nhau thành một chu trình, ví dụ hai transaction mỗi bên giữ một khóa và chờ khóa của bên kia. Có ba hướng xử lý \cite{cc-silberschatz2019, cc-elmasri2016}:
+\begin{itemize}
+  \item \textbf{Phòng ngừa.} Khóa các mục theo một thứ tự cố định chung; dùng 2PL bảo thủ; \emph{không chờ} (không lấy được khóa thì hủy ngay); \emph{chờ thận trọng} ($T_i$ chỉ được chờ $T_j$ khi $T_j$ không đang bị chặn); hoặc dựa vào nhãn thời gian khi $T_i$ xin mục mà $T_j$ đang giữ. Với \emph{wait-die}, $T_i$ già hơn thì được chờ, trẻ hơn thì bị hủy. Với \emph{wound-wait}, $T_i$ già hơn thì hủy $T_j$, trẻ hơn thì chờ. Transaction bị hủy chạy lại với nhãn thời gian cũ nên dần trở thành già nhất và không bị hủy mãi.
+  \item \textbf{Phát hiện.} Dựng đồ thị chờ (\emph{wait-for graph}), có cạnh $T_i \rightarrow T_j$ khi $T_i$ chờ khóa mà $T_j$ đang giữ; đồ thị có chu trình thì chọn một transaction làm nạn nhân để hủy.
+  \item \textbf{Quá hạn.} Chờ quá một khoảng thời gian thì coi như bế tắc và hủy; đơn giản nhưng có thể hủy nhầm transaction không bế tắc.
+\end{itemize}
+Chết đói (\emph{starvation}) là khi một transaction không chạy tiếp được trong thời gian dài trong khi các transaction khác vẫn chạy, do hàng chờ không công bằng hoặc do liên tục bị chọn làm nạn nhân. Cách chữa là phục vụ theo thứ tự đến, hoặc tăng ưu tiên theo thời gian đã chờ.
+
+\paragraph{Sắp thứ tự theo nhãn thời gian}
+Mỗi transaction nhận một nhãn $TS(T)$ khi bắt đầu; mỗi mục $X$ lưu $\mathit{read\_TS}(X)$ và $\mathit{write\_TS}(X)$, là nhãn lớn nhất trong các transaction đã đọc, đã ghi $X$. Giao thức ép lịch tương đương với lịch tuần tự theo thứ tự nhãn \cite{cc-silberschatz2019, cc-elmasri2016}:
+\begin{itemize}
+  \item $T$ ghi $X$: nếu $\mathit{read\_TS}(X) > TS(T)$ hoặc $\mathit{write\_TS}(X) > TS(T)$, tức một transaction trẻ hơn đã đọc hoặc ghi $X$, thì hủy $T$; ngược lại ghi và đặt $\mathit{write\_TS}(X) = TS(T)$.
+  \item $T$ đọc $X$: nếu $\mathit{write\_TS}(X) > TS(T)$ thì hủy $T$; ngược lại đọc và đặt $\mathit{read\_TS}(X) = \max(\mathit{read\_TS}(X), TS(T))$.
+\end{itemize}
+Giao thức không dùng khóa nên không có bế tắc. Tuy nhiên transaction bị hủy chạy lại với nhãn mới nên có thể bị hủy lặp lại, và lịch có thể phải rollback dây chuyền. Bản nghiêm ngặt bắt $T$ chờ transaction đã ghi $X$ kết thúc rồi mới đọc hoặc ghi $X$. Luật ghi Thomas bỏ qua lần ghi lỗi thời (khi chỉ có $\mathit{write\_TS}(X) > TS(T)$) thay vì hủy $T$; lịch thu được khả tuần tự view nhưng có thể không khả tuần tự xung đột.
+
+\paragraph{Đa phiên bản}
+Kỹ thuật đa phiên bản (MVCC) giữ nhiều phiên bản của mỗi mục để thao tác đọc không phải chờ người ghi. Với đa phiên bản theo nhãn thời gian (MVTO), $T$ đọc phiên bản có $\mathit{write\_TS}$ lớn nhất không vượt $TS(T)$, nên thao tác đọc không bao giờ bị từ chối; $T$ ghi $X$ bị hủy khi phiên bản đó đã được một transaction trẻ hơn đọc, ngược lại tạo phiên bản mới. Với 2PL đa phiên bản, khóa ghi tương thích với khóa đọc vì ghi tạo bản mới; trước khi commit, khóa ghi phải đổi thành khóa \emph{certify}, chờ các transaction đang đọc bản cũ kết thúc \cite{cc-elmasri2016}. \emph{Snapshot isolation} là dạng đa phiên bản phổ biến trong DBMS thương mại: transaction đọc ảnh chụp tại lúc bắt đầu, và khi hai transaction chạy chồng nhau cùng ghi một mục thì chỉ một bên được commit. Mức này chặn ba hiện tượng của chuẩn SQL và chặn mất cập nhật, nhưng để lọt lệch ghi \cite{cc-berenson1995}.
+
+\paragraph{Kiểm soát lạc quan}
+Kiểm soát lạc quan (dựa trên kiểm tra hợp lệ, \emph{validation}) giả định xung đột hiếm nên không khóa trong lúc chạy. Mỗi transaction qua ba pha: pha đọc (đọc dữ liệu đã commit, ghi vào bản sao cục bộ), pha kiểm tra (xem áp các thay đổi có làm mất tính khả tuần tự không) và pha ghi (hợp lệ thì áp bản sao vào cơ sở dữ liệu, không thì hủy và chạy lại). $T_i$ hợp lệ khi, với mọi $T_j$ đã commit hoặc đang kiểm tra, có một trong ba điều kiện: $T_j$ xong pha ghi trước khi $T_i$ bắt đầu pha đọc; $T_i$ bắt đầu pha ghi sau khi $T_j$ xong pha ghi và tập đọc của $T_i$ không giao tập ghi của $T_j$; hoặc tập đọc lẫn tập ghi của $T_i$ đều không giao tập ghi của $T_j$ và $T_j$ xong pha đọc trước $T_i$ \cite{cc-elmasri2016}. Cách này rẻ khi ít tranh chấp, nhưng khi nhiều transaction cùng ghi một mục thì phần lớn thất bại ở pha kiểm tra và phải chạy lại. Trong thực tế, cột \texttt{version} so sánh lúc ghi là dạng đơn giản của kỹ thuật này.
+
+\paragraph{Thao tác nguyên tử}
+Gom ``kiểm tra rồi ghi'' vào một lệnh duy nhất, ví dụ \texttt{UPDATE \ldots{} SET sold = sold + 1 WHERE sold + 1 <= allocated}. Không còn khoảng hở giữa lúc đọc và lúc ghi nên không còn race condition; DBMS tự cô lập bên trong lệnh đó. Đây là dạng compare-and-set mà cả hai DBMS đều hỗ trợ.
+
+\paragraph{Độ mịn khóa và khóa đa mức}
+Mục dữ liệu được khóa có thể là cả cơ sở dữ liệu, một bảng, một khối (trang), một dòng hay một trường. Khóa thô cần ít khóa nhưng ít đồng thời; khóa mịn thì ngược lại. Khóa đa mức (\emph{multiple granularity locking}) cho phép khóa ở nhiều mức của cây cơ sở dữ liệu $\rightarrow$ bảng $\rightarrow$ khối $\rightarrow$ dòng, và thêm \emph{khóa ý định} ở nút cha để khi khóa cả một nút thì không phải dò từng nút con: IS (sẽ khóa S ở mức dưới), IX (sẽ khóa X ở mức dưới), SIX (khóa S cả nút và sẽ khóa X ở mức dưới). Khóa được xin từ gốc xuống và nhả từ lá lên: muốn khóa S hoặc IS một nút thì nút cha phải đang giữ IS hoặc IX; muốn khóa X, IX hoặc SIX thì nút cha phải đang giữ IX hoặc SIX \cite{cc-silberschatz2019}. Bảng~\ref{tab:cc-mgl} là ma trận tương thích. Một số DBMS còn \emph{leo thang khóa}: gộp nhiều khóa dòng thành một khóa bảng để tiết kiệm bộ nhớ, đổi lại giảm đồng thời.
+
+\begin{table}[!htbp]
+\centering
+\caption{Ma trận tương thích của khóa đa mức (\checkmark: hai khóa cùng giữ được trên một nút).}\label{tab:cc-mgl}
+\reporttablesetup
+\begin{tabular}{|l|c|c|c|c|c|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Đang giữ / xin} & \reportheader{IS} & \reportheader{IX} & \reportheader{S} & \reportheader{SIX} & \reportheader{X} \\ \hline
+IS & \checkmark & \checkmark & \checkmark & \checkmark & \\ \hline
+IX & \checkmark & \checkmark & & & \\ \hline
+S & \checkmark & & \checkmark & & \\ \hline
+SIX & \checkmark & & & & \\ \hline
+X & & & & & \\ \hline
+\end{tabular}
+\end{table}
+
+\paragraph{Bóng ma và khóa vị từ}
+Bóng ma xảy ra khi một transaction chèn hoặc sửa dòng sao cho dòng đó thỏa điều kiện mà transaction khác vừa đọc. Khóa dòng không chặn được, vì lúc đọc dòng đó chưa thỏa điều kiện hoặc chưa tồn tại. Lý thuyết dùng khóa vị từ (khóa theo điều kiện) hoặc khóa chỉ mục (khóa cả khoảng khóa trên index) \cite{cc-silberschatz2019}. Khi DBMS không có các loại khóa này, cách thực tế là \emph{vật chất hóa xung đột}: buộc các transaction có thể xung đột cùng khóa một dòng có thật \cite{cc-kleppmann2017}.
+
+\paragraph{Các kỹ thuật trên Oracle, Redis và trong ShopFlash}
+Bảng~\ref{tab:cc-ky-thuat} đối chiếu các kỹ thuật trên với cách hai DBMS hiện thực (chi tiết ở mục~\ref{sec:cc-oracle} và~\ref{sec:cc-redis}) và nơi ShopFlash dùng chúng.
+
+\begin{table}[!htbp]
+\centering
+\caption{Các kỹ thuật điều khiển đồng thời trên Oracle, Redis và trong ShopFlash.}\label{tab:cc-ky-thuat}
+\reporttablesetup
+\fontsize{10}{12}\selectfont
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\linewidth}{|P{0.15\linewidth}|L|L|L|}
+\hline
+\rowcolor{ReportTableHead}
+\reportheader{Kỹ thuật} & \reportheader{Oracle} & \reportheader{Redis} & \reportheader{Trong ShopFlash} \\ \hline
+Khóa hai pha & Khóa dòng X giữ tới commit, như 2PL nghiêm ngặt ở phía ghi; phía đọc không xin khóa S mà đọc phiên bản cũ & Không có khóa; khóa phân tán (\texttt{SET NX PX}) do ứng dụng tự dựng & Transaction đặt đơn giữ khóa dòng tới commit; Lab \texttt{ORACLE\_\allowbreak PESSIMISTIC} \\ \hline
+Xử lý bế tắc & Tự phát hiện, rollback câu lệnh, báo ORA-00060; \texttt{NOWAIT} là không chờ, \texttt{WAIT n} là quá hạn & Không có khóa nên không có bế tắc & Phòng ngừa bằng thứ tự khóa chung giữa các module; Lab \texttt{ORACLE\_\allowbreak NOWAIT} \\ \hline
+Nhãn thời gian & Không dùng cho ghi; SCN là nhãn thời gian logic để chọn phiên bản đọc & Thứ tự thực thi của luồng chính đã là một thứ tự tổng & Không dùng \\ \hline
+Đa phiên bản & Undo và SCN; READ COMMITTED đọc theo câu lệnh, SERIALIZABLE là snapshot isolation & Không có & Đọc để đối chiếu không chặn đơn đang ghi; thí nghiệm E3 \\ \hline
+Lạc quan & Ứng dụng tự làm bằng cột \texttt{version} & \texttt{WATCH}, \texttt{MULTI}, \texttt{EXEC} & Quản trị viên sửa chương trình; Lab \texttt{ORACLE\_\allowbreak OPTIMISTIC}, \texttt{REDIS\_\allowbreak WATCH} \\ \hline
+Thao tác nguyên tử & \texttt{UPDATE} có điều kiện & Lệnh đơn, Lua script & Giữ suất bằng Lua; đặt đơn bằng \texttt{UPDATE} có điều kiện \\ \hline
+Khóa đa mức & Khóa bảng (TM) với các chế độ RS, RX, S, SRX, X ứng với IS, IX, S, SIX, X; khóa dòng (TX); không leo thang khóa & Một mức: cả server & Điểm nóng là một dòng hoặc một key nên khóa mịn không giúp được \\ \hline
+Bóng ma & Không có khóa vị từ; SERIALIZABLE vẫn để lọt lệch ghi & Không áp dụng & Lên lịch chương trình: khóa dòng tồn kho trước rồi mới kiểm tra trùng giờ (mục~\ref{sec:cc-thiet-ke}) \\ \hline
+\end{tabularx}
+\end{table}
 
 \paragraph{Khi dữ liệu nằm ở hai DBMS: Saga và TCC}\label{sec:cc-saga}
 Trong ShopFlash, Redis giữ suất còn Oracle ghi đơn. Không có transaction chung cho hai hệ: commit hai pha (2PC/XA) cần cả hai DBMS tham gia, trong khi Redis không hỗ trợ XA. Giải pháp là \emph{saga} \cite{cc-garcia1987}: chia việc thành chuỗi transaction cục bộ, mỗi bước có một bước bù trừ (\emph{compensating transaction}) để hoàn lại khi bước sau thất bại. Luồng mua của ShopFlash là biến thể Try--Confirm--Cancel (TCC): bước đầu chỉ giữ chỗ (reservation có hạn), sau đó xác nhận hoặc hủy.
@@ -82,8 +171,8 @@ Gửi lại yêu cầu & Mất phản hồi, khách bấm đặt đơn lần n�
 \subsubsection{Cơ chế trên Oracle}\label{sec:cc-oracle}
 
 \begin{itemize}
-  \item \textbf{MVCC dựa trên undo.} Ở READ COMMITTED (mặc định), mỗi câu truy vấn thấy dữ liệu đã commit tại thời điểm câu lệnh bắt đầu. Ở SERIALIZABLE, cả transaction thấy dữ liệu tại thời điểm transaction bắt đầu cộng với thay đổi của chính nó. Oracle không có READ UNCOMMITTED nên không bao giờ có dirty read; ngoài ra có chế độ READ ONLY \cite{cc-oracle-concepts, cc-oracle-set-transaction}.
-  \item \textbf{Khóa dòng ghi ngay trong block dữ liệu}, không leo thang thành khóa bảng. Câu DML đặt khóa bảng ở mức vẫn cho nhiều phiên cùng ghi các dòng khác nhau. Đọc không chặn ghi, ghi không chặn đọc; chỉ ghi chặn ghi trên cùng một dòng \cite{cc-oracle-concepts}.
+  \item \textbf{MVCC dựa trên undo.} Ở READ COMMITTED (mặc định), mỗi câu truy vấn thấy dữ liệu đã commit tại thời điểm câu lệnh bắt đầu. Ở SERIALIZABLE, cả transaction thấy dữ liệu tại thời điểm transaction bắt đầu cộng với thay đổi của chính nó. Thời điểm đó được đánh dấu bằng SCN (System Change Number), số tăng dần đóng vai trò nhãn thời gian logic; block nào mới hơn SCN của câu truy vấn thì được dựng lại từ undo. Oracle không có READ UNCOMMITTED nên không bao giờ có dirty read; ngoài ra có chế độ READ ONLY \cite{cc-oracle-concepts, cc-oracle-set-transaction}.
+  \item \textbf{Khóa hai mức: khóa dòng (TX) và khóa bảng (TM).} Thông tin khóa dòng ghi ngay trong block dữ liệu nên Oracle không bao giờ leo thang khóa dòng thành khóa bảng. Khóa bảng có năm chế độ row share (RS), row exclusive (RX), share (S), share row exclusive (SRX) và exclusive (X), với ma trận tương thích giống IS, IX, S, SIX, X của khóa đa mức (Bảng~\ref{tab:cc-mgl}). Câu DML đặt khóa bảng ở chế độ RX nên nhiều phiên vẫn cùng ghi các dòng khác nhau của một bảng. Đọc không chặn ghi, ghi không chặn đọc; chỉ ghi chặn ghi trên cùng một dòng \cite{cc-oracle-concepts}.
   \item \textbf{\texttt{SELECT \ldots{} FOR UPDATE}} khóa trước các dòng sẽ sửa, có thêm \texttt{NOWAIT} (gặp khóa thì báo ORA-00054 ngay), \texttt{WAIT n} và \texttt{SKIP LOCKED} \cite{cc-oracle-select}.
   \item \textbf{Tính nhất quán khi ghi.} Một câu \texttt{UPDATE} phải chờ khóa sẽ kiểm tra lại điều kiện \texttt{WHERE} trên phiên bản mới nhất của dòng sau khi lấy được khóa, và chạy lại câu lệnh nếu cần \cite{cc-oracle-concepts}. Nhờ vậy \texttt{UPDATE \ldots{} WHERE sold + 1 <= allocated} vẫn đúng ở READ COMMITTED.
   \item \textbf{SERIALIZABLE của Oracle là snapshot isolation.} Khi transaction định sửa một dòng mà transaction khác đã sửa và commit sau khi nó bắt đầu, Oracle báo ORA-08177 thay vì chờ; ứng dụng phải thử lại. Mức này chặn mất cập nhật nhưng vẫn để lọt lệch ghi \cite{cc-berenson1995}.
@@ -97,9 +186,9 @@ Các tình huống hai phiên trên Oracle (đọc dữ liệu đã commit, quy�
 \subsubsection{Cơ chế trên Redis}\label{sec:cc-redis}
 
 \begin{itemize}
-  \item \textbf{Mỗi lệnh chạy nguyên tử} vì luồng chính thực thi lệnh lần lượt từng cái; các I/O thread (từ Redis 6) chỉ lo đọc, ghi mạng. Vì vậy \texttt{INCR}, \texttt{HINCRBY} tự nó đã nguyên tử. Nhưng một quy trình nhiều lệnh (\texttt{HGET} rồi \texttt{HSET}) thì không: giữa hai lệnh vẫn có client khác chen vào.
+  \item \textbf{Mỗi lệnh chạy nguyên tử} vì luồng chính thực thi lệnh lần lượt từng cái; các I/O thread (từ Redis 6) chỉ lo đọc, ghi mạng. Vì vậy \texttt{INCR}, \texttt{HINCRBY} tự nó đã nguyên tử, và lịch ở mức lệnh luôn là lịch tuần tự, giống như cả server chỉ có một khóa duy nhất được giữ trong lúc chạy mỗi lệnh. Nhưng một quy trình nhiều lệnh (\texttt{HGET} rồi \texttt{HSET}) thì không: giữa hai lệnh vẫn có client khác chen vào.
   \item \textbf{\texttt{MULTI}/\texttt{EXEC}} xếp hàng các lệnh rồi chạy liền một mạch, không lệnh nào của client khác chen vào, nhưng \textbf{không có rollback}: lỗi lúc xếp hàng làm \texttt{EXEC} bị hủy (\texttt{EXECABORT}); lỗi lúc chạy (ví dụ sai kiểu) thì các lệnh khác trong khối vẫn được thực hiện \cite{cc-redis-transactions}.
-  \item \textbf{\texttt{WATCH}} là kiểm soát lạc quan: key đang theo dõi bị đổi trước \texttt{EXEC} thì \texttt{EXEC} trả về null và client phải thử lại \cite{cc-redis-transactions}.
+  \item \textbf{\texttt{WATCH}} là kiểm soát lạc quan: \texttt{WATCH} rồi đọc là pha đọc, \texttt{EXEC} là pha kiểm tra. Key đang theo dõi bị đổi trước \texttt{EXEC} thì \texttt{EXEC} trả về null và client phải thử lại; không đổi thì các lệnh đã xếp hàng chạy liền một mạch, là pha ghi \cite{cc-redis-transactions}.
   \item \textbf{Lua script và Redis Functions} chạy nguyên tử: server không phục vụ lệnh nào khác trong lúc script chạy \cite{cc-redis-eval, cc-redis-functions}. Hệ quả: script phải ngắn (quá \texttt{busy-reply-threshold}, mặc định 5 giây, client khác nhận lỗi \texttt{BUSY}); và script cũng không rollback, nên script giữ suất phải kiểm tra hết điều kiện rồi mới ghi.
   \item \textbf{Không có khóa nên không có deadlock.} Khóa phân tán (\texttt{SET key value NX PX}, Redlock) là mẫu do ứng dụng tự dựng \cite{cc-redis-distlock}. Kleppmann chỉ ra tiến trình giữ khóa có thể bị dừng lâu (ví dụ do GC) tới mức khóa hết hạn mà nó không biết, nên cần thêm fencing token \cite{cc-kleppmann2016, cc-kleppmann2017}. ShopFlash không dùng khóa phân tán cho việc giữ suất.
   \item \textbf{Độ bền ảnh hưởng tới reservation.} Với AOF \texttt{everysec}, khi sập máy có thể mất khoảng 1 giây ghi đã xác nhận (xem mục~\ref{sec:backup}). Vì vậy trạng thái Flash Sale trên Redis phải dựng lại được từ Oracle.

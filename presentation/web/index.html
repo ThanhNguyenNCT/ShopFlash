@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oracle vs Redis · Nhóm 11</title>
+<link rel="icon" href="assets/hcmut.png">
+<link rel="stylesheet" href="css/fonts.css?v=9">
+<link rel="stylesheet" href="css/deck.css?v=9">
+</head>
+<body>
+<main id="deck"></main>
+
+<nav class="rail" id="rail" aria-label="Mục lục"></nav>
+<div class="corner"><img id="cornerLogo" src="assets/hcmut.png" alt="Logo Trường ĐH Bách Khoa"><span>BK TP.HCM</span></div>
+<div class="nav"><button id="prev" aria-label="Cảnh trước">‹</button><span id="count"></span><button id="next" aria-label="Cảnh sau">›</button><button id="fs" aria-label="Toàn màn hình (F)" title="Toàn màn hình (F)"></button></div>
+<div class="actions" id="actions"></div>
+<div class="progress" id="progress"></div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Chi tiết"><button class="x" aria-label="Đóng">×</button><div class="inner"></div></aside>
+<div class="toast" id="toast"></div>
+<div class="help" id="help"><div class="card"><h3>Phím tắt</h3><table style="margin-top:.8rem">
+  <tr><td><kbd>→</kbd> <kbd>Space</kbd> / <kbd>←</kbd></td><td>Cảnh sau / trước</td></tr>
+  <tr><td><kbd>1</kbd> … <kbd>7</kbd></td><td>Nhảy tới phần</td></tr>
+  <tr><td><kbd>D</kbd></td><td>Mở/đóng ngăn chi tiết</td></tr>
+  <tr><td><kbd>P</kbd></td><td>Mở cửa sổ presenter (ghi chú, đồng hồ)</td></tr>
+  <tr><td><kbd>F</kbd></td><td>Toàn màn hình</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>Xuất PDF (mỗi cảnh một trang)</td></tr>
+  <tr><td><kbd>Esc</kbd></td><td>Đóng</td></tr></table></div></div>
+
+<script src="js/deck.js?v=9"></script>
+<script src="parts/00-mo-dau.js?v=9"></script>
+<script src="parts/01-gioi-thieu.js?v=9"></script>
+<script src="parts/02-luu-tru.js?v=9"></script>
+<script src="parts/03-chi-muc.js?v=9"></script>
+<script src="parts/04-truy-van.js?v=9"></script>
+<script src="parts/05-giao-dich.js?v=9"></script>
+<script src="parts/06-dong-thoi.js?v=9"></script>
+<script src="parts/07-sao-luu.js?v=9"></script>
+<script src="parts/08-ket-thuc.js?v=9"></script>
+<script src="parts/09-du-phong-truy-van.js?v=9"></script>
+<script>Deck.start()</script>
+</body>
+</html>

@@ -14,8 +14,10 @@ Script SQL*Plus sinh dữ liệu lớn cho báo cáo F5 (doanh thu) và F6 (top 
 
 ## Dữ liệu tạo ra (mặc định)
 
-- 50 danh mục (`slug` `gen-cat-0001`…), 10.000 sản phẩm (`sku`/`slug` `gen-p-0000001`…), mỗi sản phẩm có một dòng `product_inventory` (reserved = 0, version = 0).
-  Giá 50.000–30.000.000 VND (log-uniform, tròn 1.000), khoảng 5% INACTIVE.
+- Không sinh danh mục. 10.000 sản phẩm (`sku`/`slug` `gen-p-0000001`…), mỗi sản phẩm là một mẫu của một sản phẩm thật trong catalog dev
+  (`R__00_catalog_seed.sql`, sku `SF-2xxx`): cùng danh mục, cùng ảnh, tên `<tên gốc> · Mẫu 00001`, giá lệch ±30% quanh giá gốc (tròn 1.000).
+  Khoảng 5% INACTIVE. Mỗi sản phẩm có một dòng `product_inventory` (reserved = 0, version = 0).
+  Cần chạy backend profile dev ít nhất một lần trước để có catalog; thiếu catalog thì script dừng và báo lỗi.
 - 20.000 khách hàng CUSTOMER/ACTIVE, email `c0000001@gen.shopflash.local`, password_hash là chuỗi giả dạng bcrypt (không đăng nhập được).
 - 100.000 đơn NORMAL (`order_code` `GEN-00000001`, `idempotency_key` `gen-00000001`), `created_at` từ 2025-11-01 tới 2026-10-18 (+07:00).
   Số đơn theo tháng có chênh lệch (tháng 1 cao nhất, tháng 2 thấp nhất, ngày 11/11 và 12/12 tăng mạnh).

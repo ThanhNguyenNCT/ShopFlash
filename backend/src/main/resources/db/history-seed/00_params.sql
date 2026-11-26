@@ -1,6 +1,5 @@
 -- Tham số sinh dữ liệu benchmark cho module query (F5/F6).
 -- Đổi quy mô: chỉ sửa các giá trị dưới đây, ví dụ n_orders = 500000.
-define n_categories      = 50
 define n_products        = 10000
 define n_customers       = 20000
 define n_orders          = 100000

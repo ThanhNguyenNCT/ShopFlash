@@ -22,40 +22,46 @@ exec :t0 := TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM')
 @@98_delete_generated.sql
 
 -- ---------------------------------------------------------------- 1. Danh mục
-prompt == Sinh categories ==
-INSERT INTO categories (name, slug, description, status, created_at, updated_at)
-SELECT CASE MOD(n - 1, 10)
-         WHEN 0 THEN 'Dien thoai' WHEN 1 THEN 'Laptop'    WHEN 2 THEN 'May tinh bang'
-         WHEN 3 THEN 'Phu kien'   WHEN 4 THEN 'Dong ho'   WHEN 5 THEN 'Am thanh'
-         WHEN 6 THEN 'May anh'    WHEN 7 THEN 'Gia dung'  WHEN 8 THEN 'Thoi trang'
-         ELSE 'The thao' END || ' ' || LPAD(TRUNC((n - 1) / 10) + 1, 2, '0'),
-       'gen-cat-' || LPAD(n, 4, '0'),
-       'Danh muc sinh tu dong cho benchmark',
-       'ACTIVE',
-       FROM_TZ(CAST(DATE '&start_date' - 365 AS TIMESTAMP), '+07:00'),
-       FROM_TZ(CAST(DATE '&start_date' - 365 AS TIMESTAMP), '+07:00')
-FROM  (SELECT LEVEL n FROM dual CONNECT BY LEVEL <= &n_categories);
+-- Không sinh danh mục: sản phẩm sinh nằm trong các danh mục thật của catalog dev (R__00_catalog_seed.sql).
+prompt == Kiem tra catalog dev ==
+DECLARE
+  v_n NUMBER;
+BEGIN
+  SELECT COUNT(*) INTO v_n FROM products WHERE sku LIKE 'SF-2%' AND thumbnail_url IS NOT NULL;
+  IF v_n = 0 THEN
+    RAISE_APPLICATION_ERROR(-20001, 'Chua co catalog dev (sku SF-2xxx). Chay backend profile dev mot lan truoc.');
+  END IF;
+END;
+/
 
 -- ---------------------------------------------------------------- 2. Sản phẩm
--- Giá phân bố log-uniform 50.000 .. 30.000.000, làm tròn 1.000. Khoảng pct_inactive % INACTIVE.
+-- Mỗi sản phẩm sinh là một "mẫu" của một sản phẩm thật trong catalog (chọn theo hash): cùng danh mục, cùng ảnh,
+-- tên "<tên gốc> · Mẫu 00123", giá lệch ±30% quanh giá gốc (tròn 1.000). Khoảng pct_inactive % INACTIVE.
+-- Chữ có dấu viết bằng UNISTR để không phụ thuộc bảng mã của SQL*Plus.
 prompt == Sinh products ==
 INSERT INTO products (category_id, sku, name, slug, description, base_price, thumbnail_url, status, created_at, updated_at)
-SELECT c.category_id,
+WITH src AS (
+  SELECT category_id, name, description, base_price, thumbnail_url,
+         ROW_NUMBER() OVER (ORDER BY product_id) k, COUNT(*) OVER () cnt
+  FROM   products
+  WHERE  sku LIKE 'SF-2%' AND thumbnail_url IS NOT NULL
+), g AS (
+  SELECT LEVEL n FROM dual CONNECT BY LEVEL <= &n_products
+)
+SELECT src.category_id,
        'gen-p-' || LPAD(g.n, 7, '0'),
-       c.name || ' - Mau ' || LPAD(g.n, 7, '0'),
+       SUBSTR(src.name, 1, 180) || UNISTR(' \00B7 M\1EABu ') || LPAD(g.n, 5, '0'),
        'gen-p-' || LPAD(g.n, 7, '0'),
-       NULL,
-       ROUND(EXP(LN(50000) + ORA_HASH(g.n, 999999, &seed + 12) / 1000000 * (LN(30000000) - LN(50000))), -3),
-       '/images/gen/p-' || LPAD(g.n, 7, '0') || '.jpg',
+       src.description,
+       GREATEST(1000, ROUND(src.base_price * (0.7 + ORA_HASH(g.n, 600, &seed + 12) / 1000), -3)),
+       src.thumbnail_url,
        CASE WHEN ORA_HASH(g.n, 99, &seed + 13) < &pct_inactive THEN 'INACTIVE' ELSE 'ACTIVE' END,
        FROM_TZ(CAST(DATE '&start_date' - 180 AS TIMESTAMP), '+07:00')
          + NUMTODSINTERVAL(ORA_HASH(g.n, 180 * 86400 - 1, &seed + 14), 'SECOND'),
        FROM_TZ(CAST(DATE '&start_date' - 180 AS TIMESTAMP), '+07:00')
          + NUMTODSINTERVAL(ORA_HASH(g.n, 180 * 86400 - 1, &seed + 14), 'SECOND')
-FROM  (SELECT LEVEL n FROM dual CONNECT BY LEVEL <= &n_products) g
-JOIN  (SELECT category_id, name, TO_NUMBER(SUBSTR(slug, 9) DEFAULT NULL ON CONVERSION ERROR) cat_no
-       FROM   categories WHERE slug LIKE 'gen-cat-%') c
-  ON  c.cat_no = MOD(ORA_HASH(g.n, 4294967295, &seed + 11), &n_categories) + 1;
+FROM   g
+JOIN   src ON src.k = MOD(ORA_HASH(g.n, 4294967295, &seed + 11), src.cnt) + 1;
 
 prompt == Sinh product_inventory ==
 INSERT INTO product_inventory (product_id, on_hand_quantity, reserved_flash_quantity, version, updated_at)
@@ -255,7 +261,7 @@ exec DBMS_STATS.GATHER_SCHEMA_STATS(ownname => USER)
 -- ---------------------------------------------------------------- 8. Tóm tắt
 set timing off
 prompt == Tom tat du lieu sinh ==
-SELECT 'categories' item, COUNT(*) value FROM categories WHERE slug LIKE 'gen-%'
+SELECT 'categories co san pham sinh' item, COUNT(DISTINCT category_id) value FROM products WHERE sku LIKE 'gen-%'
 UNION ALL SELECT 'products', COUNT(*) FROM products WHERE sku LIKE 'gen-%'
 UNION ALL SELECT 'products INACTIVE', COUNT(*) FROM products WHERE sku LIKE 'gen-%' AND status = 'INACTIVE'
 UNION ALL SELECT 'products chua ban', COUNT(*) FROM products p

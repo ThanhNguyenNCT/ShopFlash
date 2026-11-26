@@ -186,7 +186,7 @@ Banner dưới là đánh đổi chính: fsync càng thường xuyên thì càng
 
 **Cảnh 44 · Thiết kế sao lưu ShopFlash.** Một gói backup có ba phần: file Data Pump, file RDB, manifest SHA-256. Kiểm tra mã băm trước khi khôi phục.
 
-**Cảnh 45 · Kết luận.** Khôi phục thành công mọi lượt thử, tổng khoảng 33 giây cho cả hai DBMS. AOF always làm p95 ghi tăng khoảng 40 lần so với everysec.
+**Cảnh 45 · Kết luận.** Khôi phục thành công mọi lượt thử. AOF always làm p95 ghi tăng khoảng 40 lần so với everysec.
 ShopFlash chọn everysec: ghi gần như khi tắt AOF, mất tối đa khoảng 1 giây.
 
 ## Tổng kết (1 phút)

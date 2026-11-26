@@ -3,7 +3,7 @@ Deck.opener({part:2,title:'Lưu trữ và quản lý dữ liệu'});
 
 /* ---------- Canva p.7 ---------- */
 Deck.add({part:2,title:'Lưu trữ logic của Oracle',
-demo:{label:'Storage Lab',path:'/admin/products/storage-lab'},
+/* demo:{label:'Storage Lab',path:'/admin/products/storage-lab'},  (ẩn nút demo) */
 html:`
 <style>
 .p2-o{flex:1;min-height:0;display:grid;grid-template-columns:38rem 1fr;gap:1.4rem}
@@ -54,7 +54,7 @@ ${Deck.head(2,'Lưu trữ của Redis')}
 
 /* ---------- Canva p.9 ---------- */
 Deck.add({part:2,title:'So sánh và thiết kế ShopFlash',
-demo:{label:'Storage Lab',path:'/admin/products/storage-lab'},
+/* demo:{label:'Storage Lab',path:'/admin/products/storage-lab'},  (ẩn nút demo) */
 html:`
 <style>
 .p2c{flex:1;min-height:0;display:grid;grid-template-columns:30rem 1fr;gap:1.4rem}
@@ -104,7 +104,7 @@ ${Deck.head(2,'Kết luận')}
 <div class="body">
   <div class="p2k">
     <div class="card" data-a style="--i:1"><div class="n">1</div><p>Oracle thực thi ghi và ràng buộc; Redis chỉ giữ bản chiếu để đọc nhanh.</p></div>
-    <div class="card" data-a style="--i:2"><div class="n">2</div><p>Redis không tự kiểm tra: ghi thẳng Category không tồn tại hay giá âm vẫn được nhận.</p></div>
+    <div class="card" data-a style="--i:2"><div class="n">2</div><p>Redis không tự kiểm tra ràng buộc như foreign key hay check constraint.</p></div>
     <div class="card" data-a style="--i:3"><div class="n">3</div><p>Client không ghi trực tiếp vào Redis; mọi thao tác ghi đi qua API và Oracle.</p></div>
   </div>
 </div>`});

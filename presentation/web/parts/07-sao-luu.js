@@ -63,7 +63,7 @@ ${Deck.head(7,'Persistence của Redis')}
 
 /* ---------- Canva p.39 ---------- */
 Deck.add({part:7,title:'Thiết kế sao lưu ShopFlash',
-demo:{label:'Sao lưu',path:'/admin/backups'},
+/* demo:{label:'Sao lưu',path:'/admin/backups'},  (ẩn nút demo) */
 html:`
 <style>
 .p7-flow{flex:none;height:18rem}
@@ -112,7 +112,7 @@ Deck.add({part:7,title:'Kết luận',
 html:`
 <style>
 .p7-k{flex:1;min-height:0;display:grid;grid-template-columns:27rem 1fr;gap:1.4rem}
-.p7-kp{display:grid;grid-template-rows:repeat(3,1fr);gap:1rem;min-height:0}
+.p7-kp{display:grid;grid-template-rows:repeat(2,1fr);gap:1rem;min-height:0}
 .p7-kp .card{display:flex;flex-direction:column;justify-content:center;padding:1.2rem 1.6rem}
 .p7-kp .kpi b{font-size:3.6rem}
 .p7-kp .kpi em{font-style:normal}
@@ -137,7 +137,6 @@ ${Deck.head(7,'Kết luận')}
   <div class="p7-k">
     <div class="p7-kp">
       <div class="card" data-a style="--i:1"><div class="kpi ok"><b><em data-count="100">100</em>%</b><span>lượt khôi phục thành công, số bản ghi khớp trạng thái ban đầu</span></div></div>
-      <div class="card" data-a style="--i:2"><div class="kpi n"><b>~<em data-count="33">33</em> giây</b><span>tổng thời gian khôi phục Oracle và Redis trên tập dữ liệu thử nghiệm</span></div></div>
       <div class="card" data-a style="--i:3"><div class="kpi bad"><b><em data-count="40">40</em>×</b><span>độ trễ ghi p95 tăng khi AOF dùng always so với everysec</span></div></div>
     </div>
     <div class="card p7-tb" data-a style="--i:4">

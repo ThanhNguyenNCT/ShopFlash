@@ -521,7 +521,7 @@ Giữa Oracle AUTO và Redis AGGREGATE, không bên nào nhanh hơn ở mọi b�
 
 Phần diễn giải dưới đây là suy luận của nhóm từ các kế hoạch đã thu, không phải phép đo riêng. Hai báo cáo Redis thắng đều cần join bốn bảng trên Oracle. Trên Redis, phép join đó đã làm xong lúc dựng read model, nên truy vấn chỉ còn lọc và gom trên một index. Báo cáo theo tháng chỉ dùng một bảng. Oracle không phải join, và Redis mất lợi thế. Khách VIP trên Redis phải chạy hai lượt và gom 19 nghìn nhóm khách, còn Oracle làm trong một câu và tính subquery một lần. Redis nhanh khi câu hỏi đã được chuẩn bị sẵn trong read model. Cái giá được trả trước, lúc dựng.
 
-Lần đo đầu tiên chạy ngày 18/10/2026, trên cùng máy, cùng dữ liệu sinh, cùng khoảng ngày và cùng code truy vấn. Từ đó tới ngày 19/11, kho mã không có thay đổi nào ở index Redis, ở code truy vấn Redis hay ở script đo. Kết quả hai lần khác nhau (Bảng~\ref{tab:q-rerun}).
+Lần đo đầu tiên chạy ngày 18/10/2026, trên cùng máy, cùng dữ liệu sinh và cùng khoảng ngày. Từ đó tới ngày 19/11, index Redis (\texttt{init.lua}), câu SQL và lệnh \texttt{FT.AGGREGATE} của các báo cáo không đổi. Những phần khác của kho mã có thay đổi: script đo được ghim khoảng ngày 01/11/2025 đến 18/10/2026 (lần đầu script để API lấy 12 tháng gần nhất, ngày 18/10 vẫn phủ hết dữ liệu); module query thêm cache-aside và sửa cách CLIENT đóng cursor; client Redis chuyển sang \texttt{common/redis} với cùng cấu hình (RESP2, pool 16 kết nối); backend thêm đăng nhập JWT; module indexing thêm hai index trên \texttt{products} (V3). Nhóm chưa đo riêng ảnh hưởng của từng thay đổi. Kết quả hai lần khác nhau (Bảng~\ref{tab:q-rerun}).
 
 \begin{table}[!htbp]
 \centering

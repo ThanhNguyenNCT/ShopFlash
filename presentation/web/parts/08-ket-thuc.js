@@ -16,7 +16,7 @@ html:`
 .sm-row .k span{display:block;margin-top:.3rem;font-size:.86rem;line-height:1.3;color:var(--muted)}
 </style>
 <div class="head"><div>
-  <div class="eyebrow" data-morph="eyebrow">Tổng kết · 1 phút</div><br>
+  <div class="eyebrow" data-morph="eyebrow">Tổng kết</div><br>
   <h2 class="title h2" data-morph="title">Phân chia dữ liệu trong ShopFlash</h2></div>
   <div class="row" style="padding-bottom:.4rem"><span class="chip o" data-morph="ora">ORACLE</span><span class="chip r" data-morph="red">REDIS</span></div>
 </div>

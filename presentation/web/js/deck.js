@@ -30,7 +30,7 @@ Deck.opener=o=>{
   <div class="opener">
     <div class="big" data-morph="sec${o.part}">${nn}</div>
     <div>
-      <div class="eyebrow" data-morph="eyebrow">Phần ${o.part} · ${p.min} phút</div><br>
+      <div class="eyebrow" data-morph="eyebrow">Phần ${o.part}</div><br>
       <h2 class="title" data-morph="title">${o.title||p.name}</h2>
       ${o.q?`<p class="q" data-a style="--i:0">${o.q}</p>`:''}
       ${o.who?`<div class="who" data-a style="--i:5">Trình bày: <b>${o.who}</b></div>`:''}
@@ -107,7 +107,7 @@ function build(){
   const rail=document.getElementById('rail');
   PARTS.forEach(p=>{
     const it=document.createElement('div');it.className='it';
-    it.innerHTML=`<button data-part="${p.n}" aria-label="Phần ${p.n}: ${p.name}">${p.n}</button><span class="t">${p.n}. ${p.name} · ${p.min}'</span>`;
+    it.innerHTML=`<button data-part="${p.n}" aria-label="Phần ${p.n}: ${p.name}">${p.n}</button><span class="t">${p.n}. ${p.name}</span>`;
     it.querySelector('button').onclick=()=>goPart(p.n);rail.append(it);
   });
 }

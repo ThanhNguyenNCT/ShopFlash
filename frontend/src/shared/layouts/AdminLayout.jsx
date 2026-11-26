@@ -1,6 +1,6 @@
 import { Suspense, useState } from 'react';
 import { Button, Grid, Layout, Menu, Spin, Tag, Typography } from 'antd';
-import { LogoutOutlined, ShopOutlined, ThunderboltFilled, UserOutlined } from '@ant-design/icons';
+import { LogoutOutlined, ThunderboltFilled, UserOutlined } from '@ant-design/icons';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { tokens } from '@/shared/design-system';
 import { useAuth } from '@/shared/auth';
@@ -81,9 +81,6 @@ export default function AdminLayout({ menu }) {
               <Tag color="processing">{user.role === 'ADMIN' ? 'Admin' : user.role}</Tag>
             </span>
           )}
-          <Button icon={<ShopOutlined />} aria-label="Về cửa hàng" onClick={() => navigate('/')}>
-            {screens.sm && 'Về cửa hàng'}
-          </Button>
           <Button type="text" icon={<LogoutOutlined />} aria-label="Đăng xuất" onClick={doLogout}>
             {screens.sm && 'Đăng xuất'}
           </Button>

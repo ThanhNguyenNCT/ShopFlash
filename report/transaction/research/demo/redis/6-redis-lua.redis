@@ -1,0 +1,7 @@
+# Scene 6 (phía Redis) — Consistency bằng Lua kiểm tra trước khi ghi
+# Nguồn: redis/lua/C2-validate.lua (dùng nguyên file), input như case out_of_stock và valid của C2.py.
+# "@lua N" = EVAL C2-validate.lua với quantity N; in BEFORE / COMMAND / RESPONSE / AFTER.
+@lua 101
+@conclude quantity=101 > tồn khả dụng: script trả lỗi ở bước validation, chưa có lệnh ghi nào chạy.
+@lua 1
+@conclude quantity=1 hợp lệ: cả ba lệnh ghi chạy trong cùng một lần thực thi script.

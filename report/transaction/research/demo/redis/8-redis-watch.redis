@@ -1,0 +1,25 @@
+# Scene 8 — Redis Isolation: WATCH (optimistic locking), conflict rồi retry
+# Nguồn: redis/experiments/B4.py, nhánh B4.2 WATCH/HSET/retry hiện hành (revision-20261109).
+# Client A = một kết nối redis-cli xuyên suốt WATCH → EXEC. Client B = kết nối khác.
+# "@calc A-1": lấy giá trị A vừa đọc trừ 1 (logic ứng dụng của client A), dùng làm {CALC}.
+@show BEFORE
+A> WATCH {INV1}
+A> HGET {INV1} on_hand
+@calc A-1
+B> HINCRBY {INV1} on_hand -1
+A> MULTI
+A> HSET {INV1} on_hand {CALC}
+A> EXEC
+A> HGET {INV1} on_hand
+@show Sau conflict
+@conclude EXEC trả (nil): key đã đổi sau WATCH nên Redis hủy transaction của A, không ghi đè 99 của B.
+@note Retry 1/1 — đọc lại giá trị mới, tính lại, WATCH lại
+A> WATCH {INV1}
+A> HGET {INV1} on_hand
+@calc A-1
+A> MULTI
+A> HSET {INV1} on_hand {CALC}
+A> EXEC
+A> HGET {INV1} on_hand
+@show AFTER
+@conclude Retry thành công, stock = 98, không mất cập nhật nào. HSET trả 0 vì field đã tồn tại, không phải lỗi.

@@ -1,0 +1,11 @@
+# Scene 5 — Redis Atomicity & Error Handling: lỗi runtime bên trong EXEC
+# Nguồn: redis/experiments/A5.sh, nhánh runtime (cùng lệnh, cùng thứ tự). Một kết nối A.
+@show BEFORE
+A> MULTI
+A> HINCRBY {INV1} on_hand -1
+A> HSET {ORDER} status PENDING product_id {P1}
+A> LPUSH {ORDER} impossible
+A> HDEL {CART} {P1}
+A> EXEC
+@show AFTER EXEC
+@conclude LPUSH lên Hash lỗi WRONGTYPE lúc chạy, nhưng các lệnh trước và sau vẫn được áp dụng: Redis không rollback.

@@ -1,0 +1,22 @@
+# Scene 2 — Redis Transaction Lifecycle: MULTI → QUEUED → EXEC / DISCARD
+# Nguồn: redis/experiments/A4.sh (cùng lệnh, cùng thứ tự). Client A = MỘT kết nối redis-cli xuyên suốt.
+# Cú pháp: "A> lệnh" gửi qua kết nối A; @show đọc trạng thái bằng client độc lập; @reset dựng lại baseline.
+@show BEFORE
+@note Nhánh 1 — MULTI, ba lệnh xếp hàng, EXEC
+A> MULTI
+A> HSET {ORDER} user_id {USER_ID} status PENDING product_id {P1} quantity 1
+A> HINCRBY {INV1} on_hand -1
+A> HDEL {CART} {P1}
+@show Trước EXEC — client độc lập chưa thấy thay đổi
+A> EXEC
+@show AFTER EXEC
+@conclude EXEC chạy tuần tự cả ba lệnh đã xếp hàng; trước EXEC không lệnh nào được thực thi.
+@reset
+@note Nhánh 2 — MULTI, ba lệnh xếp hàng, DISCARD
+A> MULTI
+A> HSET {ORDER} user_id {USER_ID} status PENDING product_id {P1} quantity 1
+A> HINCRBY {INV1} on_hand -1
+A> HDEL {CART} {P1}
+A> DISCARD
+@show AFTER DISCARD
+@conclude DISCARD bỏ hàng đợi: không lệnh nào chạy, dữ liệu giữ nguyên.

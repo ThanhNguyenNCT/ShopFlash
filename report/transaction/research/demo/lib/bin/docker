@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Shim chỉ dùng bên trong demo.sh: script nghiên cứu gọi "docker compose exec -T <oracle|redis> ...",
+# shim chuyển lệnh đó sang đúng container shopflashdemo mà demo.sh vừa xác minh (label, volume, port).
+# Mọi lệnh docker khác bị từ chối, nên script nghiên cứu không thể chạm tới project ShopFlash chính.
+set -euo pipefail
+real=${DEMO_REAL_DOCKER:?shim chỉ chạy qua demo.sh}
+if [[ $# -ge 4 && "$1 $2 $3" == "compose exec -T" ]]; then
+  case "$4" in
+    oracle) ctr=${DEMO_ORA_CTR:?chưa xác minh container Oracle demo} ;;
+    redis)  ctr=${DEMO_REDIS_CTR:?chưa xác minh container Redis demo} ;;
+    *) echo "demo shim: service không hỗ trợ: $4" >&2; exit 97 ;;
+  esac
+  shift 4
+  exec "$real" exec -i "$ctr" "$@"
+fi
+echo "demo shim: từ chối 'docker $*' (chỉ cho phép compose exec -T oracle|redis)" >&2
+exit 97

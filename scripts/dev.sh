@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Chạy toàn bộ ShopFlash trên máy dev (macOS / Linux): Oracle + Redis (Docker), backend Spring Boot, frontend Vite.
 #
-#   scripts/dev.sh              chạy tất cả (Ctrl+C để dừng backend và frontend)
+#   scripts/dev.sh              chạy tất cả, lần đầu nạp thêm ~100.000 đơn lịch sử (Ctrl+C để dừng backend và frontend)
 #   scripts/dev.sh --no-backend chỉ database + frontend (backend chạy trong IDE)
 #   scripts/dev.sh --mock       chỉ frontend với dữ liệu mẫu, không cần Docker
 #   scripts/dev.sh --stop       dừng container Oracle và Redis (dữ liệu vẫn giữ)
@@ -86,10 +86,38 @@ if [ "$NO_BACKEND" = 0 ]; then
   done
   curl -fs -m 5 http://127.0.0.1:8080/api/health >/dev/null || fail 'Backend chưa lên sau 3 phút. Xem backend/dev.log'
   ok 'Backend UP'
-  if curl -fs -m 60 http://127.0.0.1:8080/api/admin/reports/analytics/status | grep -q '"inSync":false'; then
+
+  # Lịch sử 12 tháng (~100.000 đơn) cho trang Báo cáo: chỉ sinh khi Oracle chưa có đơn GEN-*.
+  # Mật khẩu SHOP lấy từ biến trong container, không đưa lên dòng lệnh.
+  sqlplus_shop() {
+    docker compose exec -T oracle bash -c \
+      '{ printf "connect shop/%s@//localhost:1521/FREEPDB1\n" "$SHOP_PASSWORD"; cat; } | sqlplus -s -L /nolog'
+  }
+  gen_orders=$(printf 'set heading off feedback off pagesize 0\nselect count(*) from orders where order_code like '"'"'GEN-%%'"'"';\nexit\n' \
+    | sqlplus_shop | tr -dc '0-9')
+  if [ "${gen_orders:-0}" = 0 ]; then
+    step 'Nạp lịch sử 12 tháng, khoảng 100.000 đơn (lần đầu, khoảng 1,5 phút)'
+    cid=$(docker compose ps -q oracle)
+    docker exec -u 0 "$cid" rm -rf /tmp/seed
+    docker cp backend/src/main/resources/db/history-seed "$cid:/tmp/seed" >/dev/null
+    printf 'whenever sqlerror exit failure rollback\n@/tmp/seed/01_generate.sql\nexit\n' | sqlplus_shop \
+      > backend/history-seed.log 2>&1 || fail 'Nạp lịch sử lỗi. Xem backend/history-seed.log'
+    ok 'Đã nạp lịch sử (log ở backend/history-seed.log)'
+  else
+    ok "Oracle đã có $gen_orders đơn lịch sử, bỏ qua bước nạp"
+  fi
+
+  # API quản trị cần JWT: đăng nhập bằng tài khoản admin mẫu của profile dev.
+  token=$(curl -fs -m 30 -X POST -H 'Content-Type: application/json' \
+    -d "{\"email\":\"${SHOPFLASH_ADMIN_EMAIL:-admin@shopflash.local}\",\"password\":\"${SHOPFLASH_ADMIN_PASSWORD:-ShopFlash123!}\"}" \
+    http://127.0.0.1:8080/api/auth/login | sed -E 's/.*"accessToken":"([^"]+)".*/\1/') \
+    || fail 'Không đăng nhập được tài khoản admin mẫu để dựng read model'
+  if curl -fs -m 60 -H "Authorization: Bearer $token" http://127.0.0.1:8080/api/admin/reports/analytics/status \
+      | grep -q '"inSync":false'; then
     step 'Dựng read model Redis cho báo cáo (khoảng 20-35 s với 100k đơn)'
-    curl -fs -X POST -H 'Content-Type: application/json' -d '{}' \
-      http://127.0.0.1:8080/api/admin/reports/analytics/rebuild && echo
+    curl -fs -m 900 -X POST -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d '{}' \
+      http://127.0.0.1:8080/api/admin/reports/analytics/rebuild >/dev/null || fail 'Dựng read model lỗi. Xem backend/dev.log'
+    ok 'Read model Redis đã khớp Oracle'
   fi
 fi
 

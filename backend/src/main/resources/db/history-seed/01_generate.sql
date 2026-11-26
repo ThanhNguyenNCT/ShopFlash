@@ -6,7 +6,8 @@
 -- Không dùng DBMS_RANDOM vì chuỗi số của nó phụ thuộc thứ tự Oracle duyệt dòng (đổi theo plan),
 -- còn ORA_HASH là hàm thuần của đầu vào: chạy lại ra đúng cùng dữ liệu, chỉ khác ID identity.
 -- Mọi bước là INSERT ... SELECT theo tập (row generator CONNECT BY), không lặp từng dòng.
--- Số thứ tự đọc lại từ sku/email/order_code bằng TO_NUMBER(... DEFAULT NULL ON CONVERSION ERROR):
+-- Không sinh sản phẩm hay danh mục: đơn chỉ đặt các sản phẩm có sẵn của catalog dev (sku SF-2xxx).
+-- Số thứ tự đọc lại từ email/order_code bằng TO_NUMBER(... DEFAULT NULL ON CONVERSION ERROR):
 -- Oracle có thể tính TO_NUMBER trước bộ lọc LIKE, gặp dòng lõi như 'CORE-NORMAL-001' sẽ lỗi ORA-01722.
 -- Không dùng /*+ APPEND */: bảng có khóa ngoại nên Oracle tự bỏ qua direct-path.
 
@@ -21,57 +22,20 @@ exec :t0 := TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD HH24:MI:SS.FF3 TZH:TZM')
 
 @@98_delete_generated.sql
 
--- ---------------------------------------------------------------- 1. Danh mục
--- Không sinh danh mục: sản phẩm sinh nằm trong các danh mục thật của catalog dev (R__00_catalog_seed.sql).
+-- ---------------------------------------------------------------- 1. Catalog có sẵn
+-- Không sinh danh mục, sản phẩm: đơn đặt các sản phẩm thật của catalog dev (R__00_catalog_seed.sql, sku SF-2xxx).
 prompt == Kiem tra catalog dev ==
 DECLARE
   v_n NUMBER;
 BEGIN
-  SELECT COUNT(*) INTO v_n FROM products WHERE sku LIKE 'SF-2%' AND thumbnail_url IS NOT NULL;
+  SELECT COUNT(*) INTO v_n FROM products WHERE sku LIKE 'SF-2%';
   IF v_n = 0 THEN
     RAISE_APPLICATION_ERROR(-20001, 'Chua co catalog dev (sku SF-2xxx). Chay backend profile dev mot lan truoc.');
   END IF;
 END;
 /
 
--- ---------------------------------------------------------------- 2. Sản phẩm
--- Mỗi sản phẩm sinh là một "mẫu" của một sản phẩm thật trong catalog (chọn theo hash): cùng danh mục, cùng ảnh,
--- tên "<tên gốc> · Mẫu 00123", giá lệch ±30% quanh giá gốc (tròn 1.000). Khoảng pct_inactive % INACTIVE.
--- Chữ có dấu viết bằng UNISTR để không phụ thuộc bảng mã của SQL*Plus.
-prompt == Sinh products ==
-INSERT INTO products (category_id, sku, name, slug, description, base_price, thumbnail_url, status, created_at, updated_at)
-WITH src AS (
-  SELECT category_id, name, description, base_price, thumbnail_url,
-         ROW_NUMBER() OVER (ORDER BY product_id) k, COUNT(*) OVER () cnt
-  FROM   products
-  WHERE  sku LIKE 'SF-2%' AND thumbnail_url IS NOT NULL
-), g AS (
-  SELECT LEVEL n FROM dual CONNECT BY LEVEL <= &n_products
-)
-SELECT src.category_id,
-       'gen-p-' || LPAD(g.n, 7, '0'),
-       SUBSTR(src.name, 1, 180) || UNISTR(' \00B7 M\1EABu ') || LPAD(g.n, 5, '0'),
-       'gen-p-' || LPAD(g.n, 7, '0'),
-       src.description,
-       GREATEST(1000, ROUND(src.base_price * (0.7 + ORA_HASH(g.n, 600, &seed + 12) / 1000), -3)),
-       src.thumbnail_url,
-       CASE WHEN ORA_HASH(g.n, 99, &seed + 13) < &pct_inactive THEN 'INACTIVE' ELSE 'ACTIVE' END,
-       FROM_TZ(CAST(DATE '&start_date' - 180 AS TIMESTAMP), '+07:00')
-         + NUMTODSINTERVAL(ORA_HASH(g.n, 180 * 86400 - 1, &seed + 14), 'SECOND'),
-       FROM_TZ(CAST(DATE '&start_date' - 180 AS TIMESTAMP), '+07:00')
-         + NUMTODSINTERVAL(ORA_HASH(g.n, 180 * 86400 - 1, &seed + 14), 'SECOND')
-FROM   g
-JOIN   src ON src.k = MOD(ORA_HASH(g.n, 4294967295, &seed + 11), src.cnt) + 1;
-
-prompt == Sinh product_inventory ==
-INSERT INTO product_inventory (product_id, on_hand_quantity, reserved_flash_quantity, version, updated_at)
-SELECT product_id,
-       ORA_HASH(TO_NUMBER(SUBSTR(sku, 7) DEFAULT NULL ON CONVERSION ERROR), 500, &seed + 15),
-       0, 0, created_at
-FROM   products
-WHERE  sku LIKE 'gen-p-%';
-
--- ---------------------------------------------------------------- 3. Khách hàng
+-- ---------------------------------------------------------------- 2. Khách hàng
 -- Email c0000001@gen.shopflash.local (chữ thường). password_hash là chuỗi giả dạng bcrypt, không đăng nhập được.
 prompt == Sinh users (CUSTOMER) ==
 INSERT INTO users (email, password_hash, full_name, phone, role, status, created_at, updated_at)
@@ -95,12 +59,12 @@ SELECT 'c' || LPAD(n, 7, '0') || '@gen.shopflash.local',
          + NUMTODSINTERVAL(ORA_HASH(n, 300 * 86400 - 1, &seed + 55), 'SECOND')
 FROM  (SELECT LEVEL n FROM dual CONNECT BY LEVEL <= &n_customers);
 
--- ---------------------------------------------------------------- 4. Đơn hàng
+-- ---------------------------------------------------------------- 3. Đơn hàng
 -- Số đơn mỗi ngày theo trọng số: hệ số tháng (11, 12, 1 cao; 2 thấp), cuối tuần x1.15,
 -- ngày 11/11 và 12/12 x2.5, xu hướng tăng 30% trong kỳ. Tổng đúng bằng n_orders.
 -- Khách: pct_vip_orders % đơn rơi vào nhóm VIP (pct_vip_customers % khách), còn lại chia đều;
 -- hạng khách đổi sang số thứ tự bằng hoán vị MOD(rank * 7919, n_customers) để VIP rải đều, không dồn đầu bảng.
--- subtotal/discount/total tạm là 0 (thỏa CHECK), cập nhật ở bước 6 sau khi có order_items.
+-- subtotal/discount/total tạm là 0 (thỏa CHECK), cập nhật ở bước 5 sau khi có order_items.
 prompt == Sinh orders ==
 INSERT INTO orders (order_code, user_id, order_type, status, subtotal, discount_amount, total_amount,
                     recipient_name, recipient_phone, shipping_address, idempotency_key,
@@ -176,7 +140,8 @@ JOIN  (SELECT user_id, full_name, phone, TO_NUMBER(SUBSTR(email, 2, 7) DEFAULT N
        FROM   users WHERE email LIKE '%@gen.shopflash.local') u
   ON   u.cust_no = s.cust_no;
 
--- ---------------------------------------------------------------- 5. Dòng đơn hàng
+-- ---------------------------------------------------------------- 4. Dòng đơn hàng
+-- Tập sản phẩm: catalog dev (sku SF-2xxx), đánh số p_no theo sku để chạy lại ra cùng kết quả.
 -- pct_unsold % sản phẩm (chọn theo hash) bị loại khỏi tập bán -> báo cáo "chưa bán" có dữ liệu.
 -- Số dòng mỗi đơn 1..5 (25/30/25/12/8 %, TB ~2.5). Sản phẩm chọn theo hạng phổ biến
 -- FLOOR(n_sold * u^popularity_skew) + 1 trên một hoán vị ngẫu nhiên của tập bán -> có top bán chạy rõ.
@@ -185,8 +150,8 @@ prompt == Sinh order_items ==
 INSERT INTO order_items (order_id, product_id, flash_sale_item_id, product_name, product_sku,
                          unit_price, quantity, line_total)
 WITH p AS (
-  SELECT product_id, name, sku, base_price, TO_NUMBER(SUBSTR(sku, 7) DEFAULT NULL ON CONVERSION ERROR) p_no
-  FROM   products WHERE sku LIKE 'gen-p-%'
+  SELECT product_id, name, sku, base_price, ROW_NUMBER() OVER (ORDER BY sku) p_no, COUNT(*) OVER () n_products
+  FROM   products WHERE sku LIKE 'SF-2%'
 ), p_flag AS (
   SELECT p.*, ROW_NUMBER() OVER (ORDER BY ORA_HASH(p_no, 4294967295, &seed + 30), p_no) unsold_rank
   FROM   p
@@ -194,7 +159,7 @@ WITH p AS (
   SELECT product_id, name, sku, base_price,
          ROW_NUMBER() OVER (ORDER BY ORA_HASH(p_no, 4294967295, &seed + 31), p_no) pop_rank
   FROM   p_flag
-  WHERE  unsold_rank > FLOOR(&n_products * &pct_unsold / 100)
+  WHERE  unsold_rank > FLOOR(n_products * &pct_unsold / 100)
 ), n_sold AS (
   SELECT COUNT(*) n_sold FROM sold
 ), o AS (
@@ -230,7 +195,7 @@ WITH p AS (
 SELECT order_id, product_id, NULL, name, sku, base_price, quantity, base_price * quantity
 FROM   q;
 
--- ---------------------------------------------------------------- 6. Tổng tiền đơn
+-- ---------------------------------------------------------------- 5. Tổng tiền đơn
 -- subtotal = SUM(line_total); ~15% đơn có giảm giá 1..10% subtotal (làm tròn xuống 1.000).
 prompt == Cap nhat subtotal/discount/total ==
 MERGE INTO orders o
@@ -254,18 +219,17 @@ WHEN MATCHED THEN UPDATE SET
 -- Commit một lần: xóa dữ liệu cũ + sinh mới nằm chung một transaction.
 COMMIT;
 
--- ---------------------------------------------------------------- 7. Thống kê cho optimizer
+-- ---------------------------------------------------------------- 6. Thống kê cho optimizer
 prompt == Gather schema stats ==
 exec DBMS_STATS.GATHER_SCHEMA_STATS(ownname => USER)
 
--- ---------------------------------------------------------------- 8. Tóm tắt
+-- ---------------------------------------------------------------- 7. Tóm tắt
 set timing off
 prompt == Tom tat du lieu sinh ==
-SELECT 'categories co san pham sinh' item, COUNT(DISTINCT category_id) value FROM products WHERE sku LIKE 'gen-%'
-UNION ALL SELECT 'products', COUNT(*) FROM products WHERE sku LIKE 'gen-%'
-UNION ALL SELECT 'products INACTIVE', COUNT(*) FROM products WHERE sku LIKE 'gen-%' AND status = 'INACTIVE'
-UNION ALL SELECT 'products chua ban', COUNT(*) FROM products p
-          WHERE p.sku LIKE 'gen-%' AND NOT EXISTS (SELECT 1 FROM order_items oi WHERE oi.product_id = p.product_id)
+SELECT 'categories cua catalog' item, COUNT(DISTINCT category_id) value FROM products WHERE sku LIKE 'SF-2%'
+UNION ALL SELECT 'products catalog', COUNT(*) FROM products WHERE sku LIKE 'SF-2%'
+UNION ALL SELECT 'products catalog chua ban', COUNT(*) FROM products p
+          WHERE p.sku LIKE 'SF-2%' AND NOT EXISTS (SELECT 1 FROM order_items oi WHERE oi.product_id = p.product_id)
 UNION ALL SELECT 'customers', COUNT(*) FROM users WHERE email LIKE '%@gen.shopflash.local'
 UNION ALL SELECT 'customers co don', COUNT(DISTINCT user_id) FROM orders WHERE order_code LIKE 'GEN-%'
 UNION ALL SELECT 'orders', COUNT(*) FROM orders WHERE order_code LIKE 'GEN-%'

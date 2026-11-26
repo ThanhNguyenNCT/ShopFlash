@@ -1,7 +1,9 @@
 # Dữ liệu benchmark cho module query (Oracle)
 
-Script SQL*Plus sinh dữ liệu lớn (khách và đơn hàng, không thêm sản phẩm) cho báo cáo F5 (doanh thu) và F6 (top bán chạy, khách VIP).
-Đây **không phải migration Flyway**: backend không tự chạy. `scripts/dev.sh` tự chạy script này lần đầu (khi Oracle chưa có đơn `GEN-*`); cũng chạy tay được như dưới.
+Script SQL*Plus sinh dữ liệu lớn cho báo cáo F5 (doanh thu) và F6 (top bán chạy, khách VIP).
+Cách nhanh nhất: khi `scripts/dev.sh` đang chạy, mở terminal khác và chạy `scripts/seed-history.sh` (nạp xong tự dựng lại read model Redis). Phần dưới là cách chạy tay.
+
+Đây là script **chạy tay**, **không phải migration Flyway**: thư mục này nằm cạnh `db/migration` nhưng không có trong `spring.flyway.locations`, nên backend không tự chạy.
 
 ## File
 
@@ -14,15 +16,15 @@ Script SQL*Plus sinh dữ liệu lớn (khách và đơn hàng, không thêm s�
 
 ## Dữ liệu tạo ra (mặc định)
 
-- Không sinh danh mục, không sinh sản phẩm. Đơn chỉ đặt các sản phẩm có sẵn của catalog dev (`R__00_catalog_seed.sql`, sku `SF-2xxx`, 184 sản phẩm),
-  giá trên dòng đơn lấy từ `base_price` của sản phẩm. Cần chạy backend profile dev ít nhất một lần trước để có catalog; thiếu catalog thì script dừng và báo lỗi.
+- 50 danh mục (`slug` `gen-cat-0001`…), 10.000 sản phẩm (`sku`/`slug` `gen-p-0000001`…), mỗi sản phẩm có một dòng `product_inventory` (reserved = 0, version = 0).
+  Giá 50.000–30.000.000 VND (log-uniform, tròn 1.000), khoảng 5% INACTIVE.
 - 20.000 khách hàng CUSTOMER/ACTIVE, email `c0000001@gen.shopflash.local`, password_hash là chuỗi giả dạng bcrypt (không đăng nhập được).
 - 100.000 đơn NORMAL (`order_code` `GEN-00000001`, `idempotency_key` `gen-00000001`), `created_at` từ 2025-11-01 tới 2026-10-18 (+07:00).
   Số đơn theo tháng có chênh lệch (tháng 1 cao nhất, tháng 2 thấp nhất, ngày 11/11 và 12/12 tăng mạnh).
   Trạng thái ~ PENDING 5%, CONFIRMED 25%, COMPLETED 62%, CANCELLED 8%.
   25% số đơn dồn vào 5% khách (khách VIP), còn lại chia đều.
-- Khoảng 248.000 order_items (1–5 dòng/đơn, trung bình 2,48). 10% sản phẩm catalog (18 sản phẩm) không bao giờ được bán.
-  Độ phổ biến sản phẩm lệch mạnh: vài sản phẩm đầu bảng chiếm phần lớn số lượng bán.
+- Khoảng 248.000 order_items (1–5 dòng/đơn, trung bình 2,48). Đúng 10% sản phẩm không bao giờ được bán.
+  Độ phổ biến sản phẩm lệch mạnh: sản phẩm bán chạy nhất chiếm ~1% tổng số lượng.
   `subtotal = SUM(line_total)`; ~15% đơn có giảm giá 1–10% subtotal.
 
 Dữ liệu lõi (ID < 10000, từ `R__00_core_seed.sql`) không bị đụng tới.
@@ -61,9 +63,9 @@ Bản hiện tại tính sẵn hạng sản phẩm để join bằng dấu `=` (
 
 ## Đổi quy mô
 
-Sửa `00_params.sql`, ví dụ `define n_orders = 500000`. Các tham số khác: `n_customers`,
-`start_date`/`end_date`, `pct_unsold`, `pct_vip_customers`, `pct_vip_orders`, `popularity_skew`, `seed`.
-Giới hạn định dạng: tối đa 9.999.999 khách, 99.999.999 đơn; `n_customers` không được là bội của 7919 (dùng cho hoán vị khách).
+Sửa `00_params.sql`, ví dụ `define n_orders = 500000`. Các tham số khác: `n_categories`, `n_products`, `n_customers`,
+`start_date`/`end_date`, `pct_unsold`, `pct_inactive`, `pct_vip_customers`, `pct_vip_orders`, `popularity_skew`, `seed`.
+Giới hạn định dạng: tối đa 9.999.999 sản phẩm/khách, 99.999.999 đơn; `n_customers` không được là bội của 7919 (dùng cho hoán vị khách).
 
 ## Xóa dữ liệu sinh
 

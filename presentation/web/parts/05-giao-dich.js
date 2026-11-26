@@ -344,3 +344,24 @@ ${Deck.head(5,'Lựa chọn DBMS cho ShopFlash')}
   </div>
   <div class="p5-bar" data-a style="--i:5">Ưu tiên tính đúng đắn cho dữ liệu chính, tốc độ cho runtime.</div>
 </div>`});
+
+/* ---------- Video demo giao dịch (cuối phần 5) ---------- */
+// File video không đưa vào git (assets/video/ bị .gitignore). Máy không có file (bản clone từ GitHub)
+// thì phát từ bản deploy Vercel, cần có mạng.
+// Vào cảnh là phát từ đầu, rời cảnh là dừng; vẫn chỉ dùng phím mũi tên.
+Deck.add({part:5,title:'Demo giao dịch',
+html:`
+<style>
+.p5-vid{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#0d1838;border-radius:var(--r-sm);overflow:hidden}
+.p5-vid video{width:100%;height:100%;object-fit:contain;background:#0d1838}
+</style>
+${Deck.head(5,'Demo giao dịch')}
+<div class="body">
+  <div class="p5-vid"><video src="assets/video/transaction.mp4#t=0.5" preload="auto" playsinline onerror="if(!this.dataset.fb){this.dataset.fb=1;this.src='https://oracle-vs-redis-nhom11.vercel.app/assets/video/transaction.mp4#t=0.5'}"></video></div>
+</div>`,
+enter(root,ctx){
+  const v=root.querySelector('video');
+  if(ctx&&ctx.print)return;
+  v.currentTime=0;v.play().catch(()=>{});
+},
+leave(root){root.querySelector('video').pause()}});

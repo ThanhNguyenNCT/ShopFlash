@@ -77,8 +77,15 @@ Vì vậy tìm kiếm chấp nhận trễ, còn đặt hàng và tồn kho luôn
 Thứ tự: nói 4 cảnh slide (khoảng 2 phút), demo trên hai DBMS trong terminal (khoảng 1 phút 45 giây), rồi demo app (khoảng 1 phút 15 giây). Lời nói ghi trong ngoặc kép; chữ in nghiêng là việc cần làm.
 
 Chuẩn bị trước giờ trình bày:
-- Chạy `scripts/dev.sh` trên máy trình bày, chờ tới dòng "Đang chạy". Lần đầu script tự nạp khoảng 100.000 đơn.
-- Chạy `bash report/query/demo/dbms-demo.sh thu-thap` một lần để chắc thống kê đang đúng.
+- Chạy `scripts/dev.sh` trên máy trình bày, chờ tới dòng "Đang chạy". Lúc này app chỉ có dữ liệu mẫu, các phần 2, 3 demo trên dữ liệu này.
+- Mở sẵn một terminal thứ hai ở thư mục gốc repo để nạp 100.000 đơn (xem mục "Khi nào nạp 100.000 đơn" ngay dưới).
+
+Khi nào nạp 100.000 đơn:
+- Chạy `scripts/seed-history.sh` **ngay khi phần 3 demo xong**, lúc người phần 3 quay lại slide kết luận. Script mất khoảng 2 phút (nạp đơn 1,5 phút, dựng read model Redis 30 giây) và chạy xong trong lúc nói 4 cảnh slide của phần 4.
+- Không chạy sớm hơn: script thêm 10.000 sản phẩm và 50 danh mục sinh tự động, sẽ hiện ra trong trang tìm kiếm của phần 3.
+- Chờ dòng xanh "Read model Redis đã khớp Oracle" rồi mới chuyển sang demo. Nếu chưa xong khi hết cảnh 26, nói thêm cảnh 26 trong lúc chờ.
+- Sau khi nạp, chạy `bash report/query/demo/dbms-demo.sh thu-thap` một lần (bước 4 của demo DBMS cũng làm việc này) để thống kê khớp dữ liệu mới.
+- Muốn trả app về dữ liệu mẫu cho các phần sau (5, 6, 7), chạy `scripts/seed-history.sh --xoa` (khoảng 1 phút). Không bắt buộc: dữ liệu sinh không đụng tới giỏ hàng, flash sale; riêng phần 7 sao lưu sẽ lâu hơn vì có thêm 100.000 đơn.
 - Mở sẵn một terminal ở thư mục gốc repo, chữ cỡ lớn (Ctrl + phím cộng vài lần) để người ngồi sau đọc được.
 - Mở sẵn hai tab trình duyệt, đã đăng nhập admin: Query Lab (http://localhost:5173/admin/reports/lab) và Báo cáo (http://localhost:5173/admin/reports).
 - Số trên màn hình là một lần chạy, lệch vài phần trăm so với slide. Nói "khoảng", không đọc số lẻ.
@@ -132,7 +139,7 @@ Chuẩn bị trước giờ trình bày:
 *Phần "Subquery", bấm "Chạy trên hai nguồn".*
 "Báo cáo sản phẩm chưa từng bán cần NOT EXISTS: Oracle chạy được, Redis báo không hỗ trợ. Em xin hết phần 4."
 
-Nếu demo lỗi (máy hoặc app không lên): bỏ qua demo. Khi hỏi đáp, cảnh 50 và 51 có đủ số của phần demo.
+Nếu demo lỗi (máy hoặc app không lên): bỏ qua demo. Khi hỏi đáp, cảnh 51 và 52 có đủ số của phần demo.
 
 ## Phần 5 · Giao dịch (5 phút)
 
@@ -159,57 +166,59 @@ Hàng dưới: Oracle ghi redo log khi COMMIT. Redis ghi đĩa qua RDB hoặc AO
 
 **Cảnh 35 · Lựa chọn DBMS cho ShopFlash.** Oracle giữ Cart, Order, Inventory vì cần rollback, constraint, khóa dòng. Redis giữ quota và suất đang giữ của Flash Sale.
 
+**Cảnh 36 · Demo giao dịch (video).** Vào cảnh là video tự phát, có tiếng; bấm mũi tên phải là dừng video và sang phần 6. Video dài 6 phút 46 giây. Cần mạng nếu máy không có sẵn file video.
+
 ## Phần 6 · Kiểm soát đồng thời (5 phút)
 
-**Cảnh 36 · Mở phần 6.** Câu hỏi: 1000 khách tranh 100 suất, ai giữ được con số?
+**Cảnh 37 · Mở phần 6.** Câu hỏi: 1000 khách tranh 100 suất, ai giữ được con số?
 
-**Cảnh 37 · Bài toán và bốn cơ chế.** Đọc banner lost update: hai khách cùng đọc 99, cùng ghi 100, bộ đếm chỉ tăng 1.
+**Cảnh 38 · Bài toán và bốn cơ chế.** Đọc banner lost update: hai khách cùng đọc 99, cùng ghi 100, bộ đếm chỉ tăng 1.
 Đi qua bốn thẻ: khóa bi quan, khóa lạc quan, MVCC, thao tác nguyên tử.
 
-**Cảnh 38 · So sánh Oracle và Redis.** Khối trái: Oracle khóa từng dòng; Redis chạy từng lệnh hoặc script một mình nên không deadlock, nhưng cũng không rollback.
+**Cảnh 39 · So sánh Oracle và Redis.** Khối trái: Oracle khóa từng dòng; Redis chạy từng lệnh hoặc script một mình nên không deadlock, nhưng cũng không rollback.
 Câu cuối bảng: cả hai đều chặn được bán vượt, khác nhau ở chi phí khi tranh chấp cao.
 
-**Cảnh 39 · Thiết kế Flash Sale ShopFlash.** Bốn bước: giữ suất bằng Lua trên Redis, đặt đơn trong transaction Oracle, xác nhận hoặc trả suất, job dọn suất hết hạn mỗi 5 giây.
+**Cảnh 40 · Thiết kế Flash Sale ShopFlash.** Bốn bước: giữ suất bằng Lua trên Redis, đặt đơn trong transaction Oracle, xác nhận hoặc trả suất, job dọn suất hết hạn mỗi 5 giây.
 Thanh màu dưới: Oracle giữ nguồn gốc, Redis giữ trạng thái chạy, Redis dựng lại được từ Oracle. Oracle là chốt chặn cuối: điều kiện sold + q <= allocated.
 
-**Cảnh 40 · Kết luận.** Viết kiểu "đọc rồi ghi" thì bán vượt 900 suất trên 100 suất. Lua đạt 8.951 lượt/giây, gấp 4,6 lần UPDATE có điều kiện trên Oracle, ở 64 lượt đồng thời.
+**Cảnh 41 · Kết luận.** Viết kiểu "đọc rồi ghi" thì bán vượt 900 suất trên 100 suất. Lua đạt 8.951 lượt/giây, gấp 4,6 lần UPDATE có điều kiện trên Oracle, ở 64 lượt đồng thời.
 WATCH chỉ bán được 797 trên 2000 vì xung đột liên tục. Chốt: Redis + Lua giữ suất, Oracle + UPDATE có điều kiện chốt đơn.
 
 ## Phần 7 · Sao lưu và khôi phục (3 phút)
 
-**Cảnh 41 · Mở phần 7.** Câu hỏi: mất dữ liệu thì bao lâu chạy lại, mất bao nhiêu?
+**Cảnh 42 · Mở phần 7.** Câu hỏi: mất dữ liệu thì bao lâu chạy lại, mất bao nhiêu?
 
-**Cảnh 42 · Sao lưu của Oracle: Data Pump.** Theo mũi tên: expdp xuất schema SHOP ra file .dmp, impdp tạo lại bảng, index, ràng buộc và nạp dữ liệu.
+**Cảnh 43 · Sao lưu của Oracle: Data Pump.** Theo mũi tên: expdp xuất schema SHOP ra file .dmp, impdp tạo lại bảng, index, ràng buộc và nạp dữ liệu.
 
-**Cảnh 43 · Persistence của Redis.** RDB chụp nhanh, có thể mất dữ liệu giữa hai lần chụp. AOF ghi từng lệnh nên bền hơn.
+**Cảnh 44 · Persistence của Redis.** RDB chụp nhanh, có thể mất dữ liệu giữa hai lần chụp. AOF ghi từng lệnh nên bền hơn.
 Banner dưới là đánh đổi chính: fsync càng thường xuyên thì càng an toàn, ghi càng chậm.
 
-**Cảnh 44 · Thiết kế sao lưu ShopFlash.** Một gói backup có ba phần: file Data Pump, file RDB, manifest SHA-256. Kiểm tra mã băm trước khi khôi phục.
+**Cảnh 45 · Thiết kế sao lưu ShopFlash.** Một gói backup có ba phần: file Data Pump, file RDB, manifest SHA-256. Kiểm tra mã băm trước khi khôi phục.
 
-**Cảnh 45 · Kết luận.** Khôi phục thành công mọi lượt thử. AOF always làm p95 ghi tăng khoảng 40 lần so với everysec.
+**Cảnh 46 · Kết luận.** Khôi phục thành công mọi lượt thử. AOF always làm p95 ghi tăng khoảng 40 lần so với everysec.
 ShopFlash chọn everysec: ghi gần như khi tắt AOF, mất tối đa khoảng 1 giây.
 
 ## Tổng kết (1 phút)
 
-**Cảnh 46 · Tổng kết.** Đọc theo cột "ShopFlash dùng". Dữ liệu gốc và thao tác ghi quan trọng ở Oracle. Redis giữ bản chiếu để tìm kiếm, kết quả báo cáo đã tính, suất Flash Sale đang giữ. Mất Redis thì dựng lại từ Oracle, trừ suất đang giữ dở.
+**Cảnh 47 · Tổng kết.** Đọc theo cột "ShopFlash dùng". Dữ liệu gốc và thao tác ghi quan trọng ở Oracle. Redis giữ bản chiếu để tìm kiếm, kết quả báo cáo đã tính, suất Flash Sale đang giữ. Mất Redis thì dựng lại từ Oracle, trừ suất đang giữ dở.
 Mỗi hàng có một số đo lấy từ phần tương ứng.
 
-**Cảnh 47 · Cảm ơn.** Cảm ơn thầy cô và các bạn, mời đặt câu hỏi. Cần quay lại phần nào thì gõ phím số 1 đến 7 để nhảy tới đầu phần đó.
+**Cảnh 48 · Cảm ơn.** Cảm ơn thầy cô và các bạn, mời đặt câu hỏi. Cần quay lại phần nào thì gõ phím số 1 đến 7 để nhảy tới đầu phần đó.
 
 ## Cảnh dự phòng (không tính giờ)
 
-Sau cảnh Cảm ơn có bốn cảnh chỉ mở khi được hỏi. Từ cảnh 47 bấm mũi tên phải để tới cảnh 48 đến 51.
+Sau cảnh Cảm ơn có bốn cảnh chỉ mở khi được hỏi. Từ cảnh 48 bấm mũi tên phải để tới cảnh 49 đến 52.
 
-**Cảnh 48 · Kiến trúc của Oracle và Redis.** Mở khi được hỏi về kiến trúc. Đọc theo hàng mà câu hỏi nhắm tới.
+**Cảnh 49 · Kiến trúc của Oracle và Redis.** Mở khi được hỏi về kiến trúc. Đọc theo hàng mà câu hỏi nhắm tới.
 Điểm hay bị hỏi: Redis chạy lệnh trên một luồng chính, nên một script Lua dài sẽ chặn mọi client khác trong lúc chạy.
 
-**Cảnh 49 · ACID trên Oracle và Redis.** Dùng khi được hỏi Redis có đủ ACID không. Mã trong ngoặc là thí nghiệm của phần Transaction.
+**Cảnh 50 · ACID trên Oracle và Redis.** Dùng khi được hỏi Redis có đủ ACID không. Mã trong ngoặc là thí nghiệm của phần Transaction.
 Câu trả lời ngắn: không đủ. Redis không có rollback khi lỗi runtime, không có ràng buộc trong schema, và mất khoảng 1 giây khi sập máy nếu dùng AOF everysec. Đơn hàng vì thế nằm ở Oracle.
 
-**Cảnh 50 · Oracle chọn kế hoạch dựa trên thống kê.** Bản tĩnh của bước 2 đến 4 trong demo DBMS phần 4, số đo 5 lần. Bảng trái: ép nested loops chậm 4,9 đến 5,2 lần ở hai báo cáo join 4 bảng; khách VIP join 2 bảng nên chậm 1,3 lần. Bảng phải: ước lượng 9.001 so với 285.000 dòng, 5.161 so với 91.035 block.
+**Cảnh 51 · Oracle chọn kế hoạch dựa trên thống kê.** Bản tĩnh của bước 2 đến 4 trong demo DBMS phần 4, số đo 5 lần. Bảng trái: ép nested loops chậm 4,9 đến 5,2 lần ở hai báo cáo join 4 bảng; khách VIP join 2 bảng nên chậm 1,3 lần. Bảng phải: ước lượng 9.001 so với 285.000 dòng, 5.161 so với 91.035 block.
 Nếu bị hỏi vì sao cần no_invalidate => FALSE: Oracle lưu kế hoạch đã lập trong bộ nhớ chung. Mặc định, thu thập thống kê xong kế hoạch cũ vẫn dùng tiếp thêm vài giờ. FALSE bắt Oracle bỏ kế hoạch cũ ngay.
 
-**Cảnh 51 · Hai quyết định thiết kế trên Redis.** Bản tĩnh của phần Query Lab trong demo app. SORTABLE: thiếu thì khoảng 1,5 s, có thì 0,15 đến 0,33 s (đo phía server lúc dựng index, khác lần đo với bảng bên phải). AGGREGATE so với CLIENT: CLIENT chậm 3,5 đến 30 lần, 9 đến 22 lần gọi.
+**Cảnh 52 · Hai quyết định thiết kế trên Redis.** Bản tĩnh của phần Query Lab trong demo app. SORTABLE: thiếu thì khoảng 1,5 s, có thì 0,15 đến 0,33 s (đo phía server lúc dựng index, khác lần đo với bảng bên phải). AGGREGATE so với CLIENT: CLIENT chậm 3,5 đến 30 lần, 9 đến 22 lần gọi.
 
 ## Câu hỏi có thể gặp
 

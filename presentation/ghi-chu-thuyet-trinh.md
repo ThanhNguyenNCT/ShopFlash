@@ -191,8 +191,9 @@ Khi nào nạp 100.000 đơn:
 
 3. **Xóa thống kê.** [Gõ `bash report/query/demo/dbms-demo.sh xoa-thong-ke`]
 "Giờ em xóa thống kê của 5 bảng rồi chạy lại cùng câu."
-[Chỉ dòng `MERGE JOIN` và cột E-Rows.]
-"Không còn thống kê, E-Rows ở dòng gom nhóm vọt lên khoảng **285 nghìn** trong khi thực tế **9 nghìn**. Oracle đổi sang **merge join**, đi qua index `IX_ORDERS_STATUS_CREATED` rồi đọc từng dòng đơn, số block đọc gấp khoảng **17 lần**."
+[Chỉ cột E-Rows ở dòng gom nhóm, rồi dòng `INDEX RANGE SCAN` của `IX_ORDERS_STATUS_CREATED`.]
+"Không còn thống kê, E-Rows ở dòng gom nhóm vọt lên khoảng **285 nghìn** trong khi thực tế **9 nghìn**. Ở dòng index, CBO đoán chỉ **2 dòng**, thực tế **87 nghìn**. Vì tin điều kiện lọc rất chọn lọc, Oracle bỏ quét toàn bảng, đi qua index rồi đọc từng dòng đơn (`TABLE ACCESS BY INDEX ROWID`). Số block đọc tăng từ khoảng 5 nghìn lên khoảng **90 nghìn**, gấp khoảng **18 lần**."
+(Lần đo trong báo cáo, cảnh 25, Oracle đổi sang merge join. Lần chạy thử ngày 27/11 vẫn giữ hash join ở bước nối nhưng đổi đường đọc như trên. Nếu bị hỏi vì sao khác slide: khi không có thống kê, Oracle lấy mẫu động (*dynamic sampling*) nên mỗi lần có thể ra kế hoạch khác; điểm chung là ước lượng sai và đọc nhiều block hơn gần 18 lần.)
 
 4. **Thu thập lại.** [Gõ `bash report/query/demo/dbms-demo.sh thu-thap`]
 "Thu thập lại thống kê với `no_invalidate => FALSE` thì **hash join** quay về, số block về lại khoảng 5 nghìn. Nạp nhiều dữ liệu xong phải thu thập lại thống kê."
@@ -200,7 +201,11 @@ Khi nào nạp 100.000 đơn:
 5. **Redis.** [Gõ `bash report/query/demo/dbms-demo.sh redis`]
 "Bên Redis là một lệnh `FT.AGGREGATE` trên read model, ra doanh thu theo danh mục."
 [Chỉ phần `FT.PROFILE`.]
-"`FT.PROFILE` cho thấy Redis chạy đúng các bước em viết: phần iterator là bước lọc theo trạng thái và ngày, phần result processor là đọc dòng, gom nhóm, sắp xếp. Không có bước nào do DBMS tự chọn."
+[Chỉ dòng "FT.AGGREGATE chạy … ms phía server".]
+"Lệnh này chạy khoảng **50 ms** phía server, quét khoảng 215 nghìn dòng hàng."
+[Chỉ phần "Các bước xử lý theo thứ tự trong lệnh".]
+"`FT.PROFILE` cho thấy Redis chạy đúng các bước em viết, theo đúng thứ tự: lọc qua index theo trạng thái và ngày, đọc khoảng **215 nghìn dòng**, gom còn khoảng **50 nhóm**, sắp xếp lấy **5 dòng**. Không có bước nào do DBMS tự chọn."
+(Màn hình có thể ghi 52 nhóm thay vì 50: dữ liệu mẫu của app có vài đơn thuộc hai danh mục thật. Nếu bị hỏi thì nói vậy.)
 "Giờ em demo ứng dụng."
 [Chuyển sang trình duyệt.]
 

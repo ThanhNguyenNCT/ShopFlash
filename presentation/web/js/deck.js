@@ -119,7 +119,7 @@ function tagMorph(){
 
 function actions(){
   const s=scenes[cur],a=document.getElementById('actions');a.innerHTML='';
-  if(s.detail){const b=document.createElement('button');b.className='btn ghost sm';b.innerHTML=Deck.icon('info')+' Chi tiết <span class="m-t">D</span>';b.onclick=openDrawer;a.append(b)}
+  if(s.detail){const b=document.createElement('button');b.className='btn ghost sm';b.innerHTML=Deck.icon('info')+' '+(s.detail.label||'Chi tiết')+' <span class="m-t">D</span>';b.onclick=openDrawer;a.append(b)}
   if(s.demo){const b=document.createElement('button');b.className='btn sm';b.innerHTML=`<span class="hdot ${healthUp?'up':''}" id="hdot"></span>Mở demo: ${s.demo.label} ${Deck.icon('ext')}`;b.onclick=()=>openDemo(s.demo.path);a.append(b);ping()}
 }
 

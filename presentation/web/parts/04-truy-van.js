@@ -75,7 +75,7 @@ html:`
 .p4-cbo .p4t{font-size:1.5rem}.p4-cbo .p4t td{padding:1.5rem .7rem}.p4-cbo .p4t th{font-size:.9rem}
 .p4-cbo .p4t td{white-space:nowrap}
 .p4-cbo td .bar{display:block;height:.4rem;border-radius:99rem;background:currentColor;opacity:.4;width:0;margin:.45rem 0 0 auto;transition:width 1.1s var(--ease-out)}
-.p4-cbo .p4t.p4s{font-size:1.25rem;width:100%}.p4-cbo .p4t.p4s td{padding:1.3rem .4rem}.p4-cbo .p4t.p4s th{padding-left:.4rem;padding-right:.4rem}.p4-cbo .p4t.p4s td.m{color:var(--muted)}
+.p4-cbo .p4t.p4s{font-size:1.25rem;width:100%}.p4-cbo .p4t.p4s td{padding:1.3rem .4rem}.p4-cbo .p4t.p4s th{padding-left:.4rem;padding-right:.4rem}.p4-cbo .p4t.p4s td.m{color:var(--muted)}.p4-cbo .p4t.p4s tr.grp td{padding:.9rem .4rem .2rem;font-size:.85rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:0}.p4-cbo .p4t.p4s td{padding:.8rem .4rem}
 .p4-cbo .take{margin-top:auto}.p4-cbo .take p{font-size:1.2rem}
 </style>
 ${Deck.head(4,'Oracle chọn kế hoạch dựa trên thống kê','<span class="chip o" data-morph="ora">ORACLE · CBO</span>')}
@@ -90,12 +90,14 @@ ${Deck.head(4,'Oracle chọn kế hoạch dựa trên thống kê','<span class=
   </div>
   <div class="card" data-a style="--i:2">
     <div class="label" style="margin:0">Thống kê của bảng · báo cáo top sản phẩm</div>
-    <p class="small" style="margin:0">Thực tế: <b>87.139</b> đơn sau lọc, <b>9.000</b> nhóm sản phẩm. Hai cột giữa là số CBO đoán trước khi chạy.</p>
-    <table class="tbl p4t p4s"><tr><th>Trạng thái</th><th class="n">Đơn<br>sau lọc</th><th class="n">Nhóm sau<br>GROUP BY</th><th>Kế hoạch</th><th class="n">Block đọc</th></tr>
-      <tr><td>Có thống kê</td><td class="n best">87.139</td><td class="n best">9.000</td><td>Quét bảng · hash</td><td class="n best">5.161</td></tr>
-      <tr><td>Xóa thống kê</td><td class="n bad">2</td><td class="n bad">285.000</td><td>Index · merge</td><td class="n bad">91.035</td></tr>
-      <tr><td>Thu thập lại</td><td class="n best">87.139</td><td class="n best">9.000</td><td>Quét bảng · hash</td><td class="n best">5.161</td></tr></table>
-    <p class="small">Mất thống kê, CBO tưởng điều kiện lọc chỉ còn 2 đơn nên đi index, rồi nhảy 87.139 lần theo <code>ROWID</code>: riêng bước này đọc 88.010 block. Cả báo cáo đọc gấp 17,6 lần.</p>
+    <table class="tbl p4t p4s"><tr><th></th><th class="n">CBO đoán</th><th class="n">Thực tế</th><th>Kế hoạch</th><th class="n">Block đọc</th></tr>
+      <tr class="grp"><td colspan="5">Lọc đơn trên <code>ORDERS</code></td></tr>
+      <tr><td>Có thống kê</td><td class="n best">87.139</td><td class="n m">87.139</td><td>Quét toàn bảng</td><td class="n best">2.139</td></tr>
+      <tr><td>Xóa thống kê</td><td class="n bad">2</td><td class="n m">87.139</td><td>Đi index</td><td class="n bad">88.010</td></tr>
+      <tr class="grp"><td colspan="5">Số sản phẩm sau <code>GROUP BY</code></td></tr>
+      <tr><td>Có thống kê</td><td class="n best">9.000</td><td class="n m">9.000</td><td>Hash join</td><td class="n"></td></tr>
+      <tr><td>Xóa thống kê</td><td class="n bad">285.000</td><td class="n m">9.000</td><td>Merge join</td><td class="n"></td></tr></table>
+    <p class="small">Mất thống kê, CBO tưởng điều kiện lọc chỉ còn 2 đơn nên đi index, rồi nhảy 87.139 lần theo <code>ROWID</code> sang bảng. Cả báo cáo đọc 91.035 block thay vì 5.161, gấp 17,6 lần. Thu thập lại thì về đúng kế hoạch cũ.</p>
     <div class="take soft"><div class="label">Thu thập lại thống kê</div><p>Sau khi nạp nhiều dữ liệu, chạy lại <code>GATHER_TABLE_STATS</code> với <code>no_invalidate =&gt; FALSE</code> để Oracle bỏ kế hoạch cũ đang lưu.</p></div>
   </div>
 </div>`,

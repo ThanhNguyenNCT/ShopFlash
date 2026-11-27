@@ -262,6 +262,27 @@ ${Deck.head(5,'Cô lập và lưu bền dữ liệu')}
   </div>
 </div>`});
 
+/* ---------- Video demo giao dịch (trước slide hiệu năng) ---------- */
+// File video không đưa vào git (assets/video/ bị .gitignore). Máy không có file (bản clone từ GitHub)
+// thì phát từ bản deploy Vercel, cần có mạng.
+// Vào cảnh là phát từ đầu, rời cảnh là dừng; vẫn chỉ dùng phím mũi tên.
+Deck.add({part:5,title:'Demo giao dịch',
+html:`
+<style>
+.p5-vid{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#0d1838;border-radius:var(--r-sm);overflow:hidden}
+.p5-vid video{width:100%;height:100%;object-fit:contain;background:#0d1838}
+</style>
+${Deck.head(5,'Demo giao dịch')}
+<div class="body">
+  <div class="p5-vid"><video src="assets/video/transaction.mp4#t=0.5" preload="auto" playsinline onerror="if(!this.dataset.fb){this.dataset.fb=1;this.src='https://oracle-vs-redis-nhom11.vercel.app/assets/video/transaction.mp4#t=0.5'}"></video></div>
+</div>`,
+enter(root,ctx){
+  const v=root.querySelector('video');
+  if(ctx&&ctx.print)return;
+  v.currentTime=0;v.play().catch(()=>{});
+},
+leave(root){root.querySelector('video').pause()}});
+
 /* ---------- p.29 · Hiệu năng trong workload đã khảo sát ---------- */
 Deck.add({part:5,title:'Hiệu năng trong workload đã khảo sát',
 html:`
@@ -308,60 +329,3 @@ enter(root,ctx){
   const go=()=>bars.forEach((b,i)=>{b.style.transitionDelay=(i%8*.06)+'s';b.style.width=Math.max(.6,+b.dataset.w)+'%'});
   if(ctx&&ctx.print){bars.forEach(b=>b.style.transition='none');go()}else setTimeout(()=>requestAnimationFrame(go),500);
 }});
-
-/* ---------- p.30 · Lựa chọn DBMS cho ShopFlash ---------- */
-Deck.add({part:5,title:'Lựa chọn DBMS cho ShopFlash',
-html:`
-<style>
-.p5-tree{flex:1;min-height:0;display:flex;flex-direction:column}
-.p5-root{align-self:center;background:var(--brand);color:#fff;font-weight:800;font-size:1.6rem;letter-spacing:.06em;padding:1rem 3rem;border-radius:var(--r-sm);box-shadow:var(--shadow)}
-.p5-conn{position:relative;height:3.2rem}
-.p5-conn i{position:absolute;background:var(--brand2)}
-.p5-conn .v0{left:50%;top:0;width:.22rem;height:50%;transform:translateX(-50%)}
-.p5-conn .h{left:calc(25% - .3rem);right:calc(25% - .3rem);top:50%;height:.22rem}
-.p5-conn .v1,.p5-conn .v2{top:50%;width:.22rem;height:50%}
-.p5-conn .v1{left:calc(25% - .3rem)}.p5-conn .v2{right:calc(25% - .3rem)}
-.p5-two{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:1.2rem}
-.p5-two .card{display:flex;flex-direction:column;justify-content:center;gap:.6rem;padding:2rem 2.4rem;border-top-width:.5rem}
-.p5-two .card.o{background:var(--ora-soft)}.p5-two .card.r{background:var(--red-soft)}
-.p5-two h3{font-size:4rem!important;font-weight:900;line-height:1}
-.p5-two .role{font-size:2.1rem;font-weight:800;color:var(--ink)}
-.p5-two .data{font-size:1.85rem;color:var(--ink2)}
-.p5-two hr{border:0;border-top:.12rem solid rgba(13,24,56,.12);margin:.8rem 0}
-.p5-two .mech{font-size:1.9rem;font-weight:800}
-.p5-bar .neq{font-family:var(--mono)}
-.p5-bar{background:var(--brand);color:#fff;border-radius:var(--r-sm);padding:1.1rem 1.5rem;text-align:center;font-weight:800;font-size:1.45rem;margin-top:1.2rem}
-</style>
-${Deck.head(5,'Lựa chọn DBMS cho ShopFlash')}
-<div class="body">
-  <div class="p5-tree">
-    <div class="p5-root" data-a style="--i:1">SHOPFLASH BACKEND</div>
-    <div class="p5-conn" data-a style="--i:2"><i class="v0"></i><i class="h"></i><i class="v1"></i><i class="v2"></i></div>
-    <div class="p5-two">
-      <div class="card o" data-a style="--i:3"><h3 class="o-t">Oracle</h3><div class="role">Source of truth</div><div class="data">Cart · Order · Inventory</div><hr><div class="mech o-t">Rollback + Constraint + Row lock</div></div>
-      <div class="card r" data-a style="--i:4"><h3 class="r-t">Redis</h3><div class="role">Flash Sale runtime</div><div class="data">Quota · Reservation</div><hr><div class="mech r-t">Atomic command + Lua</div></div>
-    </div>
-  </div>
-  <div class="p5-bar" data-a style="--i:5">Ưu tiên tính đúng đắn cho dữ liệu chính, tốc độ cho runtime.</div>
-</div>`});
-
-/* ---------- Video demo giao dịch (cuối phần 5) ---------- */
-// File video không đưa vào git (assets/video/ bị .gitignore). Máy không có file (bản clone từ GitHub)
-// thì phát từ bản deploy Vercel, cần có mạng.
-// Vào cảnh là phát từ đầu, rời cảnh là dừng; vẫn chỉ dùng phím mũi tên.
-Deck.add({part:5,title:'Demo giao dịch',
-html:`
-<style>
-.p5-vid{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#0d1838;border-radius:var(--r-sm);overflow:hidden}
-.p5-vid video{width:100%;height:100%;object-fit:contain;background:#0d1838}
-</style>
-${Deck.head(5,'Demo giao dịch')}
-<div class="body">
-  <div class="p5-vid"><video src="assets/video/transaction.mp4#t=0.5" preload="auto" playsinline onerror="if(!this.dataset.fb){this.dataset.fb=1;this.src='https://oracle-vs-redis-nhom11.vercel.app/assets/video/transaction.mp4#t=0.5'}"></video></div>
-</div>`,
-enter(root,ctx){
-  const v=root.querySelector('video');
-  if(ctx&&ctx.print)return;
-  v.currentTime=0;v.play().catch(()=>{});
-},
-leave(root){root.querySelector('video').pause()}});

@@ -236,57 +236,55 @@ Redis không có constraint, nên kiểm tra trước khi ghi trong một Lua sc
 **Cảnh 34 · Cô lập và lưu bền.** Hàng trên: Oracle READ COMMITTED không đọc dữ liệu chưa commit. Redis WATCH phát hiện key bị đổi thì hủy, ứng dụng thử lại.
 Hàng dưới: Oracle ghi redo log khi COMMIT. Redis ghi đĩa qua RDB hoặc AOF; môi trường đo dùng AOF everysec.
 
-**Cảnh 35 · Hiệu năng trong workload đã khảo sát.** Redis có P95 thấp hơn và throughput cao hơn ở cả bốn cấu hình. Nhắc lại: đây là workload mô phỏng, giỏ 1 hoặc 5 sản phẩm, 1 hoặc 10 worker.
+**Cảnh 35 · Demo giao dịch (video).** Vào cảnh là video tự phát, có tiếng; bấm mũi tên phải là dừng video và sang slide hiệu năng. Video dài 6 phút 46 giây. Cần mạng nếu máy không có sẵn file video.
 
-**Cảnh 36 · Lựa chọn DBMS cho ShopFlash.** Oracle giữ Cart, Order, Inventory vì cần rollback, constraint, khóa dòng. Redis giữ quota và suất đang giữ của Flash Sale.
-
-**Cảnh 37 · Demo giao dịch (video).** Vào cảnh là video tự phát, có tiếng; bấm mũi tên phải là dừng video và sang phần 6. Video dài 6 phút 46 giây. Cần mạng nếu máy không có sẵn file video.
+**Cảnh 36 · Hiệu năng trong workload đã khảo sát.** Redis có P95 thấp hơn và throughput cao hơn ở cả bốn cấu hình. Nhắc lại: đây là workload mô phỏng, giỏ 1 hoặc 5 sản phẩm, 1 hoặc 10 worker.
 
 ## Phần 6 · Kiểm soát đồng thời (5 phút)
 
-**Cảnh 38 · Mở phần 6.** Câu hỏi: 1000 khách tranh 100 suất, ai giữ được con số?
+**Cảnh 37 · Mở phần 6.** Câu hỏi: 1000 khách tranh 100 suất, ai giữ được con số?
 
-**Cảnh 39 · Bài toán và bốn cơ chế.** Đọc banner lost update: hai khách cùng đọc 99, cùng ghi 100, bộ đếm chỉ tăng 1.
+**Cảnh 38 · Bài toán và bốn cơ chế.** Đọc banner lost update: hai khách cùng đọc 99, cùng ghi 100, bộ đếm chỉ tăng 1.
 Đi qua bốn thẻ: khóa bi quan, khóa lạc quan, MVCC, thao tác nguyên tử.
 
-**Cảnh 40 · So sánh Oracle và Redis.** Khối trái: Oracle khóa từng dòng; Redis chạy từng lệnh hoặc script một mình nên không deadlock, nhưng cũng không rollback.
+**Cảnh 39 · So sánh Oracle và Redis.** Khối trái: Oracle khóa từng dòng; Redis chạy từng lệnh hoặc script một mình nên không deadlock, nhưng cũng không rollback.
 Câu cuối bảng: cả hai đều chặn được bán vượt, khác nhau ở chi phí khi tranh chấp cao.
 
-**Cảnh 41 · Thiết kế Flash Sale ShopFlash.** Bốn bước: giữ suất bằng Lua trên Redis, đặt đơn trong transaction Oracle, xác nhận hoặc trả suất, job dọn suất hết hạn mỗi 5 giây.
+**Cảnh 40 · Thiết kế Flash Sale ShopFlash.** Bốn bước: giữ suất bằng Lua trên Redis, đặt đơn trong transaction Oracle, xác nhận hoặc trả suất, job dọn suất hết hạn mỗi 5 giây.
 Thanh màu dưới: Oracle giữ nguồn gốc, Redis giữ trạng thái chạy, Redis dựng lại được từ Oracle. Oracle là chốt chặn cuối: điều kiện sold + q <= allocated.
 
-**Cảnh 42 · Kết luận.** Viết kiểu "đọc rồi ghi" thì bán vượt 900 suất trên 100 suất. Lua đạt 8.951 lượt/giây, gấp 4,6 lần UPDATE có điều kiện trên Oracle, ở 64 lượt đồng thời.
+**Cảnh 41 · Kết luận.** Viết kiểu "đọc rồi ghi" thì bán vượt 900 suất trên 100 suất. Lua đạt 8.951 lượt/giây, gấp 4,6 lần UPDATE có điều kiện trên Oracle, ở 64 lượt đồng thời.
 WATCH chỉ bán được 797 trên 2000 vì xung đột liên tục. Chốt: Redis + Lua giữ suất, Oracle + UPDATE có điều kiện chốt đơn.
 
 ## Phần 7 · Sao lưu và khôi phục (3 phút)
 
-**Cảnh 43 · Mở phần 7.** Câu hỏi: mất dữ liệu thì bao lâu chạy lại, mất bao nhiêu?
+**Cảnh 42 · Mở phần 7.** Câu hỏi: mất dữ liệu thì bao lâu chạy lại, mất bao nhiêu?
 
-**Cảnh 44 · Sao lưu của Oracle: Data Pump.** Theo mũi tên: expdp xuất schema SHOP ra file .dmp, impdp tạo lại bảng, index, ràng buộc và nạp dữ liệu.
+**Cảnh 43 · Sao lưu của Oracle: Data Pump.** Theo mũi tên: expdp xuất schema SHOP ra file .dmp, impdp tạo lại bảng, index, ràng buộc và nạp dữ liệu.
 
-**Cảnh 45 · Persistence của Redis.** RDB chụp nhanh, có thể mất dữ liệu giữa hai lần chụp. AOF ghi từng lệnh nên bền hơn.
+**Cảnh 44 · Persistence của Redis.** RDB chụp nhanh, có thể mất dữ liệu giữa hai lần chụp. AOF ghi từng lệnh nên bền hơn.
 Banner dưới là đánh đổi chính: fsync càng thường xuyên thì càng an toàn, ghi càng chậm.
 
-**Cảnh 46 · Thiết kế sao lưu ShopFlash.** Một gói backup có ba phần: file Data Pump, file RDB, manifest SHA-256. Kiểm tra mã băm trước khi khôi phục.
+**Cảnh 45 · Thiết kế sao lưu ShopFlash.** Một gói backup có ba phần: file Data Pump, file RDB, manifest SHA-256. Kiểm tra mã băm trước khi khôi phục.
 
-**Cảnh 47 · Kết luận.** Khôi phục thành công mọi lượt thử. AOF always làm p95 ghi tăng khoảng 40 lần so với everysec.
+**Cảnh 46 · Kết luận.** Khôi phục thành công mọi lượt thử. AOF always làm p95 ghi tăng khoảng 40 lần so với everysec.
 ShopFlash chọn everysec: ghi gần như khi tắt AOF, mất tối đa khoảng 1 giây.
 
 ## Tổng kết (1 phút)
 
-**Cảnh 48 · Tổng kết.** Đọc theo cột "ShopFlash dùng". Dữ liệu gốc và thao tác ghi quan trọng ở Oracle. Redis giữ bản chiếu để tìm kiếm, kết quả báo cáo đã tính, suất Flash Sale đang giữ. Mất Redis thì dựng lại từ Oracle, trừ suất đang giữ dở.
+**Cảnh 47 · Tổng kết.** Đọc theo cột "ShopFlash dùng". Dữ liệu gốc và thao tác ghi quan trọng ở Oracle. Redis giữ bản chiếu để tìm kiếm, kết quả báo cáo đã tính, suất Flash Sale đang giữ. Mất Redis thì dựng lại từ Oracle, trừ suất đang giữ dở.
 Mỗi hàng có một số đo lấy từ phần tương ứng.
 
-**Cảnh 49 · Cảm ơn.** Cảm ơn thầy cô và các bạn, mời đặt câu hỏi. Cần quay lại phần nào thì gõ phím số 1 đến 7 để nhảy tới đầu phần đó.
+**Cảnh 48 · Cảm ơn.** Cảm ơn thầy cô và các bạn, mời đặt câu hỏi. Cần quay lại phần nào thì gõ phím số 1 đến 7 để nhảy tới đầu phần đó.
 
 ## Cảnh dự phòng (không tính giờ)
 
 Sau cảnh Cảm ơn có hai cảnh chỉ mở khi được hỏi. Từ cảnh 49 bấm mũi tên phải để tới cảnh 50 và 51.
 
-**Cảnh 50 · Kiến trúc của Oracle và Redis.** Mở khi được hỏi về kiến trúc. Đọc theo hàng mà câu hỏi nhắm tới.
+**Cảnh 49 · Kiến trúc của Oracle và Redis.** Mở khi được hỏi về kiến trúc. Đọc theo hàng mà câu hỏi nhắm tới.
 Điểm hay bị hỏi: Redis chạy lệnh trên một luồng chính, nên một script Lua dài sẽ chặn mọi client khác trong lúc chạy.
 
-**Cảnh 51 · ACID trên Oracle và Redis.** Dùng khi được hỏi Redis có đủ ACID không. Mã trong ngoặc là thí nghiệm của phần Transaction.
+**Cảnh 50 · ACID trên Oracle và Redis.** Dùng khi được hỏi Redis có đủ ACID không. Mã trong ngoặc là thí nghiệm của phần Transaction.
 Câu trả lời ngắn: không đủ. Redis không có rollback khi lỗi runtime, không có ràng buộc trong schema, và mất khoảng 1 giây khi sập máy nếu dùng AOF everysec. Đơn hàng vì thế nằm ở Oracle.
 
 ## Câu hỏi có thể gặp

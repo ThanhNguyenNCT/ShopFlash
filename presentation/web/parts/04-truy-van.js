@@ -107,6 +107,40 @@ enter(root,{print}){const bars=root.querySelectorAll('.p4-cbo .bar');
   bars.forEach(e=>e.style.width='0');root._b=setTimeout(set,700)},
 leave(root){clearTimeout(root._b)}});
 
+/* ---------- 3b · Mất thống kê, CBO đoán thế nào (trace 10053) ---------- */
+Deck.add({part:4,title:'Mất thống kê, CBO đoán số đơn thế nào',
+html:`
+<style>
+.p4-ds{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;flex:1;min-height:0}
+.p4-ds .card{display:flex;flex-direction:column;gap:.9rem}
+.p4-ds .step{display:grid;grid-template-columns:11.5rem 1fr;gap:1rem;align-items:center;padding:.75rem 0;border-bottom:.08rem solid var(--line)}
+.p4-ds .step b{font-family:var(--mono);font-size:2.3rem;text-align:right;font-variant-numeric:tabular-nums}
+.p4-ds .step span{font-size:1.1rem;line-height:1.35}
+.p4-ds .res{display:grid;grid-template-columns:11.5rem 1fr;gap:1rem;align-items:center;margin-top:auto;padding:1rem;border-radius:var(--r-sm);background:var(--surface2)}
+.p4-ds .res b{font-family:var(--mono);font-size:3.4rem;text-align:right}
+.p4-ds .res span{font-size:1.15rem}
+.p4-ds .ok b{color:var(--ora)}.p4-ds .bad b{color:var(--bad)}
+.p4-ds-take{margin-top:1.2rem}
+</style>
+${Deck.head(4,'Mất thống kê, CBO đoán số đơn thế nào','<span class="chip o" data-morph="ora">ORACLE · TRACE 10053</span>')}
+<div class="p4-ds body">
+  <div class="card" data-a style="--i:1">
+    <div class="label" style="margin:0">Đoán cho bảng ORDERS · lấy mẫu</div>
+    <div class="step"><b>2.134</b><span>block của bảng. Oracle đếm từ cấu trúc lưu trữ, không cần thống kê</span></div>
+    <div class="step"><b>63</b><span>block đọc thử ngẫu nhiên lúc lập kế hoạch</span></div>
+    <div class="step"><b>88%</b><span>dòng mẫu khớp điều kiện lọc: 2.561 trên 2.913</span></div>
+    <div class="res ok"><b>86.749</b><span>đơn CBO đoán cho bảng<br>Thực tế 87.139, gần đúng</span></div>
+  </div>
+  <div class="card" data-a style="--i:2">
+    <div class="label" style="margin:0">Đoán cho index IX_ORDERS_STATUS_CREATED · số mặc định</div>
+    <div class="step"><b>5.447</b><span>giá trị status khác nhau, Oracle tự giả định. Thực tế chỉ có 4</span></div>
+    <div class="step"><b>2/5.447</b><span>tỉ lệ giữ lại của <code>status IN</code> 2 giá trị</span></div>
+    <div class="step"><b>5%</b><span>tỉ lệ mặc định cho khoảng ngày truyền bằng bind</span></div>
+    <div class="res bad"><b>≈ 2</b><span>đơn qua index: 98.672 × 2/5.447 × 5%<br>Thực tế 87.139</span></div>
+  </div>
+</div>
+<div class="take p4-ds-take" data-a style="--i:3"><div class="label">CBO chọn theo số của index</div><p>Đi index chi phí <b>4</b>, quét bảng <b>581</b>, nên CBO đi index. Thực tế phải nhảy 87.139 lần theo <code>ROWID</code>: đọc <b>88.010</b> block thay vì <b>2.139</b>.</p></div>`
+});
 /* ---------- 4 · Redis: lập trình viên quyết ---------- */
 Deck.add({part:4,title:'Hai quyết định thiết kế trên Redis',
 demo:{label:'Query Lab · Round-trip',path:'/admin/reports/lab'},

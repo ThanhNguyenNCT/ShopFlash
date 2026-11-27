@@ -3,9 +3,9 @@
 Thư mục này có chữ **R hoa**, là bộ báo cáo mới theo cấu trúc
 `local_docs/Report/`. Không tự sao chép nội dung dự án mẫu vào báo cáo Oracle vs Redis.
 
-- Cấu trúc Markdown hiện hành nằm ở `REPORT.md`: Phần 1 giới thiệu (1.1–1.3),
+- Cấu trúc Markdown hiện hành nằm ở `REPORT.md`: Phần 1 giới thiệu (1.1–1.4),
   Phần 2 nghiên cứu Oracle–Redis (2.1–2.6), Phần 3 ứng dụng/kết luận (3.1–3.3).
-- Phần 1 dùng `../section_1.md`; Transaction dùng `Sections/Tasks/Transaction/noi-dung.md`
+- Phần 1 sửa trực tiếp trên LaTeX (bản Markdown nháp đã gỡ); Transaction dùng `Sections/Tasks/Transaction/noi-dung.md`
   ở mục 2.4, gồm 2.4.1–2.4.3. Không ghép thêm hai bản Markdown Transaction cũ.
   Riêng 2.4.1 lấy nguyên nội dung 3.1 từ bản đầy đủ
   `local_docs/Bao_cao_Transaction_Muc_3_1-3_3_MD/`; 2.4.3 giữ nội dung bản rút gọn.
@@ -22,9 +22,13 @@ Thư mục này có chữ **R hoa**, là bộ báo cáo mới theo cấu trúc
   LaTeX/PDF dùng ba `\section` ứng với ba phần; sáu task dùng `\subsection`
   ở 2.1–2.6. `txsection` là `\subsubsection` (2.4.1–2.4.3), `txsubsection`
   là `\paragraph` dạng block (2.4.x.y); không chèn số viết cứng vào nội dung.
-- Phần 1 nằm ở `Sections/Introduction/noi-dung.tex`, chuyển từ `../section_1.md`;
-  giữ nguyên văn; Hình 1.1 dùng ảnh `Pictures/image.png` do người dùng cung cấp.
-  Phần 3 chuyển từ `../section_3.md` sang `Sections/Implementation/noi-dung.tex`;
+- Phần 1 nằm ở `Sections/Introduction/noi-dung.tex` (1.1–1.3); Hình 1.1 dùng ảnh `Pictures/image.png` do người dùng cung cấp.
+  Mục 1.4 (Thiết kế cơ sở dữ liệu) nằm ở
+  `Sections/Introduction/database-design.tex`, ghép trong `main.tex` ngay sau `noi-dung`;
+  Hình 1.2 là `Pictures/Diagram/oracle-diagram.pdf` (vector, rộng 176 mm, lấn lề 8 mm mỗi bên
+  để đọc được chữ nhỏ), Hình 1.3 là `Pictures/Diagram/redis-diagram.png` (cắt lề trắng bằng `trim`).
+  Nhãn tiền tố `intro-`.
+  Phần 3 nằm ở `Sections/Implementation/noi-dung.tex`;
   sáu ảnh Client tại `Pictures/Section_3/client-*.png` ứng với Hình 3.1–3.6.
   Flash Sale đã có ảnh (`client-flash-*.png`, `admin-flash-sales.png`); chỗ bổ sung
   minh họa báo cáo/thống kê phía Admin giữ rõ là chưa hoàn thiện.
@@ -39,7 +43,7 @@ Thư mục này có chữ **R hoa**, là bộ báo cáo mới theo cấu trúc
   cấu hình build cần chạy với XeLaTeX và biber khi có trích dẫn.
 - Font Latin Modern giữ kiểu Computer Modern của mẫu và hỗ trợ Unicode tiếng Việt;
   nội dung nghiên cứu 13pt/18pt, giãn dòng 1.3; Phần 1/3 dùng 12pt/16pt,
-  giãn dòng 1.15 (Phần 1 giữ trong 2–3 trang). Bìa theo bố cục `main.tex` của mẫu:
+  giãn dòng 1.15 (1.1–1.3 giữ trong 2–3 trang; 1.4 thêm hai sơ đồ và hai bảng). Bìa theo bố cục `main.tex` của mẫu:
   logo kích thước gốc, hai đường kẻ, bảng thông tin và tên/MSSV trên cùng dòng.
 - Bảng dùng `\reporttablesetup`, lưới `|`/`\hline`, header nền
   `ReportTableHead` và `\reportheader{...}`. Code/log dùng kiểu trong `Sections/styles.tex`.

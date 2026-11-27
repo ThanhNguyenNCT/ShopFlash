@@ -9,15 +9,15 @@ vẫn giữ bản trước và các script/minh chứng thí nghiệm để đ�
 
 Mục lục ghép và trạng thái từng phần: **[REPORT.md](REPORT.md)**.
 
-1. **Giới thiệu đề tài và tổng quan hệ thống** (1.1–1.3): giữ nội dung
-   [section_1.md](../section_1.md).
+1. **Giới thiệu đề tài và tổng quan hệ thống** (1.1–1.4): nội dung trong
+   `Sections/Introduction/noi-dung.tex` và `Sections/Introduction/database-design.tex`.
 2. **Nghiên cứu và so sánh Oracle với Redis** (2.1–2.6): trọng tâm báo cáo.
    [Transaction](Sections/Tasks/Transaction/noi-dung.md#transaction-2-4) dùng
    mục **2.4.1** từ bản đầy đủ `Bao_cao_Transaction_Muc_3_1-3_3_MD`, còn
    **2.4.2** dùng bản 3.2 rút gọn mới nhất và **2.4.3** giữ nội dung bản rút gọn trước đó; các nguồn của thành viên
    khác được dẫn tại mục tương ứng trong `REPORT.md`.
-3. **Hiện thực ứng dụng và kết luận** (3.1–3.3): nội dung từ
-   [section_3.md](../section_3.md), gồm bảng chức năng, sáu ảnh Client và kết luận;
+3. **Hiện thực ứng dụng và kết luận** (3.1–3.3): nội dung trong
+   `Sections/Implementation/noi-dung.tex`, gồm bảng chức năng, sáu ảnh Client và kết luận;
    minh họa Flash Sale/Admin còn chờ bổ sung.
 
 Transaction hiện có 22 bảng, 15 đoạn mã, 10 khối kết quả và ba biểu đồ PDF vector
@@ -27,10 +27,10 @@ trong `report/transaction/` được giữ để đối chiếu, không ghép th
 
 ## Báo cáo LaTeX/PDF ba phần
 
-`main.tex` đã ghép đúng ba phần. Phần 1 chuyển nguyên văn từ `section_1.md`
-sang `Sections/Introduction/noi-dung.tex`; Hình 1.1 dùng ảnh
+`main.tex` đã ghép đúng ba phần. Phần 1 nằm ở `Sections/Introduction/noi-dung.tex`
+(1.1–1.3) và `database-design.tex` (1.4, Hình 1.2–1.3, Bảng 1.2–1.3); Hình 1.1 dùng ảnh
 `Pictures/image.png` do người dùng cung cấp. Phần 2 có sáu topic 2.1–2.6; hiện đã ghép đầy đủ
-Transaction 2.4. Phần 3 chuyển từ `section_3.md` sang
+Transaction 2.4. Phần 3 nằm ở
 `Sections/Implementation/noi-dung.tex`, có Bảng 3.1 và Hình 3.1–3.6. Các topic khác chưa được ghép vào
 PDF vẫn giữ tiêu đề, dù nguồn Markdown nghiên cứu có thể đã tồn tại.
 
@@ -44,10 +44,11 @@ Report/
 │   ├── transaction-format.tex        kiểu kết quả, ngôn ngữ Lua/JavaScript
 │   ├── workload.tex                  thành viên và nhiệm vụ đã được cung cấp
 │   ├── Introduction/
-│   │   ├── noi-dung.tex              Phần 1 từ section_1.md, gồm 1.1–1.3
+│   │   ├── noi-dung.tex              Phần 1, gồm 1.1–1.3
+│   │   ├── database-design.tex       1.4 Thiết kế cơ sở dữ liệu
 │   │   └── architecture.tex          bản sơ đồ TikZ trước, giữ để đối chiếu
 │   ├── Implementation/
-│   │   └── noi-dung.tex              Phần 3 từ section_3.md: 3.1–3.3 và sáu ảnh Client
+│   │   └── noi-dung.tex              Phần 3: 3.1–3.3 và sáu ảnh Client
 │   └── Tasks/
 │       ├── task1.tex                 2.1 Data Storage & Management
 │       ├── task2.tex                 2.2 Indexing
@@ -98,12 +99,11 @@ Mở `Report/main.tex` bằng TeXstudio hoặc editor LaTeX bất kỳ. Chỉnh 
 bìa ở `Sections/preamp.tex`; chỉnh phần Transaction trong
 `Sections/Tasks/Transaction/`. Các file LaTeX và hình nằm hoàn toàn trong
 `Report/`; build không cần `local_docs/`, `Bao_cao*/` hay file từ `report/` cũ.
-Khi sửa `section_1.md`, cần cập nhật phần LaTeX tương ứng trong
-`Sections/Introduction/`; khi sửa `section_3.md`, cập nhật
-`Sections/Implementation/noi-dung.tex`. Lệnh build không tự chuyển Markdown.
+Phần 1 và Phần 3 sửa trực tiếp trên LaTeX (`Sections/Introduction/`,
+`Sections/Implementation/noi-dung.tex`); bản Markdown nháp đã gỡ khỏi repo.
 
 Ảnh Client do người dùng cung cấp được giữ nguyên dữ liệu ảnh, chỉ đổi tên và
-chèn vào đúng vị trí của `section_3.md`/LaTeX:
+chèn vào đúng vị trí trong LaTeX:
 
 | Hình | Tên cũ | Ảnh trong `Pictures/Section_3/` |
 |---|---|---|

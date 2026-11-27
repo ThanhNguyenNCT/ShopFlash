@@ -6,19 +6,23 @@ Nhóm: **L01_02**.
 
 # Phần 1. GIỚI THIỆU ĐỀ TÀI VÀ TỔNG QUAN HỆ THỐNG
 
-Nguồn chính: [section_1.md](../section_1.md). Đã có đủ ba tiểu mục, sơ đồ kiến trúc và bảng phân chia dữ liệu; giữ nội dung chính. Phần này dự kiến 2–3 trang A4, cung cấp bối cảnh cho nghiên cứu ở Phần 2.
+Nguồn chính: `Sections/Introduction/noi-dung.tex` (1.1–1.3) và `Sections/Introduction/database-design.tex` (1.4); bản Markdown nháp đã gỡ sau khi chuyển sang LaTeX. Đã có đủ các tiểu mục, sơ đồ kiến trúc và bảng phân chia dữ liệu; giữ nội dung chính. Phần này dự kiến 2–3 trang A4, cung cấp bối cảnh cho nghiên cứu ở Phần 2.
 
 ## 1.1. Bối cảnh, mục tiêu và phạm vi đề tài
 
-[Nội dung 1.1](../section_1.md#section-1-1).
+Nội dung 1.1 trong `Sections/Introduction/noi-dung.tex`.
 
 ## 1.2. Tổng quan ứng dụng ShopFlash
 
-[Nội dung 1.2](../section_1.md#section-1-2).
+Nội dung 1.2 trong `Sections/Introduction/noi-dung.tex`.
 
 ## 1.3. Kiến trúc hệ thống và phân chia dữ liệu Oracle–Redis
 
-[Nội dung 1.3](../section_1.md#section-1-3), gồm Hình 1.1 và Bảng 1.1. Từ bối cảnh và cách phân vai dữ liệu này, Phần 2 nghiên cứu các cơ chế trên từng DBMS và đối chiếu bằng thực nghiệm.
+Nội dung 1.3 trong `Sections/Introduction/noi-dung.tex`, gồm Hình 1.1 và Bảng 1.1.
+
+## 1.4. Thiết kế cơ sở dữ liệu
+
+Nội dung 1.4 trong `Sections/Introduction/database-design.tex`, gồm 1.4.1 Mô hình dữ liệu trên Oracle (Hình 1.2 `Pictures/Diagram/oracle-diagram.pdf`, Bảng 1.2 index bổ sung) và 1.4.2 Mô hình dữ liệu trên Redis (Hình 1.3 `Pictures/Diagram/redis-diagram.png`, Bảng 1.3 key Flash Sale runtime). Từ bối cảnh, cách phân vai và mô hình dữ liệu này, Phần 2 nghiên cứu các cơ chế trên từng DBMS và đối chiếu bằng thực nghiệm.
 
 # Phần 2. NGHIÊN CỨU VÀ SO SÁNH ORACLE VỚI REDIS
 
@@ -66,26 +70,26 @@ Có **12 bảng, 7 mã nguồn và 4 hình**, mang tiền tố 2.5. Số đo E1�
 
 # Phần 3. HIỆN THỰC ỨNG DỤNG VÀ KẾT LUẬN
 
-Nguồn chính: [section_3.md](../section_3.md), đã ghép vào `Sections/Implementation/noi-dung.tex`. Có bảng tổng hợp chức năng, nội dung Client/đánh giá/kết luận và sáu ảnh gốc tại `Pictures/Section_3/` (Hình 3.1–3.6). Flash Sale đã có ảnh trong LaTeX (Hình 3.7, 3.8 phía khách; Hình 3.12 quản lý chương trình, 19/11/2026); minh họa báo cáo/thống kê phía Admin vẫn chờ bổ sung. [Source Audit](../SECTION_1_HANDOFF.md) là nguồn đối chiếu chức năng và giới hạn tại thời điểm khảo sát; phải phân biệt ảnh giao diện với kiểm chứng giao dịch DBMS ở Phần 2.
+Nguồn chính: `Sections/Implementation/noi-dung.tex` (bản Markdown nháp đã gỡ). Có bảng tổng hợp chức năng, nội dung Client/đánh giá/kết luận và sáu ảnh gốc tại `Pictures/Section_3/` (Hình 3.1–3.6). Flash Sale đã có ảnh trong LaTeX (Hình 3.7, 3.8 phía khách; Hình 3.12 quản lý chương trình, 19/11/2026); minh họa báo cáo/thống kê phía Admin vẫn chờ bổ sung. Phải phân biệt ảnh giao diện với kiểm chứng giao dịch DBMS ở Phần 2.
 
 ## 3.1. Các chức năng đã hiện thực
 
-[Bảng tổng hợp bốn nhóm chức năng](../section_3.md#31-các-chức-năng-đã-hiện-thực), xuất thành Bảng 3.1; không liệt kê toàn bộ API/module.
+Bảng tổng hợp bốn nhóm chức năng (Bảng 3.1); không liệt kê toàn bộ API/module.
 
 ## 3.2. Minh họa và đánh giá ứng dụng
 
-[Minh họa và đánh giá](../section_3.md#32-minh-họa-và-đánh-giá-ứng-dụng): trang chủ, tìm kiếm/lọc, giỏ hàng, Checkout, danh sách đơn và chi tiết đơn. Ảnh Client phản ánh luồng đơn 188.000 đồng đã có; không tạo mới ảnh hoặc kết quả. Flash Sale đã bổ sung trong LaTeX; giữ chỗ cho báo cáo/thống kê phía Admin.
+Minh họa và đánh giá: trang chủ, tìm kiếm/lọc, giỏ hàng, Checkout, danh sách đơn và chi tiết đơn. Ảnh Client phản ánh luồng đơn 188.000 đồng đã có; không tạo mới ảnh hoặc kết quả. Flash Sale đã bổ sung trong LaTeX; giữ chỗ cho báo cáo/thống kê phía Admin.
 
 ## 3.3. Kết luận, hạn chế và hướng phát triển
 
-[Kết luận, hạn chế và hướng phát triển](../section_3.md#33-kết-luận-hạn-chế-và-hướng-phát-triển): giữ nội dung người dùng đã biên soạn; kết luận từng topic cần tiếp tục được nhóm đối chiếu khi hoàn thiện Phần 2.
+Kết luận, hạn chế và hướng phát triển: giữ nội dung người dùng đã biên soạn; kết luận từng topic cần tiếp tục được nhóm đối chiếu khi hoàn thiện Phần 2.
 
 ---
 
 **Ghi chú ghép và xuất bản — không phải nội dung báo cáo:**
 
-- Nội dung chính Phần 1 giữ ở `section_1.md`; Transaction dùng đúng bản 2.4 được liên kết ở trên. `report/transaction/REPORT.md` và `SECTION_TRANSACTION.md` là bản trước, không ghép thêm để tránh lặp.
-- Tiểu mục nghiên cứu dùng `2.<topic>.<tiểu mục>`. Bảng/hình/mã/kết quả Transaction dùng `2.4.<số thứ tự>`; các topic khác dùng cùng quy tắc khi được người phụ trách chuẩn hóa. Hình 1.1 và Bảng 1.1 thuộc Phần 1.
+- Nội dung chính Phần 1 giữ ở `Sections/Introduction/noi-dung.tex` và `Sections/Introduction/database-design.tex`; Transaction dùng đúng bản 2.4 được liên kết ở trên. `report/transaction/REPORT.md` và `SECTION_TRANSACTION.md` là bản trước, không ghép thêm để tránh lặp.
+- Tiểu mục nghiên cứu dùng `2.<topic>.<tiểu mục>`. Bảng/hình/mã/kết quả Transaction dùng `2.4.<số thứ tự>`; các topic khác dùng cùng quy tắc khi được người phụ trách chuẩn hóa. Hình 1.1–1.3 và Bảng 1.1–1.3 thuộc Phần 1.
 - Giữ nguyên tên file ảnh, dữ liệu thô và bằng chứng có số cũ để không gãy đường dẫn. Số hiển thị của báo cáo nằm trong heading/caption; số trong tên artifact cũ không phải số mục hiện hành.
 - Các mục chỉ có runbook/nguyên liệu ở trên chưa được coi là chương đã biên tập hoàn chỉnh. Khung chú thích không phải nội dung nghiên cứu mới.
-- **LaTeX/PDF trong `Report/` đã dùng ba phần**, có Phần 1 từ `section_1.md`, Transaction 2.4 và Phần 3 từ `section_3.md` kèm sáu ảnh Client. Concurrency 2.5 đã ghép (19/11/2026). Các topic chưa ghép vẫn giữ khung; báo cáo/thống kê phía Admin ở Phần 3 còn chỗ bổ sung. PDF hiện hành là `Report/build/main.pdf`. Nguồn Markdown khác được liệt kê ở trên vẫn cần người phụ trách chốt và chuyển sang LaTeX; không suy ra chúng đã được ghép chỉ từ việc có file nguồn.
+- **LaTeX/PDF trong `Report/` đã dùng ba phần**, có Phần 1 (1.1–1.4), Transaction 2.4 và Phần 3 kèm sáu ảnh Client. Concurrency 2.5 đã ghép (19/11/2026). Các topic chưa ghép vẫn giữ khung; báo cáo/thống kê phía Admin ở Phần 3 còn chỗ bổ sung. PDF hiện hành là `Report/build/main.pdf`. Nguồn Markdown khác được liệt kê ở trên vẫn cần người phụ trách chốt và chuyển sang LaTeX; không suy ra chúng đã được ghép chỉ từ việc có file nguồn.

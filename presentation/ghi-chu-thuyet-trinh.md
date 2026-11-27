@@ -74,7 +74,7 @@ Vì vậy tìm kiếm chấp nhận trễ, còn đặt hàng và tồn kho luôn
 
 ## Phần 4 · Xử lý truy vấn
 
-Thứ tự: nói 6 cảnh slide (cảnh 23 đến 28), demo trên hai DBMS trong terminal, rồi demo app. Đây là bản đầy đủ, đọc hết sẽ dài hơn khung 5 phút; khi lên trình bày thì lược bớt phần giải thích nếu bị giục giờ. Lời nói ghi trong ngoặc kép; chỉ dẫn trong ngoặc vuông là việc cần làm.
+Thứ tự: nói 5 cảnh slide (cảnh 23 đến 27), demo trên hai DBMS trong terminal, rồi demo app. Đây là bản đầy đủ, đọc hết sẽ dài hơn khung 5 phút; khi lên trình bày thì lược bớt phần giải thích nếu bị giục giờ. Lời nói ghi trong ngoặc kép; chỉ dẫn trong ngoặc vuông là việc cần làm.
 
 Chuẩn bị trước giờ trình bày:
 - Chạy `scripts/dev.sh` trên máy trình bày, chờ tới dòng "Đang chạy". Lúc này app chỉ có dữ liệu mẫu, các phần 2, 3 demo trên dữ liệu này.
@@ -96,6 +96,7 @@ Khi nào nạp 100.000 đơn:
 - Lá index xếp liền nhau theo `(status, created_at)`, nhưng các dòng thật của bảng nằm rải rác ở nhiều block. Đi qua index thì Oracle đọc lá index (`INDEX RANGE SCAN`), rồi với **mỗi `ROWID`** lại nhảy tới block chứa dòng đó (`TABLE ACCESS BY INDEX ROWID`), mỗi lần đọc một block lẻ (*single-block I/O*).
 - `TABLE ACCESS FULL` đọc thẳng mọi block của bảng theo từng cụm liên tiếp (*multiblock I/O*). Báo cáo cần **87.139 trên 100.000 đơn**, tức 87%. Ở tỉ lệ đó, đọc cả bảng một lượt rẻ hơn đọc index rồi nhảy 87.139 lần.
 - Kế hoạch khi mất thống kê (cảnh 25) cho thấy đúng cái giá này: đi qua index rồi đọc từng dòng `ORDERS` tốn **88.010 block** chỉ riêng bước đó.
+- Theo công thức chương 4: quét toàn bảng là **CS1a = b = 2.134 block**. Đi index ghép theo khoảng là **CS6b ≈ x + (số lá) + s = 3 + 455 + 87.139 ≈ 87.600 block**, vì *clustering factor* của index này (99.952) gần bằng số dòng, mỗi dòng nằm một block khác. Hai con số đo được là 2.139 và khoảng 90.000, khớp công thức. Chi tiết ở `local-docs/ON_TAP_CHUONG_4_QUERY.md`.
 
 ### Slide
 
@@ -109,9 +110,9 @@ Khi nào nạp 100.000 đơn:
 
 "Ở Oracle, em chỉ viết một câu SQL khai báo: join **4 bảng** chuẩn hóa `ORDERS`, `ORDER_ITEMS`, `PRODUCTS`, `CATEGORIES`, lọc đơn đã xác nhận hoặc hoàn tất, rồi gom nhóm theo sản phẩm. Em không chỉ cách chạy. Bộ tối ưu dựa trên chi phí, **CBO** (*Cost-Based Optimizer*), tự quyết định qua ba bước:"
 
-- "**Bước 1, chọn đường đọc** (*access path*): báo cáo lấy tới **87% số đơn**, nên CBO bỏ qua index và **quét toàn bảng** `ORDERS` và `ORDER_ITEMS`, thay vì đọc index rồi nhảy theo từng `ROWID`."
+- "**Bước 1, chọn đường đọc** (*access path*): báo cáo lấy tới **87% số đơn**, nên CBO bỏ qua index và **quét toàn bảng** `ORDERS` và `ORDER_ITEMS`, thay vì đọc index rồi nhảy theo từng `ROWID`. Theo công thức chi phí trong chương 4, quét toàn bảng `ORDERS` tốn khoảng **2.134 block**, còn đi index phải đọc khoảng **87.600 block**, gấp khoảng **40 lần**."
 - "**Bước 2, tự viết lại câu lệnh** (*query transformation*): câu SQL gốc viết join trước, gom sau. CBO đổi lại, gom **215 nghìn dòng hàng** theo sản phẩm trước, còn **9.000 nhóm**, rồi mới join. Phép biến đổi này tên là *group-by placement*; trong kế hoạch nó hiện thành view `VW_GBC_17`."
-- "**Bước 3, chọn thuật toán join** (*join method*): CBO dùng **hash join** để nối 9.000 nhóm đó với `PRODUCTS` và `CATEGORIES`. CBO ước lượng **9.001 dòng**, thực tế **9.000**, gần như đúng tuyệt đối."
+- "**Bước 3, chọn thuật toán join** (*join method*): CBO dùng **hash join** để nối 9.000 nhóm đó với `PRODUCTS` và `CATEGORIES`. CBO ước lượng **9.001 dòng**, thực tế **9.000**, gần như đúng tuyệt đối. Hash join đọc mỗi bảng đúng một lượt, nên công thức là **bR + bS**: cộng số block của 4 bảng được khoảng **5.021 block**."
 
 "Cả kế hoạch đọc **5.161 block** từ bộ đệm. Em lấy con số này làm mốc cho cảnh sau."
 
@@ -128,16 +129,16 @@ Khi nào nạp 100.000 đơn:
 
 **[Chỉ bảng bên trái]**
 
-"**Thí nghiệm 1, ép thuật toán join bằng hint.** Em giữ nguyên thứ tự join và ép lần lượt nested loops, hash, merge. Kế hoạch CBO tự chọn nhanh nhất ở cả ba báo cáo. Ép **nested loops** làm hai báo cáo join 4 bảng chậm đi **4,9 và 5,2 lần**. Lý do: với mỗi đơn trong 87.139 đơn, Oracle dò index `ORDER_ITEMS` một lần; với mỗi dòng trong 215 nghìn dòng hàng, nó lại dò sang `PRODUCTS` và `CATEGORIES`. Kế hoạch đó đọc khoảng **681 nghìn block**, gấp **132 lần** kế hoạch tự chọn. Khách VIP chỉ join 2 bảng nên chỉ chậm **1,3 lần**."
+"**Thí nghiệm 1, ép thuật toán join bằng hint.** Em giữ nguyên thứ tự join và ép lần lượt nested loops, hash, merge. Kế hoạch CBO tự chọn nhanh nhất ở cả ba báo cáo. Ép **nested loops** làm hai báo cáo join 4 bảng chậm đi **4,9 và 5,2 lần**. Lý do: với mỗi đơn trong 87.139 đơn, Oracle dò index `ORDER_ITEMS` một lần; với mỗi dòng trong 215 nghìn dòng hàng, nó lại dò sang `PRODUCTS` và `CATEGORIES`. Kế hoạch đó đọc khoảng **681 nghìn block**, gấp **132 lần** kế hoạch tự chọn. Đây là thuật toán *single-loop join* dùng index trong chương 4: chi phí tăng theo số dòng bảng ngoài nhân số block phải dò mỗi lần, nên chỉ hợp khi bảng ngoài ít dòng. Khách VIP chỉ join 2 bảng nên chỉ chậm **1,3 lần**."
 
 **[Chỉ bảng bên phải]**
 
 "**Thí nghiệm 2, xóa thống kê** bằng `DELETE_TABLE_STATS`. Mất thống kê, CBO đoán sai nặng: sau gom nhóm nó ước lượng **285.000 dòng** trong khi thực tế **9.000**. Nó còn tin index lọc đơn chỉ trả về 2 dòng, thực tế 87.139. Vì tin điều kiện rất chọn lọc, CBO đi qua index rồi đọc từng dòng `ORDERS`, đổi hash join sang **merge join**, và số block đọc tăng từ 5.161 lên **91.035**, gấp **17,6 lần**."
 
-"Thu thập lại bằng `GATHER_TABLE_STATS` thì hash join quay về, đúng plan hash cũ. Một điểm em gặp khi làm: phải truyền `no_invalidate => FALSE`. Để mặc định thì Oracle vẫn dùng kế hoạch cũ đang lưu trong *shared pool*, xóa thống kê xong kế hoạch vẫn y nguyên. Bài học vận hành cho ShopFlash: nạp nhiều dữ liệu xong phải thu thập lại thống kê."
+"Thu thập lại bằng `GATHER_TABLE_STATS` thì hash join quay về, đúng plan hash cũ. Một điểm em gặp khi làm: phải truyền `no_invalidate => FALSE`. Để mặc định thì Oracle vẫn dùng kế hoạch cũ đang lưu trong *shared pool*, xóa thống kê xong kế hoạch vẫn y nguyên. Bài học vận hành cho ShopFlash: nạp nhiều dữ liệu xong phải thu thập lại thống kê. Đúng như chương 4: optimizer dựa trên chi phí chỉ tốt bằng thông tin trong *catalog* (số dòng, số block, số giá trị phân biệt, *selectivity*); catalog sai thì ước lượng sai, plan sai."
 
 **Cảnh 26 · Hai quyết định thiết kế trên Redis.**
-"Redis không có CBO, nên tốc độ báo cáo phụ thuộc hoàn toàn vào **hai quyết định** của người thiết kế."
+"Redis không có CBO, nên tốc độ báo cáo phụ thuộc hoàn toàn vào **hai quyết định** của người thiết kế. Nói theo chương 4, bên Redis không có bước tối ưu: lệnh viết thế nào thì đó chính là kế hoạch thực thi."
 
 **[Chỉ khung bên trái]**
 
@@ -147,19 +148,7 @@ Khi nào nạp 100.000 đơn:
 
 "**Quyết định 2, để Redis tự gom nhóm hay kéo dữ liệu về ứng dụng.** Cách AGGREGATE để Redis gom trong một lệnh. Cách CLIENT coi Redis như kho key-value: lấy document thô theo trang, mỗi trang 10.000 document, rồi Java tự gom. Cách CLIENT phải gọi Redis **9 đến 22 lần** và kéo tới **215.805 dòng** qua mạng, nên chậm hơn **3,5 đến 30 lần**. Báo cáo theo danh mục chênh nhiều nhất: **55,8 ms** so với khoảng **1,7 giây**, vì kết quả cuối chỉ có 50 dòng mà phải kéo về cả 215 nghìn dòng."
 
-**Cảnh 27 · Kết quả đo bốn báo cáo.**
-"Cảnh này tổng hợp thời gian chạy, mỗi cách đo 5 lần, lấy trung bình."
-
-- "**Join 4 bảng rồi gom nhóm**, tức theo danh mục và top sản phẩm: Redis AGGREGATE nhanh hơn nhẹ, **1,7 lần** và **1,1 lần**, vì phép join đã làm sẵn lúc dựng read model."
-- "**Gom nhóm trên một bảng** (theo tháng) và **truy vấn có subquery** (khách VIP): Oracle nhanh hơn, **1,3 lần** và **1,5 lần**. Ở khách VIP, Oracle tính subquery mức chi trung bình đúng một lần rồi dùng để lọc. `FT.AGGREGATE` không có subquery, nên Redis phải chạy **2 lượt**: lượt một tính mức trung bình, ứng dụng đọc con số rồi chèn vào lượt hai."
-- "**Sản phẩm chưa từng bán**, viết bằng `NOT EXISTS`: Oracle tự đổi thành **hash join anti**, chỉ quét index trên `order_items.product_id`, mất **31,7 ms** và tìm ra **1.147 sản phẩm**. Redis **không làm được**, vì read model chỉ chứa dòng hàng đã bán; sản phẩm chưa bán không có mặt để mà tìm."
-- "Hai chênh lệch lớn thì lần đo nào cũng giống: ép nested loops chậm khoảng 5 lần, kéo dữ liệu về ứng dụng chậm nhiều lần."
-
-**[Chỉ khung lần đo trước]**
-
-"Lưu ý: lần đo trước, ngày 18/10, kết quả ngược lại, Oracle nhanh hơn ở cả bốn báo cáo. Nhóm chưa tìm ra nguyên nhân. Vì chênh lệch giữa hai bên dưới 2 lần và không ổn định, nhóm **không chọn DBMS dựa trên tốc độ**."
-
-**Cảnh 28 · Lựa chọn cho báo cáo của ShopFlash.**
+**Cảnh 27 · Lựa chọn cho báo cáo của ShopFlash.**
 "Từ các thí nghiệm, nhóm chốt cách chạy báo cáo cho ShopFlash."
 
 **[Chỉ cột Oracle]**
@@ -228,76 +217,76 @@ Nếu demo lỗi (máy hoặc app không lên): bỏ qua demo, nói thêm theo c
 
 ## Phần 5 · Giao dịch (5 phút)
 
-**Cảnh 29 · Mở phần 5.** Câu hỏi: lỗi ở bước cuối thì các bước trước đi đâu?
+**Cảnh 28 · Mở phần 5.** Câu hỏi: lỗi ở bước cuối thì các bước trước đi đâu?
 
-**Cảnh 30 · Transaction trong ShopFlash.** Một lần checkout ghi bốn bảng, phải coi là một đơn vị. Đọc nhanh bốn chữ ACID.
+**Cảnh 29 · Transaction trong ShopFlash.** Một lần checkout ghi bốn bảng, phải coi là một đơn vị. Đọc nhanh bốn chữ ACID.
 
-**Cảnh 31 · Bắt đầu và thực thi transaction.** Ví dụ tồn kho P1 = 100, giảm 1.
+**Cảnh 30 · Bắt đầu và thực thi transaction.** Ví dụ tồn kho P1 = 100, giảm 1.
 Oracle thực thi UPDATE ngay, session hiện tại đã thấy 99 dù chưa COMMIT. Redis sau MULTI chỉ xếp lệnh vào hàng đợi, trả QUEUED, chưa có kết quả.
 
-**Cảnh 32 · Kết thúc transaction.** Hàng 03A: COMMIT và EXEC đều cho 99. Hàng 03B: ROLLBACK và DISCARD đều về 100.
+**Cảnh 31 · Kết thúc transaction.** Hàng 03A: COMMIT và EXEC đều cho 99. Hàng 03B: ROLLBACK và DISCARD đều về 100.
 Khác biệt nằm ở hàng cuối: Oracle có SAVEPOINT để hoàn tác một phần. Redis đã EXEC thì không có cách quay lại.
 
-**Cảnh 33 · Lỗi sau khi đã ghi dữ liệu.** Oracle: lỗi CHECK ở bước cuối, ứng dụng rollback, bảng quay về như trước.
+**Cảnh 32 · Lỗi sau khi đã ghi dữ liệu.** Oracle: lỗi CHECK ở bước cuối, ứng dụng rollback, bảng quay về như trước.
 Redis: lệnh LPUSH lỗi WRONGTYPE nhưng các lệnh trước vẫn được ghi. Stock còn 99, Order vẫn tồn tại.
 
-**Cảnh 34 · Ai chịu trách nhiệm bảo vệ dữ liệu?** Oracle từ chối câu SQL vi phạm UNIQUE, FOREIGN KEY, CHECK.
+**Cảnh 33 · Ai chịu trách nhiệm bảo vệ dữ liệu?** Oracle từ chối câu SQL vi phạm UNIQUE, FOREIGN KEY, CHECK.
 Redis không có constraint, nên kiểm tra trước khi ghi trong một Lua script. Vượt tồn thì trả OUT_OF_STOCK và chưa ghi gì.
 
-**Cảnh 35 · Cô lập và lưu bền.** Hàng trên: Oracle READ COMMITTED không đọc dữ liệu chưa commit. Redis WATCH phát hiện key bị đổi thì hủy, ứng dụng thử lại.
+**Cảnh 34 · Cô lập và lưu bền.** Hàng trên: Oracle READ COMMITTED không đọc dữ liệu chưa commit. Redis WATCH phát hiện key bị đổi thì hủy, ứng dụng thử lại.
 Hàng dưới: Oracle ghi redo log khi COMMIT. Redis ghi đĩa qua RDB hoặc AOF; môi trường đo dùng AOF everysec.
 
-**Cảnh 36 · Hiệu năng trong workload đã khảo sát.** Redis có P95 thấp hơn và throughput cao hơn ở cả bốn cấu hình. Nhắc lại: đây là workload mô phỏng, giỏ 1 hoặc 5 sản phẩm, 1 hoặc 10 worker.
+**Cảnh 35 · Hiệu năng trong workload đã khảo sát.** Redis có P95 thấp hơn và throughput cao hơn ở cả bốn cấu hình. Nhắc lại: đây là workload mô phỏng, giỏ 1 hoặc 5 sản phẩm, 1 hoặc 10 worker.
 
-**Cảnh 37 · Lựa chọn DBMS cho ShopFlash.** Oracle giữ Cart, Order, Inventory vì cần rollback, constraint, khóa dòng. Redis giữ quota và suất đang giữ của Flash Sale.
+**Cảnh 36 · Lựa chọn DBMS cho ShopFlash.** Oracle giữ Cart, Order, Inventory vì cần rollback, constraint, khóa dòng. Redis giữ quota và suất đang giữ của Flash Sale.
 
-**Cảnh 38 · Demo giao dịch (video).** Vào cảnh là video tự phát, có tiếng; bấm mũi tên phải là dừng video và sang phần 6. Video dài 6 phút 46 giây. Cần mạng nếu máy không có sẵn file video.
+**Cảnh 37 · Demo giao dịch (video).** Vào cảnh là video tự phát, có tiếng; bấm mũi tên phải là dừng video và sang phần 6. Video dài 6 phút 46 giây. Cần mạng nếu máy không có sẵn file video.
 
 ## Phần 6 · Kiểm soát đồng thời (5 phút)
 
-**Cảnh 39 · Mở phần 6.** Câu hỏi: 1000 khách tranh 100 suất, ai giữ được con số?
+**Cảnh 38 · Mở phần 6.** Câu hỏi: 1000 khách tranh 100 suất, ai giữ được con số?
 
-**Cảnh 40 · Bài toán và bốn cơ chế.** Đọc banner lost update: hai khách cùng đọc 99, cùng ghi 100, bộ đếm chỉ tăng 1.
+**Cảnh 39 · Bài toán và bốn cơ chế.** Đọc banner lost update: hai khách cùng đọc 99, cùng ghi 100, bộ đếm chỉ tăng 1.
 Đi qua bốn thẻ: khóa bi quan, khóa lạc quan, MVCC, thao tác nguyên tử.
 
-**Cảnh 41 · So sánh Oracle và Redis.** Khối trái: Oracle khóa từng dòng; Redis chạy từng lệnh hoặc script một mình nên không deadlock, nhưng cũng không rollback.
+**Cảnh 40 · So sánh Oracle và Redis.** Khối trái: Oracle khóa từng dòng; Redis chạy từng lệnh hoặc script một mình nên không deadlock, nhưng cũng không rollback.
 Câu cuối bảng: cả hai đều chặn được bán vượt, khác nhau ở chi phí khi tranh chấp cao.
 
-**Cảnh 42 · Thiết kế Flash Sale ShopFlash.** Bốn bước: giữ suất bằng Lua trên Redis, đặt đơn trong transaction Oracle, xác nhận hoặc trả suất, job dọn suất hết hạn mỗi 5 giây.
+**Cảnh 41 · Thiết kế Flash Sale ShopFlash.** Bốn bước: giữ suất bằng Lua trên Redis, đặt đơn trong transaction Oracle, xác nhận hoặc trả suất, job dọn suất hết hạn mỗi 5 giây.
 Thanh màu dưới: Oracle giữ nguồn gốc, Redis giữ trạng thái chạy, Redis dựng lại được từ Oracle. Oracle là chốt chặn cuối: điều kiện sold + q <= allocated.
 
-**Cảnh 43 · Kết luận.** Viết kiểu "đọc rồi ghi" thì bán vượt 900 suất trên 100 suất. Lua đạt 8.951 lượt/giây, gấp 4,6 lần UPDATE có điều kiện trên Oracle, ở 64 lượt đồng thời.
+**Cảnh 42 · Kết luận.** Viết kiểu "đọc rồi ghi" thì bán vượt 900 suất trên 100 suất. Lua đạt 8.951 lượt/giây, gấp 4,6 lần UPDATE có điều kiện trên Oracle, ở 64 lượt đồng thời.
 WATCH chỉ bán được 797 trên 2000 vì xung đột liên tục. Chốt: Redis + Lua giữ suất, Oracle + UPDATE có điều kiện chốt đơn.
 
 ## Phần 7 · Sao lưu và khôi phục (3 phút)
 
-**Cảnh 44 · Mở phần 7.** Câu hỏi: mất dữ liệu thì bao lâu chạy lại, mất bao nhiêu?
+**Cảnh 43 · Mở phần 7.** Câu hỏi: mất dữ liệu thì bao lâu chạy lại, mất bao nhiêu?
 
-**Cảnh 45 · Sao lưu của Oracle: Data Pump.** Theo mũi tên: expdp xuất schema SHOP ra file .dmp, impdp tạo lại bảng, index, ràng buộc và nạp dữ liệu.
+**Cảnh 44 · Sao lưu của Oracle: Data Pump.** Theo mũi tên: expdp xuất schema SHOP ra file .dmp, impdp tạo lại bảng, index, ràng buộc và nạp dữ liệu.
 
-**Cảnh 46 · Persistence của Redis.** RDB chụp nhanh, có thể mất dữ liệu giữa hai lần chụp. AOF ghi từng lệnh nên bền hơn.
+**Cảnh 45 · Persistence của Redis.** RDB chụp nhanh, có thể mất dữ liệu giữa hai lần chụp. AOF ghi từng lệnh nên bền hơn.
 Banner dưới là đánh đổi chính: fsync càng thường xuyên thì càng an toàn, ghi càng chậm.
 
-**Cảnh 47 · Thiết kế sao lưu ShopFlash.** Một gói backup có ba phần: file Data Pump, file RDB, manifest SHA-256. Kiểm tra mã băm trước khi khôi phục.
+**Cảnh 46 · Thiết kế sao lưu ShopFlash.** Một gói backup có ba phần: file Data Pump, file RDB, manifest SHA-256. Kiểm tra mã băm trước khi khôi phục.
 
-**Cảnh 48 · Kết luận.** Khôi phục thành công mọi lượt thử. AOF always làm p95 ghi tăng khoảng 40 lần so với everysec.
+**Cảnh 47 · Kết luận.** Khôi phục thành công mọi lượt thử. AOF always làm p95 ghi tăng khoảng 40 lần so với everysec.
 ShopFlash chọn everysec: ghi gần như khi tắt AOF, mất tối đa khoảng 1 giây.
 
 ## Tổng kết (1 phút)
 
-**Cảnh 49 · Tổng kết.** Đọc theo cột "ShopFlash dùng". Dữ liệu gốc và thao tác ghi quan trọng ở Oracle. Redis giữ bản chiếu để tìm kiếm, kết quả báo cáo đã tính, suất Flash Sale đang giữ. Mất Redis thì dựng lại từ Oracle, trừ suất đang giữ dở.
+**Cảnh 48 · Tổng kết.** Đọc theo cột "ShopFlash dùng". Dữ liệu gốc và thao tác ghi quan trọng ở Oracle. Redis giữ bản chiếu để tìm kiếm, kết quả báo cáo đã tính, suất Flash Sale đang giữ. Mất Redis thì dựng lại từ Oracle, trừ suất đang giữ dở.
 Mỗi hàng có một số đo lấy từ phần tương ứng.
 
-**Cảnh 50 · Cảm ơn.** Cảm ơn thầy cô và các bạn, mời đặt câu hỏi. Cần quay lại phần nào thì gõ phím số 1 đến 7 để nhảy tới đầu phần đó.
+**Cảnh 49 · Cảm ơn.** Cảm ơn thầy cô và các bạn, mời đặt câu hỏi. Cần quay lại phần nào thì gõ phím số 1 đến 7 để nhảy tới đầu phần đó.
 
 ## Cảnh dự phòng (không tính giờ)
 
-Sau cảnh Cảm ơn có hai cảnh chỉ mở khi được hỏi. Từ cảnh 50 bấm mũi tên phải để tới cảnh 51 và 52.
+Sau cảnh Cảm ơn có hai cảnh chỉ mở khi được hỏi. Từ cảnh 49 bấm mũi tên phải để tới cảnh 50 và 51.
 
-**Cảnh 51 · Kiến trúc của Oracle và Redis.** Mở khi được hỏi về kiến trúc. Đọc theo hàng mà câu hỏi nhắm tới.
+**Cảnh 50 · Kiến trúc của Oracle và Redis.** Mở khi được hỏi về kiến trúc. Đọc theo hàng mà câu hỏi nhắm tới.
 Điểm hay bị hỏi: Redis chạy lệnh trên một luồng chính, nên một script Lua dài sẽ chặn mọi client khác trong lúc chạy.
 
-**Cảnh 52 · ACID trên Oracle và Redis.** Dùng khi được hỏi Redis có đủ ACID không. Mã trong ngoặc là thí nghiệm của phần Transaction.
+**Cảnh 51 · ACID trên Oracle và Redis.** Dùng khi được hỏi Redis có đủ ACID không. Mã trong ngoặc là thí nghiệm của phần Transaction.
 Câu trả lời ngắn: không đủ. Redis không có rollback khi lỗi runtime, không có ràng buộc trong schema, và mất khoảng 1 giây khi sập máy nếu dùng AOF everysec. Đơn hàng vì thế nằm ở Oracle.
 
 ## Câu hỏi có thể gặp

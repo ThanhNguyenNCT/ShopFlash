@@ -75,6 +75,7 @@ html:`
 .p4-cbo .p4t{font-size:1.5rem}.p4-cbo .p4t td{padding:1.5rem .7rem}.p4-cbo .p4t th{font-size:.9rem}
 .p4-cbo .p4t td{white-space:nowrap}
 .p4-cbo td .bar{display:block;height:.4rem;border-radius:99rem;background:currentColor;opacity:.4;width:0;margin:.45rem 0 0 auto;transition:width 1.1s var(--ease-out)}
+.p4-cbo .p4t.p4s{font-size:1.25rem;width:100%}.p4-cbo .p4t.p4s td{padding:1.3rem .4rem}.p4-cbo .p4t.p4s th{padding-left:.4rem;padding-right:.4rem}.p4-cbo .p4t.p4s td.m{color:var(--muted)}
 .p4-cbo .take{margin-top:auto}.p4-cbo .take p{font-size:1.2rem}
 </style>
 ${Deck.head(4,'Oracle chọn kế hoạch dựa trên thống kê','<span class="chip o" data-morph="ora">ORACLE · CBO</span>')}
@@ -89,11 +90,12 @@ ${Deck.head(4,'Oracle chọn kế hoạch dựa trên thống kê','<span class=
   </div>
   <div class="card" data-a style="--i:2">
     <div class="label" style="margin:0">Thống kê của bảng · báo cáo top sản phẩm</div>
-    <table class="tbl p4t"><tr><th>Trạng thái</th><th class="n">CBO ước lượng</th><th>Join</th><th class="n">Block đọc</th></tr>
-      <tr><td>Có thống kê</td><td class="n best">9.001</td><td>Hash join</td><td class="n best">5.161</td></tr>
-      <tr><td>Xóa thống kê</td><td class="n bad">285.000</td><td>Merge join</td><td class="n bad">91.035</td></tr>
-      <tr><td>Thu thập lại</td><td class="n best">9.002</td><td>Hash join</td><td class="n best">5.161</td></tr></table>
-    <p class="small">Thực tế có 9.000 dòng. Mất thống kê thì CBO đoán sai, đổi sang merge join và đọc gấp 17,6 lần số block.</p>
+    <p class="small" style="margin:0">Thực tế: <b>87.139</b> đơn sau lọc, <b>9.000</b> nhóm sản phẩm. Hai cột giữa là số CBO đoán trước khi chạy.</p>
+    <table class="tbl p4t p4s"><tr><th>Trạng thái</th><th class="n">Đơn<br>sau lọc</th><th class="n">Nhóm sau<br>GROUP BY</th><th>Kế hoạch</th><th class="n">Block đọc</th></tr>
+      <tr><td>Có thống kê</td><td class="n best">87.139</td><td class="n best">9.000</td><td>Quét bảng · hash</td><td class="n best">5.161</td></tr>
+      <tr><td>Xóa thống kê</td><td class="n bad">2</td><td class="n bad">285.000</td><td>Index · merge</td><td class="n bad">91.035</td></tr>
+      <tr><td>Thu thập lại</td><td class="n best">87.139</td><td class="n best">9.000</td><td>Quét bảng · hash</td><td class="n best">5.161</td></tr></table>
+    <p class="small">Mất thống kê, CBO tưởng điều kiện lọc chỉ còn 2 đơn nên đi index, rồi nhảy 87.139 lần theo <code>ROWID</code>: riêng bước này đọc 88.010 block. Cả báo cáo đọc gấp 17,6 lần.</p>
     <div class="take soft"><div class="label">Thu thập lại thống kê</div><p>Sau khi nạp nhiều dữ liệu, chạy lại <code>GATHER_TABLE_STATS</code> với <code>no_invalidate =&gt; FALSE</code> để Oracle bỏ kế hoạch cũ đang lưu.</p></div>
   </div>
 </div>`,
@@ -151,39 +153,6 @@ ${Deck.head(4,'Hai quyết định thiết kế trên Redis','<span class="chip 
       <tr><td>Top sản phẩm</td><td class="n r">92,2</td><td class="n">1.961,9</td><td class="n">21,3×</td><td class="n">215.805</td></tr>
       <tr><td>Khách VIP</td><td class="n r">192,8</td><td class="n">673,7</td><td class="n">3,5×</td><td class="n">87.139</td></tr></table>
     <div class="take soft" style="margin-top:auto"><div class="label">Kéo dữ liệu thô về ứng dụng</div><p>Chậm hơn <b>3,5–30 lần</b> so với để Redis tự gom, vì phải gọi Redis 9–22 lần và chuyển tới 215.805 dòng qua mạng.</p></div></div>
-  </div>
-</div>`
-});
-
-/* ---------- 5 · So kè bốn báo cáo ---------- */
-Deck.add({part:4,title:'Kết quả đo bốn báo cáo',
-html:`
-<style>
-.p4t{font-size:1.3rem}.p4t th{font-size:.85rem}.p4t td{padding:.9rem .9rem;vertical-align:middle}
-.p4t td:first-child{white-space:nowrap}
-.p4t td.n,.p4t th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono)}
-.p4t td.best{color:var(--ora);font-weight:800}.p4t td.bad{color:var(--bad);font-weight:800}.p4t td.r{color:var(--red);font-weight:800}
-.p4-bench .p4t{font-size:1.3rem}.p4-bench .p4t td{padding:1.15rem .8rem}.p4-bench .p4t td:first-child{white-space:nowrap}
-.p4-bench{display:grid;grid-template-columns:1fr;gap:1.2rem;flex:1;min-height:0}
-.p4-bench .card{display:flex;flex-direction:column;gap:1rem}
-.p4-fact{display:grid;gap:.8rem;grid-template-columns:repeat(3,1fr)}
-.p4-fact .f{display:grid;grid-template-columns:10.6rem 1fr;gap:1rem;align-items:center;padding:.7rem 1rem;border-radius:var(--r-sm);background:var(--surface2)}
-.p4-fact .f b.big{font-size:2.1rem;font-weight:900;line-height:1.05;white-space:nowrap}
-.p4-fact .f b.big .ic{width:2.4rem;height:2.4rem}
-.p4-bench .hbars.big .hb .tr{height:1.9rem}.p4-bench .hbars.big{gap:1.9rem}.p4-bench .hbars.big .hb .lb{font-size:1.15rem}
-.p4-fact .f p{margin:0;font-size:1rem;line-height:1.4;color:var(--ink2)}
-</style>
-${Deck.head(4,'Kết quả đo bốn báo cáo','<div class="row"><span class="chip o" data-morph="ora">ORACLE</span><span class="chip r" data-morph="red">REDIS</span></div>')}
-<div class="p4-bench body">
-  <div class="card" data-a style="--i:1">
-    <div class="label" style="margin:0">Thời gian (ms) · trung bình 5 lần đo ngày 19/11/2026</div>
-    <table class="tbl p4t"><tr><th>Báo cáo</th><th class="n">Oracle<br>CBO tự chọn</th><th class="n">Oracle<br>ép nested loops</th><th class="n">Redis<br>AGGREGATE</th><th class="n">Redis<br>CLIENT</th></tr>
-      <tr><td>Theo tháng</td><td class="n best">49,7</td><td class="n">–</td><td class="n">62,7</td><td class="n">625,0</td></tr>
-      <tr><td>Theo danh mục</td><td class="n">94,5</td><td class="n">459,4</td><td class="n r">55,8</td><td class="n">1.686,0</td></tr>
-      <tr><td>Top sản phẩm</td><td class="n">101,4</td><td class="n">528,4</td><td class="n r">92,2</td><td class="n">1.961,9</td></tr>
-      <tr><td>Khách VIP</td><td class="n best">126,5</td><td class="n">160,3</td><td class="n">192,8</td><td class="n">673,7</td></tr>
-      <tr><td>Sản phẩm chưa từng bán</td><td class="n best">31,7</td><td class="n">–</td><td class="n bad">không làm được</td><td class="n bad">không làm được</td></tr></table>
-    <div class="take soft" style="margin-top:auto"><div class="label">Lần đo trước, ngày 18/10/2026</div><p>Kết quả ngược với bảng trên: Oracle nhanh hơn Redis AGGREGATE ở cả bốn báo cáo (1,8–5,5 lần). Hai lần đo cùng máy, cùng dữ liệu, cùng khoảng ngày, cùng câu SQL, cùng index Redis và lệnh FT.AGGREGATE; nhóm chưa tìm ra nguyên nhân nên không dùng chênh lệch này để chọn DBMS.</p></div>
   </div>
 </div>`
 });

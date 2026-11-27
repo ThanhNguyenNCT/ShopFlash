@@ -2,6 +2,9 @@ package com.shopflash.modules.transaction.checkout;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.reset;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -53,7 +56,12 @@ import com.shopflash.modules.transaction.service.OrderCodeGenerator;
 import com.shopflash.modules.transaction.service.CheckoutService;
 import com.shopflash.modules.transaction.service.CartService;
 import com.shopflash.common.web.ApiException;
+import com.shopflash.modules.storage.repository.ProductProjectionRepository;
 import com.shopflash.modules.storage.repository.StorageRepository;
+import com.shopflash.modules.storage.service.ProjectionConsistencyChecker;
+import tools.jackson.databind.JsonNode;
+import org.springframework.http.HttpStatus;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -84,6 +92,7 @@ class CheckoutOracleIT {
     @Autowired CheckoutService checkoutService;
     @Autowired CartService cartService;
     @Autowired StorageRepository storageRepository;
+    @MockitoSpyBean ProductProjectionRepository projection;
 
     private TransactionFixtures fixtures;
     private MockMvc mvc;
@@ -106,6 +115,10 @@ class CheckoutOracleIT {
     void cleanUp() {
         probe.reset();
         codes.force(null);
+        reset(projection);
+        for (String fixture : List.of(FIXTURE, OTHER)) {
+            for (int n = 1; n <= 5; n++) redis.unlink(ProductProjectionRepository.key(productId(fixture, n)));
+        }
         fixtures.cleanup(FIXTURE);
         fixtures.cleanup(OTHER);
     }
@@ -644,6 +657,70 @@ class CheckoutOracleIT {
                 .isEqualTo(99);
         assertThat(committedCount("SELECT version FROM product_inventory WHERE product_id = ?", productId(1)))
                 .isEqualTo(1);
+    }
+
+    @Test
+    void committedCheckoutRefreshesProjectionOfEveryOrderedProductFromOracle() throws Exception {
+        // Sản phẩm 1 còn đúng 1 cái: sau đơn hàng tồn khả dụng về 0. Sản phẩm 2 vẫn còn hàng.
+        jdbc.update("UPDATE product_inventory SET on_hand_quantity = 1 WHERE product_id = :id", Map.of("id", productId(1)));
+        staleProjection(productId(1));
+        staleProjection(productId(2));
+        addItems(1, 2);
+
+        assertThat(result(UUID.randomUUID().toString(), userId(), request(0, 1, 2))).startsWith("OK:");
+
+        assertThat(redisDoc(productId(1)).get("inStock").booleanValue()).isFalse();
+        assertThat(redisDoc(productId(2)).get("inStock").booleanValue()).isTrue();
+        assertProjectionMatchesOracle(productId(1));
+        assertProjectionMatchesOracle(productId(2));
+        assertThat(redisDoc(productId(3))).isNull(); // không nằm trong đơn thì không bị đụng tới
+    }
+
+    @Test
+    void rolledBackCheckoutLeavesProjectionUntouched() throws Exception {
+        staleProjection(productId(1));
+        addItems(1);
+        probe.beforeClear.set(() -> { throw new IllegalStateException("Lỗi thử sau khi đã trừ kho"); });
+
+        assertThatThrownBy(() -> checkoutService.place(userId(), UUID.randomUUID().toString(), request(0, 1)))
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThat(committedCount("SELECT COUNT(*) FROM orders WHERE user_id = ?", userId())).isZero();
+        assertThat(committedCount("SELECT on_hand_quantity FROM product_inventory WHERE product_id = ?", productId(1)))
+                .isEqualTo(100);
+        assertThat(redisDoc(productId(1)).get("name").stringValue()).isEqualTo("STALE");
+    }
+
+    @Test
+    void redisFailureAfterCommitKeepsTheOrderAndReportsSuccess() throws Exception {
+        addItems(1);
+        doThrow(new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "REDIS_UNAVAILABLE", "Không kết nối được Redis"))
+                .when(projection).upsertAll(any());
+
+        assertThat(result(UUID.randomUUID().toString(), userId(), request(0, 1))).startsWith("OK:");
+
+        assertThat(committedCount("SELECT COUNT(*) FROM orders WHERE user_id = ?", userId())).isEqualTo(1);
+        assertThat(committedCount("SELECT on_hand_quantity FROM product_inventory WHERE product_id = ?", productId(1)))
+                .isEqualTo(99);
+        assertThat(redisDoc(productId(1))).isNull(); // projection cũ, chờ rebuild
+    }
+
+    /** Ghi document đúng từ Oracle rồi làm cũ: name = STALE, inStock = true. */
+    private void staleProjection(long productId) {
+        projection.upsert(storageRepository.findProduct(productId));
+        String key = ProductProjectionRepository.key(productId);
+        redis.sendCommand(() -> "JSON.SET".getBytes(), key, "$.name", "\"STALE\"");
+        redis.sendCommand(() -> "JSON.SET".getBytes(), key, "$.inStock", "true");
+    }
+
+    private JsonNode redisDoc(long productId) {
+        String doc = projection.read(List.of(ProductProjectionRepository.key(productId))).getFirst().json();
+        return doc == null ? null : json.readTree(doc);
+    }
+
+    private void assertProjectionMatchesOracle(long productId) {
+        assertThat(ProjectionConsistencyChecker.diff(
+                ProductProjectionRepository.fields(storageRepository.findProduct(productId)), redisDoc(productId))).isEmpty();
     }
 
     private static String secondLock(Connection connection, String sql, long id,

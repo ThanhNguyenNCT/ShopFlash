@@ -15,6 +15,7 @@ Chủ đề: Data storage & management.
 - **Truy cập Oracle:** Storage dùng `NamedParameterJdbcTemplate` với bind variable cho toàn bộ CRUD, giống module `query`; Flyway vẫn là nơi duy nhất sở hữu DDL. `Category`, `Product`, `ProductInventory` là model ánh xạ ba bảng trên. Cột `PRODUCT_INVENTORY.version` được kiểm tra trong câu `UPDATE` để optimistic locking.
 - **Redis là product search projection**, không phải nơi ghi nghiệp vụ. Key chuẩn là `product:{productId}` (RedisJSON), index dùng `idx:products` do foundation tạo. Document có `id`, `sku`, `name`, `categoryId`, `categoryName`, `price`, `status`, `inStock`, `thumbnailUrl`.
 - Sau khi transaction Oracle thành công, Storage cập nhật product projection Redis. Thay đổi tên/trạng thái Category phải cập nhật projection của toàn bộ Product thuộc Category đó. Có API kiểm tra và dựng lại projection từ Oracle.
+- **Đồng bộ sau commit dùng chung `service/ProductProjectionSync`.** Module khác ghi tồn kho (Checkout thường, Flash Sale Checkout) gọi `afterCommit(productIds)` trong transaction của mình. Hook chạy ở `afterCompletion` khi `STATUS_COMMITTED`, rollback thì không ghi Redis. Dữ liệu ghi luôn đọc lại từ Oracle ngoài transaction cũ, dùng chung `ProductProjectionRepository.fields(...)` với rebuild và kiểm tra. Sau khi ghi, service đọc lại Oracle; Product nào đã đổi (một commit khác chen vào) thì ghi lại, tối đa 3 vòng. Lỗi Redis/Oracle ở bước này chỉ ghi log, không ném về caller; sửa bằng rebuild.
 - Không đưa schema `EXP_STORAGE_*`, key `demo:storage:*`, hay thao tác Redis ghi dữ liệu lỗi từ thí nghiệm report vào application database.
 
 ## Quy tắc nghiệp vụ
@@ -50,8 +51,8 @@ POST /constraint-demo
 GET  /storage-footprint
 ```
 
-- `projection/status` trả số Category/Product Oracle và số document Redis; trạng thái đồng bộ vẫn so số Product với document Redis.
-- `projection/rebuild` dựng lại `product:*` từ Oracle; endpoint này chỉ dành cho admin.
+- `projection/status` đối chiếu từng Product ID và từng field (`ProjectionConsistencyChecker`): trả số Category/Product Oracle, số document Redis, số `matched`, `missing`, `extra`, `mismatched`, `invalid`, `checkedAt` và tối đa 50 `issues` (Product ID, field, giá trị Oracle, giá trị Redis). So theo giá trị và kiểu (giá theo `BigDecimal.compareTo`), không so chuỗi JSON. `inSync = true` chỉ khi bốn loại sai lệch đều bằng 0. Oracle hoặc Redis không đọc được thì `checkState = FAILED`, các số đếm là null, `inSync = false`. Chỉ đọc, không tự sửa. Oracle và Redis không chung snapshot, nên khi đang có ghi, kết quả có thể có sai lệch tạm thời.
+- `projection/rebuild` dựng lại `product:*` từ Oracle (key đang sai kiểu thì xóa rồi ghi lại); endpoint này chỉ dành cho admin. Màn Storage Lab gọi lại `projection/status` ngay sau rebuild để xác nhận.
 - `constraint-demo` chỉ phục vụ Storage Lab: thử ghi document cố ý sai FK/CHECK vào key Redis tạm ngoài prefix `product:*`, đọc lại để chứng minh RedisJSON nhận, rồi `UNLINK` trước khi trả response. Không được ghi Oracle, không được chạm product projection/index và không được giữ lại dữ liệu thí nghiệm.
 - `storage-footprint` là phép đo chỉ đọc cho Storage Lab: trả riêng `USER_SEGMENTS` allocated bytes của Oracle và tổng `MEMORY USAGE` các product document Redis. Hai số được gắn nhãn rõ ràng, không được diễn giải là so sánh tổng dung lượng toàn DBMS.
 

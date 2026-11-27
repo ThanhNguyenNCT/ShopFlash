@@ -3,6 +3,7 @@ package com.shopflash.modules.concurrency.service;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -30,6 +31,7 @@ import com.shopflash.modules.concurrency.repository.oracle.FlashOrderRepository.
 import com.shopflash.modules.concurrency.repository.oracle.FlashOrderRepository.StoredOrder;
 import com.shopflash.modules.concurrency.repository.redis.FlashRuntimeRepository;
 import com.shopflash.modules.concurrency.security.CurrentCustomer;
+import com.shopflash.modules.storage.service.ProductProjectionSync;
 
 /**
  * Đặt đơn flash sale theo kiểu Try–Confirm–Cancel giữa Redis và Oracle (AGENTS.md, "Luồng mua flash sale", bước 2):
@@ -66,12 +68,14 @@ public class FlashCheckoutService {
     private final FlashOrderRepository orders;
     private final CurrentCustomer customer;
     private final TransactionTemplate transaction;
+    private final ProductProjectionSync projections;
 
     public FlashCheckoutService(FlashRuntimeRepository runtime, FlashOrderRepository orders,
-            CurrentCustomer customer, PlatformTransactionManager transactions) {
+            CurrentCustomer customer, PlatformTransactionManager transactions, ProductProjectionSync projections) {
         this.runtime = runtime;
         this.orders = orders;
         this.customer = customer;
+        this.projections = projections;
         this.transaction = new TransactionTemplate(transactions);
         this.transaction.setTimeout(TRANSACTION_TIMEOUT_SECONDS);
     }
@@ -142,6 +146,8 @@ public class FlashCheckoutService {
                     line.productId(), r.quantity(), r.reservationId());
             throw FlashErrors.soldOut();
         }
+        // Đăng ký sau ReservationOutcome nên chạy sau confirm.lua; rollback thì không ghi Redis.
+        projections.afterCommit(List.of(line.productId()));
         BigDecimal total = line.unitPrice().multiply(BigDecimal.valueOf(r.quantity()));
         String orderCode = "FS-" + UUID.randomUUID().toString().replace("-", "");
         long orderId = orders.insertOrder(new NewOrder(orderCode, key, r.userId(), total, recipient.name(),

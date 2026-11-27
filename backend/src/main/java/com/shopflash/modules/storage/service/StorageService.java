@@ -23,27 +23,27 @@ import com.shopflash.modules.storage.repository.StorageRepository;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /** Nghiệp vụ F1/F2. Oracle commit trước; Redis failure chỉ làm projection stale, không rollback dữ liệu gốc. */
 @Service
 public class StorageService {
 
-    private static final Logger log = LoggerFactory.getLogger(StorageService.class);
     private static final int REBUILD_BATCH_SIZE = 500;
 
     private final StorageRepository repository;
     private final ProductProjectionRepository projection;
+    private final ProductProjectionSync projectionSync;
+    private final ProjectionConsistencyChecker consistency;
 
-    public StorageService(StorageRepository repository, ProductProjectionRepository projection) {
+    public StorageService(StorageRepository repository, ProductProjectionRepository projection,
+            ProductProjectionSync projectionSync, ProjectionConsistencyChecker consistency) {
         this.repository = repository;
         this.projection = projection;
+        this.projectionSync = projectionSync;
+        this.consistency = consistency;
     }
 
     @Transactional(readOnly = true)
@@ -143,12 +143,9 @@ public class StorageService {
         return productResponse(requireProduct(productId));
     }
 
-    @Transactional(readOnly = true)
+    /** Đối chiếu từng Product; không ghi gì. Không đặt transaction readOnly để mỗi lô đọc dữ liệu commit mới nhất. */
     public ProjectionStatusResponse projectionStatus() {
-        long categories = repository.countCategories(null, null);
-        long oracle = repository.countProducts(null, null, null);
-        long redis = projection.documentCount();
-        return new ProjectionStatusResponse(categories, oracle, redis, oracle == redis);
+        return consistency.check();
     }
 
     /** Dựng lại toàn bộ product document, sau đó dọn document không còn Product Oracle. */
@@ -246,27 +243,15 @@ public class StorageService {
     }
 
     private void scheduleProductProjection(long productId) {
-        afterCommit(() -> projection.upsert(requireProduct(productId)));
+        projectionSync.afterCommit(List.of(productId));
     }
 
     private void scheduleCategoryProjection(long categoryId) {
-        afterCommit(() -> projection.upsertAll(repository.findProductsForCategory(categoryId)));
+        projectionSync.afterCommitLookup(() -> repository.findProductsForCategory(categoryId).stream()
+                .map(product -> product.product().productId()).toList());
     }
 
     private static void conflict(String code, String message) {
         throw new ApiException(HttpStatus.CONFLICT, code, message);
-    }
-
-    private void afterCommit(Runnable work) {
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                try {
-                    work.run();
-                } catch (RuntimeException e) {
-                    log.warn("Oracle đã commit nhưng không đồng bộ được Redis product projection", e);
-                }
-            }
-        });
     }
 }

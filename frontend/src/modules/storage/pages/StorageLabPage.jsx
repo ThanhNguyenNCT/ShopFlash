@@ -5,6 +5,28 @@ import { getProjectionStatus, getStorageFootprint, rebuildProjection, runConstra
 import '../storage.css';
 
 const formatBytes = (bytes = 0) => new Intl.NumberFormat('vi-VN').format(bytes) + ' B';
+const formatTime = (value) => (value ? new Date(value).toLocaleString('vi-VN') : '');
+const showValue = (value) => (value === null || value === undefined ? 'null' : typeof value === 'object' ? JSON.stringify(value) : String(value));
+
+const ISSUE_LABEL = { MISSING: 'Thiếu', EXTRA: 'Thừa', MISMATCH: 'Sai lệch', INVALID: 'Không hợp lệ' };
+const ISSUE_COLOR = { MISSING: 'warning', EXTRA: 'default', MISMATCH: 'error', INVALID: 'error' };
+
+function syncTag(status) {
+  if (!status) return null;
+  if (status.checkState !== 'COMPLETED') return <Tag color="default">Chưa xác định</Tag>;
+  return status.inSync ? <Tag color="success">Đồng bộ</Tag> : <Tag color="error">Có sai lệch</Tag>;
+}
+
+const issueColumns = [
+  { title: 'Product ID', dataIndex: 'productId', render: (value, row) => value ?? row.key },
+  { title: 'Loại', dataIndex: 'kind', render: (kind) => <Tag color={ISSUE_COLOR[kind]}>{ISSUE_LABEL[kind] ?? kind}</Tag> },
+  { title: 'Chi tiết', dataIndex: 'message' },
+  {
+    title: 'Field: Oracle → Redis',
+    dataIndex: 'fields',
+    render: (fields) => (fields?.length ? <ul className="sf-storage-lab-diff">{fields.map((f) => <li key={f.field}><span className="sf-storage-code">{f.field}</span>: {showValue(f.oracle)} → {showValue(f.redis)}</li>)}</ul> : '—'),
+  },
+];
 
 const integrityRows = [
   { key: 'fk', rule: 'Category phải tồn tại', oracle: 'FK PRODUCTS → CATEGORIES', app: 'API từ chối categoryId không tồn tại' },
@@ -35,7 +57,14 @@ export default function StorageLabPage() {
   };
   const rebuild = async () => {
     setRebuilding(true); setError(null);
-    try { const result = await rebuildProjection(); setNotice(`Đã đồng bộ lại ${result.products} dữ liệu sản phẩm trong ${result.elapsedMs} ms.`); await loadStatus(); } catch (nextError) { setError(nextError); } finally { setRebuilding(false); }
+    try {
+      const result = await rebuildProjection();
+      // Kiểm tra lại theo từng Product sau rebuild, không chỉ so số lượng.
+      const checked = await getProjectionStatus();
+      setStatus(checked);
+      const verdict = checked.checkState !== 'COMPLETED' ? 'chưa kiểm tra lại được' : checked.inSync ? 'kiểm tra lại: khớp toàn bộ' : 'kiểm tra lại: vẫn còn sai lệch';
+      setNotice(`Đã dựng lại ${result.products} document trong ${result.elapsedMs} ms, ${verdict}.`);
+    } catch (nextError) { setError(nextError); } finally { setRebuilding(false); }
   };
   const runDemo = async () => {
     setDemoLoading(true); setError(null);
@@ -49,15 +78,27 @@ export default function StorageLabPage() {
     <Card className="sf-storage-lab-card sf-storage-lab-card--projection" title="Dữ liệu sản phẩm và danh mục" loading={loadingStatus} extra={<DatabaseOutlined />}>
       <div className="sf-storage-lab-stats">
         <div className="sf-storage-lab-stat-group">
-          <Statistic title="Danh mục lưu ở Oracle" value={status?.oracleCategories ?? 0} />
-          <Statistic title="Sản phẩm lưu ở Oracle" value={status?.oracleProducts ?? 0} />
+          <Statistic title="Danh mục lưu ở Oracle" value={status?.oracleCategories ?? '—'} />
+          <Statistic title="Sản phẩm lưu ở Oracle" value={status?.oracleProducts ?? '—'} />
         </div>
-        <Statistic className="sf-storage-lab-stat--redis" title="Sản phẩm lưu ở Redis" value={status?.redisDocuments ?? 0} />
+        <Statistic className="sf-storage-lab-stat--redis" title="Document ở Redis" value={status?.redisDocuments ?? '—'} />
       </div>
+      {status?.checkState === 'COMPLETED' && <div className="sf-storage-lab-check">
+        <Statistic title="Khớp" value={status.matched} />
+        <Statistic title="Thiếu" value={status.missing} />
+        <Statistic title="Thừa" value={status.extra} />
+        <Statistic title="Sai lệch" value={status.mismatched} />
+        <Statistic title="Không hợp lệ" value={status.invalid} />
+      </div>}
+      {status?.checkState === 'FAILED' && <Alert type="warning" showIcon message={status.failureMessage} />}
       <div className="sf-storage-lab-sync-actions">
-        <Tag className={`sf-storage-status sf-storage-status--${status?.inSync ? 'active' : 'inactive'}`}>{status?.inSync ? 'Đang đồng bộ' : 'Cần đồng bộ lại'}</Tag>
+        {syncTag(status)}
+        {status?.checkedAt && <span className="sf-storage-lab-note">Kiểm tra lúc {formatTime(status.checkedAt)} · {status.elapsedMs} ms</span>}
         <Button type="primary" icon={<SyncOutlined />} loading={rebuilding} onClick={rebuild}>Đồng bộ lại dữ liệu</Button>
       </div>
+      <Typography.Paragraph className="sf-storage-lab-note">Đối chiếu từng sản phẩm và từng field giữa Oracle và Redis. Hai DBMS không đọc cùng một thời điểm, nên sai lệch xuất hiện khi đang có đơn hàng có thể chỉ là tạm thời; bấm Tải lại trạng thái để kiểm tra lại.</Typography.Paragraph>
+      {status?.issues?.length > 0 && <Table size="small" rowKey={(row) => `${row.kind}:${row.key}`} pagination={{ pageSize: 10 }} scroll={{ x: 'max-content' }} columns={issueColumns} dataSource={status.issues}
+        title={() => `Một số document cần xem (tối đa ${status.issueLimit})`} />}
     </Card>
     <Card className="sf-storage-lab-card" title="E1 · Toàn vẹn dữ liệu">
       <Typography.Paragraph type="secondary">Các rule được kiểm tra ở form/API để báo lỗi rõ ràng, đồng thời Oracle là lớp bảo vệ cuối cùng bằng constraint.</Typography.Paragraph>

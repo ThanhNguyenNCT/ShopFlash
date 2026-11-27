@@ -11,6 +11,8 @@ import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -151,6 +153,21 @@ public class StorageRepository {
                 + "ORDER BY p.product_id FETCH FIRST :size ROWS ONLY";
         return jdbc.query(sql, new MapSqlParameterSource().addValue("afterId", afterProductId).addValue("size", size),
                 (rs, row) -> catalogProduct(rs));
+    }
+
+    /** Đọc projection của các Product được nêu; Spring tách danh sách thành bind variable (:ids1, :ids2...). */
+    public List<CatalogProduct> findProjectionByIds(Collection<Long> productIds) {
+        if (productIds.isEmpty()) return List.of();
+        List<Long> ids = List.copyOf(productIds);
+        List<CatalogProduct> out = new ArrayList<>(ids.size());
+        String sql = "SELECT " + PRODUCT_COLUMNS + " FROM products p JOIN categories c ON c.category_id = p.category_id "
+                + "JOIN product_inventory i ON i.product_id = p.product_id WHERE p.product_id IN (:ids) ORDER BY p.product_id";
+        // Oracle giới hạn 1.000 phần tử trong một IN-list.
+        for (int from = 0; from < ids.size(); from += 1_000) {
+            out.addAll(jdbc.query(sql, new MapSqlParameterSource("ids", ids.subList(from, Math.min(ids.size(), from + 1_000))),
+                    (rs, row) -> catalogProduct(rs)));
+        }
+        return out;
     }
 
     public boolean productSkuExists(String sku, Long exceptId) {

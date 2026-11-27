@@ -52,6 +52,11 @@ import com.shopflash.modules.concurrency.service.FlashCheckoutService;
 import com.shopflash.modules.concurrency.service.FlashRuntimeService;
 import com.shopflash.modules.concurrency.service.ReservationSweeper;
 import com.shopflash.modules.concurrency.service.ReservationSweeper.SweepResult;
+import com.shopflash.modules.storage.repository.ProductProjectionRepository;
+import com.shopflash.modules.storage.repository.StorageRepository;
+import com.shopflash.modules.storage.service.ProjectionConsistencyChecker;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.Filter;
 import redis.clients.jedis.RedisClient;
@@ -94,6 +99,9 @@ class FlashCheckoutIT {
     @Autowired AuthService auth;
     @Autowired WebApplicationContext webContext;
     @Autowired @Qualifier("springSecurityFilterChain") Filter securityFilter;
+    @Autowired ProductProjectionRepository projection;
+    @Autowired StorageRepository storage;
+    @Autowired ObjectMapper json;
 
     private final Set<String> reservations = ConcurrentHashMap.newKeySet();
     private MockMvc mvc;
@@ -154,6 +162,7 @@ class FlashCheckoutIT {
     @AfterAll
     void cleanUp() {
         removeFixture();
+        redis.unlink(ProductProjectionRepository.key(PRODUCT));
         for (String id : reservations) {
             redis.unlink(FlashKeys.reservation(id));
             redis.zrem(FlashKeys.EXPIRY, id);
@@ -227,6 +236,29 @@ class FlashCheckoutIT {
         // Đã mua đủ 2 (giới hạn mỗi người).
         mvc.perform(reservePost(alice, 1)).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("USER_LIMIT_REACHED"));
+    }
+
+    @Test
+    void flashCheckoutRefreshesProjectionWithNormalAvailableStock() throws Exception {
+        // Còn 5 trong kho nhưng cả 5 đang giữ cho flash sale: bán thường hết hàng dù tổng tồn > 0.
+        jdbc.update("UPDATE product_inventory SET on_hand_quantity = :q WHERE product_id = :id",
+                Map.of("q", ALLOCATED, "id", PRODUCT));
+        projection.upsert(storage.findProduct(PRODUCT));
+        String key = ProductProjectionRepository.key(PRODUCT);
+        redis.sendCommand(() -> "JSON.SET".getBytes(), key, "$.inStock", "true");
+        redis.sendCommand(() -> "JSON.SET".getBytes(), key, "$.name", "\"STALE\"");
+
+        String id = reserve(alice, 1, 201);
+        mvc.perform(checkoutPost(alice, id)).andExpect(status().isCreated());
+
+        Map<String, Long> inv = inventory();
+        assertThat(inv.get("ON_HAND_QUANTITY")).isEqualTo(ALLOCATED - 1);
+        assertThat(inv.get("RESERVED_FLASH_QUANTITY")).isEqualTo(ALLOCATED - 1);
+        JsonNode doc = json.readTree(projection.read(List.of(key)).getFirst().json());
+        assertThat(doc.get("inStock").booleanValue()).isFalse();
+        assertThat(ProjectionConsistencyChecker.diff(ProductProjectionRepository.fields(storage.findProduct(PRODUCT)), doc))
+                .isEmpty();
+        assertThat(reservation(id).status()).isEqualTo("CONFIRMED");
     }
 
     @Test

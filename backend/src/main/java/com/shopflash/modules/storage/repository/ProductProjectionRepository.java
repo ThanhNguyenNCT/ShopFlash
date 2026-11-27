@@ -13,6 +13,7 @@ import redis.clients.jedis.AbstractPipeline;
 import redis.clients.jedis.RedisClient;
 import redis.clients.jedis.Response;
 import redis.clients.jedis.commands.ProtocolCommand;
+import redis.clients.jedis.exceptions.JedisDataException;
 
 /** Ghi và đo RedisJSON projection product:{id}; không nhận dữ liệu ghi trực tiếp từ client. */
 @Repository
@@ -35,18 +36,64 @@ public class ProductProjectionRepository {
 
     public void upsertAll(List<CatalogProduct> products) {
         if (products.isEmpty()) return;
+        List<CatalogProduct> rejected = new ArrayList<>();
         try (AbstractPipeline pipeline = redis.pipelined()) {
+            List<Response<Object>> replies = new ArrayList<>(products.size());
             for (CatalogProduct product : products) {
-                pipeline.sendCommand(command("JSON.SET"), key(product.product().productId()), "$", document(product));
+                replies.add(pipeline.sendCommand(command("JSON.SET"), key(product.product().productId()), "$", document(product)));
             }
             pipeline.sync();
+            // Pipeline không tự ném lỗi từng lệnh; phải đọc reply để biết lệnh nào bị từ chối.
+            for (int i = 0; i < replies.size(); i++) {
+                try {
+                    replies.get(i).get();
+                } catch (JedisDataException e) {
+                    rejected.add(products.get(i));
+                }
+            }
         } catch (RuntimeException e) {
             throw unavailable(e);
+        }
+        // Key product:{id} đang giữ kiểu khác (ví dụ string) thì JSON.SET bị WRONGTYPE: thay bằng document đúng.
+        for (CatalogProduct product : rejected) {
+            String key = key(product.product().productId());
+            call("UNLINK", key);
+            call("JSON.SET", key, "$", document(product));
         }
     }
 
     public long documentCount() {
         return scanKeys().size();
+    }
+
+    public List<String> keys() {
+        return scanKeys();
+    }
+
+    /** JSON.GET theo lô bằng pipeline. Mỗi phần tử: JSON gốc, null nếu key không còn, hoặc lỗi nếu key sai kiểu. */
+    public List<StoredDocument> read(List<String> keys) {
+        if (keys.isEmpty()) return List.of();
+        try (AbstractPipeline pipeline = redis.pipelined()) {
+            List<Response<Object>> replies = new ArrayList<>(keys.size());
+            for (String key : keys) replies.add(pipeline.sendCommand(command("JSON.GET"), key));
+            pipeline.sync();
+            List<StoredDocument> out = new ArrayList<>(keys.size());
+            for (int i = 0; i < keys.size(); i++) {
+                try {
+                    Object reply = replies.get(i).get();
+                    out.add(new StoredDocument(keys.get(i), reply == null ? null : text(reply), null));
+                } catch (JedisDataException e) {
+                    out.add(new StoredDocument(keys.get(i), null, e.getMessage()));
+                }
+            }
+            return out;
+        } catch (RuntimeException e) {
+            throw unavailable(e);
+        }
+    }
+
+    /** Một document đọc từ Redis: {@code error} khác null khi Redis từ chối đọc key (ví dụ WRONGTYPE). */
+    public record StoredDocument(String key, String json, String error) {
     }
 
     public long documentBytes() {
@@ -138,7 +185,8 @@ public class ProductProjectionRepository {
         }
     }
 
-    private String document(CatalogProduct value) {
+    /** Định nghĩa duy nhất của document projection; ghi và kiểm tra đồng bộ cùng dùng hàm này. */
+    public static Map<String, Object> fields(CatalogProduct value) {
         var product = value.product();
         Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("id", product.productId());
@@ -150,6 +198,11 @@ public class ProductProjectionRepository {
         fields.put("status", product.status().name());
         fields.put("inStock", value.inStock());
         fields.put("thumbnailUrl", product.thumbnailUrl());
+        return fields;
+    }
+
+    private String document(CatalogProduct value) {
+        Map<String, Object> fields = fields(value);
         StringBuilder out = new StringBuilder("{");
         boolean first = true;
         for (var entry : fields.entrySet()) {

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.shopflash.common.web.ApiException;
+import com.shopflash.modules.storage.service.ProductProjectionSync;
 import com.shopflash.modules.transaction.dto.PlacedOrderResponse;
 import com.shopflash.modules.transaction.repository.CartRepository;
 import com.shopflash.modules.transaction.repository.CartRepository.CartState;
@@ -25,13 +26,16 @@ public class CheckoutWriter {
     private final CheckoutRepository checkout;
     private final OrderCodeGenerator codes;
     private final ObjectProvider<CheckoutProbe> probes;
+    private final ProductProjectionSync projections;
 
     public CheckoutWriter(CartRepository carts, CheckoutRepository checkout,
-                          OrderCodeGenerator codes, ObjectProvider<CheckoutProbe> probes) {
+                          OrderCodeGenerator codes, ObjectProvider<CheckoutProbe> probes,
+                          ProductProjectionSync projections) {
         this.carts = carts;
         this.checkout = checkout;
         this.codes = codes;
         this.probes = probes;
+        this.projections = projections;
     }
 
     /** Toàn bộ ghi Oracle nằm trong một transaction; caller xử lý lỗi unique sau khi proxy đã rollback. */
@@ -105,6 +109,8 @@ public class CheckoutWriter {
                 throw ApiException.conflict("OUT_OF_STOCK", "Tồn kho vừa thay đổi; hãy xem lại đơn hàng");
             }
         }
+        // Chỉ chạy nếu transaction này COMMIT; đọc lại Product/Category/Inventory từ Oracle rồi mới ghi Redis.
+        projections.afterCommit(command.expectedLines().stream().map(CheckoutCommand.Line::productId).toList());
         probe(CheckoutProbe::afterInventoryWrite);
         probe(CheckoutProbe::beforeCartClear);
         for (CheckoutCommand.Line line : command.expectedLines()) {

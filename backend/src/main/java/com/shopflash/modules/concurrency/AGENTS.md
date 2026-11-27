@@ -114,6 +114,8 @@ HSET reservation (PENDING, expiresAt = now + reservationTtl); ZADD expiry
 
 ### 2. Đặt đơn: `POST /api/flash-sales/reservations/{reservationId}/checkout`
 
+Sau câu xuất kho, transaction đăng ký `ProductProjectionSync.afterCommit(productId)` của storage. Hook này đăng ký sau `ReservationOutcome`, nên chạy sau `confirm.lua`; rollback thì không ghi Redis. Projection tính `inStock` theo tồn bán thường `on_hand - reserved_flash`.
+
 Body `{ recipientName, recipientPhone, shippingAddress }`, kiểm tra giống Checkout của `transaction`. Một transaction Oracle trong module:
 
 ```text

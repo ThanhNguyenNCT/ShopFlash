@@ -13,3 +13,5 @@ Chủ đề: Transaction.
 Hợp đồng API, lỗi, danh tính và thứ tự khóa: xem [CONTRACT.md](../../../../../../../docs/transaction/CONTRACT.md). Hướng dẫn local/test: xem [README.md](../../../../../../../docs/transaction/README.md).
 
 Oracle quản lý `CARTS`, `CART_ITEMS`, `ORDERS`, `ORDER_ITEMS` và tồn kho nghiệp vụ. F10 không giữ hàng trong giỏ; F7 kiểm tra lại giá/trạng thái/tồn kho tại Checkout. TV5 giữ F9, TV2 gắn nút thêm vào giỏ trên trang sản phẩm sau khi nhận thành phần/API từ TV4.
+
+Sau khi trừ tồn kho, F7 gọi `ProductProjectionSync.afterCommit(...)` của module storage cho các sản phẩm trong đơn: Redis `product:{id}` chỉ được cập nhật khi transaction COMMIT, lỗi Redis không làm Checkout trả lỗi (xem `AGENTS.md` của storage).

@@ -137,7 +137,24 @@ Khi nào nạp 100.000 đơn:
 
 "Thu thập lại bằng `GATHER_TABLE_STATS` thì hash join quay về, đúng plan hash cũ. Một điểm em gặp khi làm: phải truyền `no_invalidate => FALSE`. Để mặc định thì Oracle vẫn dùng kế hoạch cũ đang lưu trong *shared pool*, xóa thống kê xong kế hoạch vẫn y nguyên. Bài học vận hành cho ShopFlash: nạp nhiều dữ liệu xong phải thu thập lại thống kê. Đúng như chương 4: optimizer dựa trên chi phí chỉ tốt bằng thông tin trong *catalog* (số dòng, số block, số giá trị phân biệt, *selectivity*); catalog sai thì ước lượng sai, plan sai."
 
-**Cảnh 26 · Hai quyết định thiết kế trên Redis.**
+**Cảnh 26 · Mất thống kê, CBO đoán số đơn thế nào.**
+"Cảnh trước có con số lạ: mất thống kê mà CBO vẫn đoán **2 đơn**. Con số đó từ đâu ra? Em bật *trace 10053* của Oracle, nó ghi lại từng bước CBO tính."
+
+**[Chỉ khung bên trái]**
+
+"Với bảng `ORDERS`, CBO không bó tay. Nó biết bảng có **2.134 block** từ cấu trúc lưu trữ, không cần thống kê. Lúc lập kế hoạch, nó đọc thử **63 block**, thấy **88%** dòng mẫu khớp điều kiện lọc, nhân lên ra khoảng **86.749 đơn**. Thực tế 87.139, gần đúng. Đây là *lấy mẫu động* (*dynamic sampling*)."
+
+**[Chỉ khung bên phải]**
+
+"Nhưng index `IX_ORDERS_STATUS_CREATED` cũng bị xóa thống kê, nên với index CBO dùng **số giả định**. Nó cho rằng cột status có **5.447** giá trị khác nhau, trong khi thực tế chỉ có 4. Điều kiện `status IN` hai giá trị nên giữ lại 2 trên 5.447. Khoảng ngày truyền bằng bind nên lấy tỉ lệ mặc định **5%**. Nhân lại: 98.672 × 2/5.447 × 5% ra khoảng **2 đơn**."
+
+**[Chỉ khung dưới]**
+
+"CBO tính chi phí đi index theo con số 2 đó: chỉ **4**, trong khi quét bảng là **581**. Nên nó chọn index. Thực tế index trả về 87.139 đơn, phải nhảy từng `ROWID`, đọc **88.010 block** thay vì **2.139**. Hai cách đoán cho cùng một điều kiện mà lệch nhau 40 nghìn lần, và CBO tin con số sai."
+
+(Nếu bị hỏi 5.447 ở đâu ra: không có thống kê thì Oracle giả định bảng có 174.306 dòng, suy từ số block, và số giá trị khác nhau của cột bằng số dòng chia 32. Trace lưu ở `local-docs/trace-10053-xoa-thong-ke.trc`, dòng 2685 đến 2885.)
+
+**Cảnh 27 · Hai quyết định thiết kế trên Redis.**
 "Redis không có CBO, nên tốc độ báo cáo phụ thuộc hoàn toàn vào **hai quyết định** của người thiết kế. Nói theo chương 4, bên Redis không có bước tối ưu: lệnh viết thế nào thì đó chính là kế hoạch thực thi."
 
 **[Chỉ khung bên trái]**
@@ -148,7 +165,7 @@ Khi nào nạp 100.000 đơn:
 
 "**Quyết định 2, để Redis tự gom nhóm hay kéo dữ liệu về ứng dụng.** Cách AGGREGATE để Redis gom trong một lệnh. Cách CLIENT coi Redis như kho key-value: lấy document thô theo trang, mỗi trang 10.000 document, rồi Java tự gom. Cách CLIENT phải gọi Redis **9 đến 22 lần** và kéo tới **215.805 dòng** qua mạng, nên chậm hơn **3,5 đến 30 lần**. Báo cáo theo danh mục chênh nhiều nhất: **55,8 ms** so với khoảng **1,7 giây**, vì kết quả cuối chỉ có 50 dòng mà phải kéo về cả 215 nghìn dòng."
 
-**Cảnh 27 · Lựa chọn cho báo cáo của ShopFlash.**
+**Cảnh 28 · Lựa chọn cho báo cáo của ShopFlash.**
 "Từ các thí nghiệm, nhóm chốt cách chạy báo cáo cho ShopFlash."
 
 **[Chỉ cột Oracle]**
@@ -206,7 +223,7 @@ Khi nào nạp 100.000 đơn:
 "Đổi nguồn sang Redis thì số liệu giống nhau, vì read model vừa được dựng lại. Nhưng Redis chỉ đúng tới lần dựng gần nhất, còn Oracle luôn đọc dữ liệu mới."
 
 2. **Query Lab, gom nhóm ở đâu.** [Tab Query Lab, mục "Round-trip và subquery", phần "Round-trip", chọn doanh thu theo danh mục, bấm "Chạy 3 cách".]
-"Với Redis, ứng dụng phải tự chọn cách gọi. Cách AGGREGATE để Redis gom, **một lần gọi**. Cách CLIENT kéo hết dữ liệu về ứng dụng rồi tự gom: **hơn 20 lần gọi**, chậm hơn khoảng **30 lần**. Đây là quyết định thứ hai ở cảnh 26."
+"Với Redis, ứng dụng phải tự chọn cách gọi. Cách AGGREGATE để Redis gom, **một lần gọi**. Cách CLIENT kéo hết dữ liệu về ứng dụng rồi tự gom: **hơn 20 lần gọi**, chậm hơn khoảng **30 lần**. Đây là quyết định thứ hai ở cảnh 27."
 
 3. **Query Lab, subquery.** [Phần "Subquery", bấm "Chạy trên hai nguồn".]
 "Báo cáo sản phẩm chưa từng bán cần `NOT EXISTS`. Oracle chạy được, ra danh sách sản phẩm; Redis báo **không hỗ trợ**, vì read model không có sản phẩm chưa bán. Em xin hết phần 4."
@@ -217,74 +234,74 @@ Nếu demo lỗi (máy hoặc app không lên): bỏ qua demo, nói thêm theo c
 
 ## Phần 5 · Giao dịch (5 phút)
 
-**Cảnh 28 · Mở phần 5.** Câu hỏi: lỗi ở bước cuối thì các bước trước đi đâu?
+**Cảnh 29 · Mở phần 5.** Câu hỏi: lỗi ở bước cuối thì các bước trước đi đâu?
 
-**Cảnh 29 · Transaction trong ShopFlash.** Một lần checkout ghi bốn bảng, phải coi là một đơn vị. Đọc nhanh bốn chữ ACID.
+**Cảnh 30 · Transaction trong ShopFlash.** Một lần checkout ghi bốn bảng, phải coi là một đơn vị. Đọc nhanh bốn chữ ACID.
 
-**Cảnh 30 · Bắt đầu và thực thi transaction.** Ví dụ tồn kho P1 = 100, giảm 1.
+**Cảnh 31 · Bắt đầu và thực thi transaction.** Ví dụ tồn kho P1 = 100, giảm 1.
 Oracle thực thi UPDATE ngay, session hiện tại đã thấy 99 dù chưa COMMIT. Redis sau MULTI chỉ xếp lệnh vào hàng đợi, trả QUEUED, chưa có kết quả.
 
-**Cảnh 31 · Kết thúc transaction.** Hàng 03A: COMMIT và EXEC đều cho 99. Hàng 03B: ROLLBACK và DISCARD đều về 100.
+**Cảnh 32 · Kết thúc transaction.** Hàng 03A: COMMIT và EXEC đều cho 99. Hàng 03B: ROLLBACK và DISCARD đều về 100.
 Khác biệt nằm ở hàng cuối: Oracle có SAVEPOINT để hoàn tác một phần. Redis đã EXEC thì không có cách quay lại.
 
-**Cảnh 32 · Lỗi sau khi đã ghi dữ liệu.** Oracle: lỗi CHECK ở bước cuối, ứng dụng rollback, bảng quay về như trước.
+**Cảnh 33 · Lỗi sau khi đã ghi dữ liệu.** Oracle: lỗi CHECK ở bước cuối, ứng dụng rollback, bảng quay về như trước.
 Redis: lệnh LPUSH lỗi WRONGTYPE nhưng các lệnh trước vẫn được ghi. Stock còn 99, Order vẫn tồn tại.
 
-**Cảnh 33 · Ai chịu trách nhiệm bảo vệ dữ liệu?** Oracle từ chối câu SQL vi phạm UNIQUE, FOREIGN KEY, CHECK.
+**Cảnh 34 · Ai chịu trách nhiệm bảo vệ dữ liệu?** Oracle từ chối câu SQL vi phạm UNIQUE, FOREIGN KEY, CHECK.
 Redis không có constraint, nên kiểm tra trước khi ghi trong một Lua script. Vượt tồn thì trả OUT_OF_STOCK và chưa ghi gì.
 
-**Cảnh 34 · Cô lập và lưu bền.** Hàng trên: Oracle READ COMMITTED không đọc dữ liệu chưa commit. Redis WATCH phát hiện key bị đổi thì hủy, ứng dụng thử lại.
+**Cảnh 35 · Cô lập và lưu bền.** Hàng trên: Oracle READ COMMITTED không đọc dữ liệu chưa commit. Redis WATCH phát hiện key bị đổi thì hủy, ứng dụng thử lại.
 Hàng dưới: Oracle ghi redo log khi COMMIT. Redis ghi đĩa qua RDB hoặc AOF; môi trường đo dùng AOF everysec.
 
-**Cảnh 35 · Demo giao dịch (video).** Vào cảnh là video tự phát, có tiếng; bấm mũi tên phải là dừng video và sang slide hiệu năng. Video dài 6 phút 46 giây. Cần mạng nếu máy không có sẵn file video.
+**Cảnh 36 · Demo giao dịch (video).** Vào cảnh là video tự phát, có tiếng; bấm mũi tên phải là dừng video và sang slide hiệu năng. Video dài 6 phút 46 giây. Cần mạng nếu máy không có sẵn file video.
 
-**Cảnh 36 · Hiệu năng trong workload đã khảo sát.** Redis có P95 thấp hơn và throughput cao hơn ở cả bốn cấu hình. Nhắc lại: đây là workload mô phỏng, giỏ 1 hoặc 5 sản phẩm, 1 hoặc 10 worker.
+**Cảnh 37 · Hiệu năng trong workload đã khảo sát.** Redis có P95 thấp hơn và throughput cao hơn ở cả bốn cấu hình. Nhắc lại: đây là workload mô phỏng, giỏ 1 hoặc 5 sản phẩm, 1 hoặc 10 worker.
 
 ## Phần 6 · Kiểm soát đồng thời (5 phút)
 
-**Cảnh 37 · Mở phần 6.** Câu hỏi: 1000 khách tranh 100 suất, ai giữ được con số?
+**Cảnh 38 · Mở phần 6.** Câu hỏi: 1000 khách tranh 100 suất, ai giữ được con số?
 
-**Cảnh 38 · Bài toán và bốn cơ chế.** Đọc banner lost update: hai khách cùng đọc 99, cùng ghi 100, bộ đếm chỉ tăng 1.
+**Cảnh 39 · Bài toán và bốn cơ chế.** Đọc banner lost update: hai khách cùng đọc 99, cùng ghi 100, bộ đếm chỉ tăng 1.
 Đi qua bốn thẻ: khóa bi quan, khóa lạc quan, MVCC, thao tác nguyên tử.
 
-**Cảnh 39 · So sánh Oracle và Redis.** Khối trái: Oracle khóa từng dòng; Redis chạy từng lệnh hoặc script một mình nên không deadlock, nhưng cũng không rollback.
+**Cảnh 40 · So sánh Oracle và Redis.** Khối trái: Oracle khóa từng dòng; Redis chạy từng lệnh hoặc script một mình nên không deadlock, nhưng cũng không rollback.
 Câu cuối bảng: cả hai đều chặn được bán vượt, khác nhau ở chi phí khi tranh chấp cao.
 
-**Cảnh 40 · Thiết kế Flash Sale ShopFlash.** Bốn bước: giữ suất bằng Lua trên Redis, đặt đơn trong transaction Oracle, xác nhận hoặc trả suất, job dọn suất hết hạn mỗi 5 giây.
+**Cảnh 41 · Thiết kế Flash Sale ShopFlash.** Bốn bước: giữ suất bằng Lua trên Redis, đặt đơn trong transaction Oracle, xác nhận hoặc trả suất, job dọn suất hết hạn mỗi 5 giây.
 Thanh màu dưới: Oracle giữ nguồn gốc, Redis giữ trạng thái chạy, Redis dựng lại được từ Oracle. Oracle là chốt chặn cuối: điều kiện sold + q <= allocated.
 
-**Cảnh 41 · Kết luận.** Viết kiểu "đọc rồi ghi" thì bán vượt 900 suất trên 100 suất. Lua đạt 8.951 lượt/giây, gấp 4,6 lần UPDATE có điều kiện trên Oracle, ở 64 lượt đồng thời.
+**Cảnh 42 · Kết luận.** Viết kiểu "đọc rồi ghi" thì bán vượt 900 suất trên 100 suất. Lua đạt 8.951 lượt/giây, gấp 4,6 lần UPDATE có điều kiện trên Oracle, ở 64 lượt đồng thời.
 WATCH chỉ bán được 797 trên 2000 vì xung đột liên tục. Chốt: Redis + Lua giữ suất, Oracle + UPDATE có điều kiện chốt đơn.
 
 ## Phần 7 · Sao lưu và khôi phục (3 phút)
 
-**Cảnh 42 · Mở phần 7.** Câu hỏi: mất dữ liệu thì bao lâu chạy lại, mất bao nhiêu?
+**Cảnh 43 · Mở phần 7.** Câu hỏi: mất dữ liệu thì bao lâu chạy lại, mất bao nhiêu?
 
-**Cảnh 43 · Sao lưu của Oracle: Data Pump.** Theo mũi tên: expdp xuất schema SHOP ra file .dmp, impdp tạo lại bảng, index, ràng buộc và nạp dữ liệu.
+**Cảnh 44 · Sao lưu của Oracle: Data Pump.** Theo mũi tên: expdp xuất schema SHOP ra file .dmp, impdp tạo lại bảng, index, ràng buộc và nạp dữ liệu.
 
-**Cảnh 44 · Persistence của Redis.** RDB chụp nhanh, có thể mất dữ liệu giữa hai lần chụp. AOF ghi từng lệnh nên bền hơn.
+**Cảnh 45 · Persistence của Redis.** RDB chụp nhanh, có thể mất dữ liệu giữa hai lần chụp. AOF ghi từng lệnh nên bền hơn.
 Banner dưới là đánh đổi chính: fsync càng thường xuyên thì càng an toàn, ghi càng chậm.
 
-**Cảnh 45 · Thiết kế sao lưu ShopFlash.** Một gói backup có ba phần: file Data Pump, file RDB, manifest SHA-256. Kiểm tra mã băm trước khi khôi phục.
+**Cảnh 46 · Thiết kế sao lưu ShopFlash.** Một gói backup có ba phần: file Data Pump, file RDB, manifest SHA-256. Kiểm tra mã băm trước khi khôi phục.
 
-**Cảnh 46 · Kết luận.** Khôi phục thành công mọi lượt thử. AOF always làm p95 ghi tăng khoảng 40 lần so với everysec.
+**Cảnh 47 · Kết luận.** Khôi phục thành công mọi lượt thử. AOF always làm p95 ghi tăng khoảng 40 lần so với everysec.
 ShopFlash chọn everysec: ghi gần như khi tắt AOF, mất tối đa khoảng 1 giây.
 
 ## Tổng kết (1 phút)
 
-**Cảnh 47 · Tổng kết.** Đọc theo cột "ShopFlash dùng". Dữ liệu gốc và thao tác ghi quan trọng ở Oracle. Redis giữ bản chiếu để tìm kiếm, kết quả báo cáo đã tính, suất Flash Sale đang giữ. Mất Redis thì dựng lại từ Oracle, trừ suất đang giữ dở.
+**Cảnh 48 · Tổng kết.** Đọc theo cột "ShopFlash dùng". Dữ liệu gốc và thao tác ghi quan trọng ở Oracle. Redis giữ bản chiếu để tìm kiếm, kết quả báo cáo đã tính, suất Flash Sale đang giữ. Mất Redis thì dựng lại từ Oracle, trừ suất đang giữ dở.
 Mỗi hàng có một số đo lấy từ phần tương ứng.
 
-**Cảnh 48 · Cảm ơn.** Cảm ơn thầy cô và các bạn, mời đặt câu hỏi. Cần quay lại phần nào thì gõ phím số 1 đến 7 để nhảy tới đầu phần đó.
+**Cảnh 49 · Cảm ơn.** Cảm ơn thầy cô và các bạn, mời đặt câu hỏi. Cần quay lại phần nào thì gõ phím số 1 đến 7 để nhảy tới đầu phần đó.
 
 ## Cảnh dự phòng (không tính giờ)
 
 Sau cảnh Cảm ơn có hai cảnh chỉ mở khi được hỏi. Từ cảnh 49 bấm mũi tên phải để tới cảnh 50 và 51.
 
-**Cảnh 49 · Kiến trúc của Oracle và Redis.** Mở khi được hỏi về kiến trúc. Đọc theo hàng mà câu hỏi nhắm tới.
+**Cảnh 50 · Kiến trúc của Oracle và Redis.** Mở khi được hỏi về kiến trúc. Đọc theo hàng mà câu hỏi nhắm tới.
 Điểm hay bị hỏi: Redis chạy lệnh trên một luồng chính, nên một script Lua dài sẽ chặn mọi client khác trong lúc chạy.
 
-**Cảnh 50 · ACID trên Oracle và Redis.** Dùng khi được hỏi Redis có đủ ACID không. Mã trong ngoặc là thí nghiệm của phần Transaction.
+**Cảnh 51 · ACID trên Oracle và Redis.** Dùng khi được hỏi Redis có đủ ACID không. Mã trong ngoặc là thí nghiệm của phần Transaction.
 Câu trả lời ngắn: không đủ. Redis không có rollback khi lỗi runtime, không có ràng buộc trong schema, và mất khoảng 1 giây khi sập máy nếu dùng AOF everysec. Đơn hàng vì thế nằm ở Oracle.
 
 ## Câu hỏi có thể gặp

@@ -74,7 +74,7 @@ Vì vậy tìm kiếm chấp nhận trễ, còn đặt hàng và tồn kho luôn
 
 ## Phần 4 · Xử lý truy vấn
 
-Thứ tự: nói 5 cảnh slide (cảnh 23 đến 27), demo trên hai DBMS trong terminal, rồi demo app. Đây là bản đầy đủ, đọc hết sẽ dài hơn khung 5 phút; khi lên trình bày thì lược bớt phần giải thích nếu bị giục giờ. Lời nói ghi trong ngoặc kép; chỉ dẫn trong ngoặc vuông là việc cần làm.
+Thứ tự: nói 6 cảnh slide (cảnh 23 đến 28), demo trên hai DBMS trong terminal, rồi demo app. Đây là bản đầy đủ, đọc hết sẽ dài hơn khung 5 phút; khi lên trình bày thì lược bớt phần giải thích nếu bị giục giờ. Lời nói ghi trong ngoặc kép; chỉ dẫn trong ngoặc vuông là việc cần làm.
 
 Chuẩn bị trước giờ trình bày:
 - Chạy `scripts/dev.sh` trên máy trình bày, chờ tới dòng "Đang chạy". Lúc này app chỉ có dữ liệu mẫu, các phần 2, 3 demo trên dữ liệu này.
@@ -95,7 +95,7 @@ Khi nào nạp 100.000 đơn:
 - Index B-tree chỉ lưu giá trị các cột được đánh index kèm `ROWID`, tức địa chỉ của dòng trên bảng. Các cột khác của dòng (như `order_id`) không nằm trong index.
 - Lá index xếp liền nhau theo `(status, created_at)`, nhưng các dòng thật của bảng nằm rải rác ở nhiều block. Đi qua index thì Oracle đọc lá index (`INDEX RANGE SCAN`), rồi với **mỗi `ROWID`** lại nhảy tới block chứa dòng đó (`TABLE ACCESS BY INDEX ROWID`), mỗi lần đọc một block lẻ (*single-block I/O*).
 - `TABLE ACCESS FULL` đọc thẳng mọi block của bảng theo từng cụm liên tiếp (*multiblock I/O*). Báo cáo cần **87.139 trên 100.000 đơn**, tức 87%. Ở tỉ lệ đó, đọc cả bảng một lượt rẻ hơn đọc index rồi nhảy 87.139 lần.
-- Kế hoạch khi mất thống kê (cảnh 25) cho thấy đúng cái giá này: đi qua index rồi đọc từng dòng `ORDERS` tốn **88.010 block** chỉ riêng bước đó.
+- Kế hoạch khi mất thống kê (cảnh 26) cho thấy đúng cái giá này: đi qua index rồi đọc từng dòng `ORDERS` tốn **88.010 block** chỉ riêng bước đó.
 - Theo công thức chương 4: quét toàn bảng là **CS1a = b = 2.134 block**. Đi index ghép theo khoảng là **CS6b ≈ x + (số lá) + s = 3 + 455 + 87.139 ≈ 87.600 block**, vì *clustering factor* của index này (99.952) gần bằng số dòng, mỗi dòng nằm một block khác. Hai con số đo được là 2.139 và khoảng 90.000, khớp công thức. Chi tiết ở `local-docs/ON_TAP_CHUONG_4_QUERY.md`.
 
 ### Slide
@@ -124,7 +124,22 @@ Khi nào nạp 100.000 đơn:
 
 "Khác biệt chính: **với Oracle, DBMS quyết định cách chạy; với Redis, người viết lệnh quyết định.** Cái giá của Redis nằm ở chỗ khác: dựng lại read model cho 100.000 đơn mất **14 đến 39 giây**, và read model chỉ đúng tới lần dựng gần nhất."
 
-**Cảnh 25 · Oracle chọn kế hoạch dựa trên thống kê.**
+**Cảnh 25 · Câu SQL và cây thực thi.**
+"Trước khi vào thí nghiệm, em đưa lên câu SQL của báo cáo top sản phẩm, và vẽ kế hoạch của Oracle thành cây truy vấn theo kiểu chương 4."
+
+**[Chỉ câu SQL bên trái]**
+
+"Câu SQL join 4 bảng. `WHERE` lọc đơn đã xác nhận hoặc hoàn tất trong khoảng ngày, `GROUP BY` gom theo sản phẩm, `FETCH FIRST` lấy 10 dòng đầu. Trong cây, `WHERE` là bước (1) σ, `GROUP BY` là bước (3) γ. Dòng hint ở đầu là chỗ thí nghiệm 1 thay đổi."
+
+**[Chỉ cây (a)]**
+
+"Cây (a) là kế hoạch khi có thống kê. Đọc từ lá lên gốc theo số trong ngoặc. Bước (1) quét toàn bảng `ORDERS` và lọc ngay khi quét, còn 87.139 đơn. Bước (2) hash join với `ORDER_ITEMS`, ra 215.805 dòng. Bước (3) gom theo sản phẩm, còn 9.000 nhóm. Bước (4) và (5) hash join với `PRODUCTS` rồi `CATEGORIES`. Bước (6) sắp xếp và lấy 10 dòng. Bước (3) nằm dưới hai phép join: gom trước, join sau, đó là *group-by placement*. Cả cây đọc 5.161 block."
+
+**[Chỉ cây (b)]**
+
+"Cây (b) là kế hoạch sau khi xóa thống kê. Bước (1) đổi sang đi index `IX_ORDERS_STATUS_CREATED`, vì CBO đoán chỉ còn 2 đơn; riêng bước này đọc 88.010 block. Phép nối với `PRODUCTS` đổi sang merge join. Cả cây đọc 91.035 block. Cảnh sau giải thích vì sao CBO đổi."
+
+**Cảnh 26 · Oracle chọn kế hoạch dựa trên thống kê.**
 "CBO chọn giỏi đến đâu, và nó dựa vào gì? Nhóm làm hai thí nghiệm."
 
 **[Chỉ bảng bên trái]**
@@ -136,23 +151,6 @@ Khi nào nạp 100.000 đơn:
 "**Thí nghiệm 2, xóa thống kê** bằng `DELETE_TABLE_STATS`. Mất thống kê, CBO đoán sai nặng: sau gom nhóm nó ước lượng **285.000 dòng** trong khi thực tế **9.000**. Nó còn tin index lọc đơn chỉ trả về 2 dòng, thực tế 87.139. Vì tin điều kiện rất chọn lọc, CBO đi qua index rồi đọc từng dòng `ORDERS`, đổi hash join sang **merge join**, và số block đọc tăng từ 5.161 lên **91.035**, gấp **17,6 lần**."
 
 "Thu thập lại bằng `GATHER_TABLE_STATS` thì hash join quay về, đúng plan hash cũ. Một điểm em gặp khi làm: phải truyền `no_invalidate => FALSE`. Để mặc định thì Oracle vẫn dùng kế hoạch cũ đang lưu trong *shared pool*, xóa thống kê xong kế hoạch vẫn y nguyên. Bài học vận hành cho ShopFlash: nạp nhiều dữ liệu xong phải thu thập lại thống kê. Đúng như chương 4: optimizer dựa trên chi phí chỉ tốt bằng thông tin trong *catalog* (số dòng, số block, số giá trị phân biệt, *selectivity*); catalog sai thì ước lượng sai, plan sai."
-
-**Cảnh 26 · Mất thống kê, CBO đoán số đơn thế nào.**
-"Cảnh trước có con số lạ: mất thống kê mà CBO vẫn đoán **2 đơn**. Con số đó từ đâu ra? Em bật *trace 10053* của Oracle, nó ghi lại từng bước CBO tính."
-
-**[Chỉ khung bên trái]**
-
-"Với bảng `ORDERS`, CBO không bó tay. Nó biết bảng có **2.134 block** từ cấu trúc lưu trữ, không cần thống kê. Lúc lập kế hoạch, nó đọc thử **63 block**, thấy **88%** dòng mẫu khớp điều kiện lọc, nhân lên ra khoảng **86.749 đơn**. Thực tế 87.139, gần đúng. Đây là *lấy mẫu động* (*dynamic sampling*)."
-
-**[Chỉ khung bên phải]**
-
-"Nhưng index `IX_ORDERS_STATUS_CREATED` cũng bị xóa thống kê, nên với index CBO dùng **số giả định**. Nó cho rằng cột status có **5.447** giá trị khác nhau, trong khi thực tế chỉ có 4. Điều kiện `status IN` hai giá trị nên giữ lại 2 trên 5.447. Khoảng ngày truyền bằng bind nên lấy tỉ lệ mặc định **5%**. Nhân lại: 98.672 × 2/5.447 × 5% ra khoảng **2 đơn**."
-
-**[Chỉ khung dưới]**
-
-"CBO tính chi phí đi index theo con số 2 đó: chỉ **4**, trong khi quét bảng là **581**. Nên nó chọn index. Thực tế index trả về 87.139 đơn, phải nhảy từng `ROWID`, đọc **88.010 block** thay vì **2.139**. Hai cách đoán cho cùng một điều kiện mà lệch nhau 40 nghìn lần, và CBO tin con số sai."
-
-(Nếu bị hỏi 5.447 ở đâu ra: không có thống kê thì Oracle giả định bảng có 174.306 dòng, suy từ số block, và số giá trị khác nhau của cột bằng số dòng chia 32. Trace lưu ở `local-docs/trace-10053-xoa-thong-ke.trc`, dòng 2685 đến 2885.)
 
 **Cảnh 27 · Hai quyết định thiết kế trên Redis.**
 "Redis không có CBO, nên tốc độ báo cáo phụ thuộc hoàn toàn vào **hai quyết định** của người thiết kế. Nói theo chương 4, bên Redis không có bước tối ưu: lệnh viết thế nào thì đó chính là kế hoạch thực thi."
@@ -199,7 +197,7 @@ Khi nào nạp 100.000 đơn:
 "Giờ em xóa thống kê của 5 bảng rồi chạy lại cùng câu."
 [Chỉ cột E-Rows ở dòng gom nhóm, rồi dòng `INDEX RANGE SCAN` của `IX_ORDERS_STATUS_CREATED`.]
 "Không còn thống kê, E-Rows ở dòng gom nhóm vọt lên khoảng **285 nghìn** trong khi thực tế **9 nghìn**. Ở dòng index, CBO đoán chỉ **2 dòng**, thực tế **87 nghìn**. Vì tin điều kiện lọc rất chọn lọc, Oracle bỏ quét toàn bảng, đi qua index rồi đọc từng dòng đơn (`TABLE ACCESS BY INDEX ROWID`). Số block đọc tăng từ khoảng 5 nghìn lên khoảng **90 nghìn**, gấp khoảng **18 lần**."
-(Lần đo trong báo cáo, cảnh 25, Oracle đổi sang merge join. Lần chạy thử ngày 27/11 vẫn giữ hash join ở bước nối nhưng đổi đường đọc như trên. Nếu bị hỏi vì sao khác slide: khi không có thống kê, Oracle lấy mẫu động (*dynamic sampling*) nên mỗi lần có thể ra kế hoạch khác; điểm chung là ước lượng sai và đọc nhiều block hơn gần 18 lần.)
+(Lần đo trong báo cáo, cảnh 26, Oracle đổi sang merge join. Lần chạy thử ngày 27/11 vẫn giữ hash join ở bước nối nhưng đổi đường đọc như trên. Nếu bị hỏi vì sao khác slide: khi không có thống kê, Oracle lấy mẫu động (*dynamic sampling*) nên mỗi lần có thể ra kế hoạch khác; điểm chung là ước lượng sai và đọc nhiều block hơn gần 18 lần.)
 
 4. **Thu thập lại.** [Gõ `bash report/query/demo/dbms-demo.sh thu-thap`]
 "Thu thập lại thống kê với `no_invalidate => FALSE` thì **hash join** quay về, số block về lại khoảng 5 nghìn. Nạp nhiều dữ liệu xong phải thu thập lại thống kê."
@@ -230,7 +228,7 @@ Khi nào nạp 100.000 đơn:
 
 [Sau khi xong: ở terminal thứ hai chạy `scripts/seed-history.sh --xoa` để trả app về dữ liệu mẫu cho phần 5.]
 
-Nếu demo lỗi (máy hoặc app không lên): bỏ qua demo, nói thêm theo cảnh 25 và 26, vì hai cảnh này có đủ số của phần demo.
+Nếu demo lỗi (máy hoặc app không lên): bỏ qua demo, nói thêm theo cảnh 26 và 27, vì hai cảnh này có đủ số của phần demo.
 
 ## Phần 5 · Giao dịch (5 phút)
 

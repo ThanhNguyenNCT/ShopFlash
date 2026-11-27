@@ -60,6 +60,52 @@ ${Deck.head(4,'Hai cách chạy báo cáo doanh thu')}
   </div>
 </div>`});
 
+/* ---------- 2b · Câu SQL và cây thực thi ---------- */
+Deck.add({part:4,title:'Câu SQL và cây thực thi',
+html:`
+<style>
+.p4-q{display:grid;grid-template-columns:.78fr 1.5fr;gap:1.2rem;flex:1;min-height:0}
+.p4-q .card{display:flex;flex-direction:column;gap:.7rem;min-height:0}
+.p4-q .trees{display:grid;grid-template-columns:1fr 1.1fr;gap:.8rem;flex:1;min-height:0}
+.p4-q .cap{font-weight:800;font-size:1rem}.p4-q .cap.ok{color:var(--ora)}.p4-q .cap.bad{color:var(--bad)}
+.p4-q svg.qt{width:100%;height:100%;max-height:42rem}
+.p4-q svg.qt line{stroke:var(--muted);stroke-width:1}
+.p4-q svg.qt circle{fill:var(--surface);stroke:var(--ink);stroke-width:1.2}
+.p4-q svg.qt text{text-anchor:middle;fill:var(--ink);font-family:var(--mono)}
+.p4-q svg.qt .op{font-size:12px;font-weight:700}.p4-q svg.qt .lf,.p4-q svg.qt .tb{font-size:10px;font-weight:700}
+.p4-q svg.qt .m{font-size:9.5px;fill:var(--muted)}.p4-q svg.qt .m.ok{fill:var(--ora)}.p4-q svg.qt .m.bad{fill:var(--bad)}
+</style>
+${Deck.head(4,'Câu SQL và cây thực thi','<span class="chip o" data-morph="ora">ORACLE · TOP SẢN PHẨM</span>')}
+<div class="p4-q body">
+  <div class="card" data-a style="--i:1">
+    <div class="label" style="margin:0">Câu SQL · OracleReportSql.java</div>
+    <div class="code" style="font-size:.8rem;line-height:1.65"><span class="k">SELECT</span> <span class="c">/*+ hint của thí nghiệm 1 */</span>
+       p.product_id, p.name <span class="k">AS</span> product_name,
+       c.name <span class="k">AS</span> category_name,
+       <span class="k">SUM</span>(oi.quantity) <span class="k">AS</span> quantity,
+       <span class="k">SUM</span>(oi.line_total) <span class="k">AS</span> revenue
+<span class="k">FROM</span> orders o
+<span class="k">JOIN</span> order_items oi <span class="k">ON</span> oi.order_id = o.order_id
+<span class="k">JOIN</span> products p <span class="k">ON</span> p.product_id = oi.product_id
+<span class="k">JOIN</span> categories c <span class="k">ON</span> c.category_id = p.category_id
+<span class="k">WHERE</span> o.status <span class="k">IN</span> ('CONFIRMED', 'COMPLETED')
+  <span class="k">AND</span> o.created_at >= :fromTs
+  <span class="k">AND</span> o.created_at <  :toExclusiveTs
+<span class="k">GROUP BY</span> p.product_id, p.name, c.name
+<span class="k">ORDER BY</span> quantity <span class="k">DESC</span>, p.product_id
+<span class="k">FETCH FIRST</span> :limit <span class="k">ROWS ONLY</span></div>
+    <p class="small"><code>WHERE</code> là bước (1) σ trong cây, <code>GROUP BY</code> là bước (3) γ. Thí nghiệm 1 (cảnh sau) đổi hint <code>USE_NL</code>, <code>USE_HASH</code>, <code>USE_MERGE</code> hoặc bỏ hint. Thí nghiệm 2 giữ nguyên câu, chỉ xóa rồi thu thập lại thống kê.</p>
+  </div>
+  <div class="card" data-a style="--i:2">
+    <div class="label" style="margin:0">Cây thực thi · đọc từ lá lên gốc, số trong ngoặc là thứ tự</div>
+    <div class="trees">
+      <div><div class="cap ok">(a) Có thống kê · 5.161 block</div><svg viewBox="-22 8 404 448" class="qt"><line x1="180" y1="42" x2="150" y2="70"/><line x1="150" y1="102" x2="115" y2="136"/><line x1="150" y1="102" x2="290" y2="136"/><line x1="115" y1="168" x2="90" y2="202"/><line x1="115" y1="168" x2="255" y2="202"/><line x1="90" y1="234" x2="90" y2="268"/><line x1="90" y1="300" x2="75" y2="334"/><line x1="90" y1="300" x2="230" y2="334"/><line x1="75" y1="366" x2="75" y2="396"/><text x="180" y="24" class="op">(6) π, τ quantity ↓, lấy 10</text><text x="180" y="38" class="m ">SORT ORDER BY STOPKEY</text><text x="150" y="84" class="op">(5) ⋈ category_id</text><text x="150" y="98" class="m ">hash join</text><circle cx="290" cy="150" r="12"/><text x="290" y="154" class="lf">C</text><text x="290" y="177" class="tb">CATEGORIES</text><text x="290" y="191" class="m ">quét toàn bảng</text><text x="115" y="150" class="op">(4) ⋈ product_id</text><text x="115" y="164" class="m ">hash join</text><circle cx="255" cy="216" r="12"/><text x="255" y="220" class="lf">P</text><text x="255" y="243" class="tb">PRODUCTS</text><text x="255" y="257" class="m ">quét toàn bảng</text><text x="90" y="216" class="op">(3) γ product_id, SUM</text><text x="90" y="230" class="m ">hash group by · 9.000 nhóm</text><text x="90" y="282" class="op">(2) ⋈ order_id</text><text x="90" y="296" class="m ">hash join · 215.805 dòng</text><circle cx="230" cy="348" r="12"/><text x="230" y="352" class="lf">OI</text><text x="230" y="375" class="tb">ORDER_ITEMS</text><text x="230" y="389" class="m ">quét toàn bảng</text><text x="75" y="348" class="op">(1) σ status, created_at</text><text x="75" y="362" class="m ">lọc khi quét · 87.139 đơn</text><circle cx="75" cy="410" r="12"/><text x="75" y="414" class="lf">O</text><text x="75" y="437" class="tb">ORDERS</text><text x="75" y="451" class="m ok">quét toàn bảng · 2.139 block</text></svg></div>
+      <div><div class="cap bad">(b) Xóa thống kê · 91.035 block</div><svg viewBox="-42 8 470 448" class="qt"><line x1="200" y1="42" x2="200" y2="64"/><line x1="200" y1="96" x2="200" y2="124"/><line x1="200" y1="156" x2="95" y2="190"/><line x1="200" y1="156" x2="310" y2="190"/><line x1="310" y1="222" x2="265" y2="256"/><line x1="310" y1="222" x2="355" y2="256"/><line x1="95" y1="222" x2="95" y2="256"/><line x1="95" y1="288" x2="70" y2="334"/><line x1="95" y1="288" x2="185" y2="334"/><line x1="70" y1="366" x2="70" y2="396"/><text x="200" y="24" class="op">(7) π, τ quantity ↓, lấy 10</text><text x="200" y="38" class="m ">SORT ORDER BY STOPKEY</text><text x="200" y="78" class="op">(6) γ product_id, tên</text><text x="200" y="92" class="m ">hash group by</text><text x="200" y="138" class="op">(5) ⋈ product_id</text><text x="200" y="152" class="m bad">merge join</text><text x="95" y="204" class="op">(3) γ product_id, SUM</text><text x="95" y="218" class="m ">hash group by</text><text x="310" y="204" class="op">(4) ⋈ category_id</text><text x="310" y="218" class="m ">hash join</text><circle cx="265" cy="270" r="12"/><text x="265" y="274" class="lf">P</text><text x="265" y="297" class="tb">PRODUCTS</text><text x="265" y="311" class="m ">quét toàn bảng</text><circle cx="355" cy="270" r="12"/><text x="355" y="274" class="lf">C</text><text x="355" y="297" class="tb">CATEGORIES</text><text x="355" y="311" class="m ">quét toàn bảng</text><text x="95" y="270" class="op">(2) ⋈ order_id</text><text x="95" y="284" class="m ">hash join</text><circle cx="185" cy="348" r="12"/><text x="185" y="352" class="lf">OI</text><text x="185" y="375" class="tb">ORDER_ITEMS</text><text x="185" y="389" class="m ">quét toàn bảng</text><text x="70" y="348" class="op">(1) σ status, created_at</text><text x="70" y="362" class="m bad">qua index, đoán 2 đơn</text><circle cx="70" cy="410" r="12"/><text x="70" y="414" class="lf">O</text><text x="70" y="437" class="tb">ORDERS</text><text x="70" y="451" class="m bad">IX_ORDERS_STATUS_CREATED · 88.010 block</text></svg></div>
+    </div>
+    <p class="small">σ chọn dòng, π chiếu cột, ⋈ join, γ gom nhóm, τ sắp xếp. Dưới mỗi nút là thuật toán Oracle dùng. Bước (3) là <i>group-by placement</i>: gom ORDER_ITEMS theo sản phẩm trước khi join PRODUCTS.</p>
+  </div>
+</div>`
+});
 /* ---------- 3 · Oracle: CBO cần thống kê đúng ---------- */
 Deck.add({part:4,title:'Oracle chọn kế hoạch dựa trên thống kê',
 demo:{label:'Query Lab · Optimizer',path:'/admin/reports/lab'},
@@ -107,40 +153,6 @@ enter(root,{print}){const bars=root.querySelectorAll('.p4-cbo .bar');
   bars.forEach(e=>e.style.width='0');root._b=setTimeout(set,700)},
 leave(root){clearTimeout(root._b)}});
 
-/* ---------- 3b · Mất thống kê, CBO đoán thế nào (trace 10053) ---------- */
-Deck.add({part:4,title:'Mất thống kê, CBO đoán số đơn thế nào',
-html:`
-<style>
-.p4-ds{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;flex:1;min-height:0}
-.p4-ds .card{display:flex;flex-direction:column;gap:.9rem}
-.p4-ds .step{display:grid;grid-template-columns:11.5rem 1fr;gap:1rem;align-items:center;padding:.75rem 0;border-bottom:.08rem solid var(--line)}
-.p4-ds .step b{font-family:var(--mono);font-size:2.3rem;text-align:right;font-variant-numeric:tabular-nums}
-.p4-ds .step span{font-size:1.1rem;line-height:1.35}
-.p4-ds .res{display:grid;grid-template-columns:11.5rem 1fr;gap:1rem;align-items:center;margin-top:auto;padding:1rem;border-radius:var(--r-sm);background:var(--surface2)}
-.p4-ds .res b{font-family:var(--mono);font-size:3.4rem;text-align:right}
-.p4-ds .res span{font-size:1.15rem}
-.p4-ds .ok b{color:var(--ora)}.p4-ds .bad b{color:var(--bad)}
-.p4-ds-take{margin-top:1.2rem}
-</style>
-${Deck.head(4,'Mất thống kê, CBO đoán số đơn thế nào','<span class="chip o" data-morph="ora">ORACLE · TRACE 10053</span>')}
-<div class="p4-ds body">
-  <div class="card" data-a style="--i:1">
-    <div class="label" style="margin:0">Đoán cho bảng ORDERS · lấy mẫu</div>
-    <div class="step"><b>2.134</b><span>block của bảng. Oracle đếm từ cấu trúc lưu trữ, không cần thống kê</span></div>
-    <div class="step"><b>63</b><span>block đọc thử ngẫu nhiên lúc lập kế hoạch</span></div>
-    <div class="step"><b>88%</b><span>dòng mẫu khớp điều kiện lọc: 2.561 trên 2.913</span></div>
-    <div class="res ok"><b>86.749</b><span>đơn CBO đoán cho bảng<br>Thực tế 87.139, gần đúng</span></div>
-  </div>
-  <div class="card" data-a style="--i:2">
-    <div class="label" style="margin:0">Đoán cho index IX_ORDERS_STATUS_CREATED · số mặc định</div>
-    <div class="step"><b>5.447</b><span>giá trị status khác nhau, Oracle tự giả định. Thực tế chỉ có 4</span></div>
-    <div class="step"><b>2/5.447</b><span>tỉ lệ giữ lại của <code>status IN</code> 2 giá trị</span></div>
-    <div class="step"><b>5%</b><span>tỉ lệ mặc định cho khoảng ngày truyền bằng bind</span></div>
-    <div class="res bad"><b>≈ 2</b><span>đơn qua index: 98.672 × 2/5.447 × 5%<br>Thực tế 87.139</span></div>
-  </div>
-</div>
-<div class="take p4-ds-take" data-a style="--i:3"><div class="label">CBO chọn theo số của index</div><p>Đi index chi phí <b>4</b>, quét bảng <b>581</b>, nên CBO đi index. Thực tế phải nhảy 87.139 lần theo <code>ROWID</code>: đọc <b>88.010</b> block thay vì <b>2.139</b>.</p></div>`
-});
 /* ---------- 4 · Redis: lập trình viên quyết ---------- */
 Deck.add({part:4,title:'Hai quyết định thiết kế trên Redis',
 demo:{label:'Query Lab · Round-trip',path:'/admin/reports/lab'},
